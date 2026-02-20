@@ -43,12 +43,12 @@ const Header = () => {
       <div className="flex flex-col items-center">
         <div className="relative mb-1">
           <div className="w-9 h-9 bg-[var(--primary)] text-white rounded-full flex items-center justify-center text-sm font-medium">
-            J
+            {(localStorage.getItem('userName') || 'U')[0].toUpperCase()}
           </div>
           <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[var(--success)] border-2 border-white rounded-full"></div>
         </div>
         <div className="text-xs text-[var(--text-muted)] flex items-center gap-1.5">
-          James <span className="text-[var(--success)] font-medium">● Online</span>
+          {localStorage.getItem('userName') || 'You'} <span className="text-[var(--success)] font-medium">● Online</span>
         </div>
       </div>
 

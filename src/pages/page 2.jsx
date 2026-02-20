@@ -234,7 +234,7 @@ const JourneySection = () => (
 
     <SubHeadline>It Gets Better Every Time</SubHeadline>
     <BodyText>
-      The more they interact, the more accurate it becomes. Starting at 45% in week 1, reaching 95% by week 4.
+      The more they interact, the more accurate it becomes. Starting at 45% in week 1, reaching 88% by week 4.
     </BodyText>
   </MomentNode>
 );

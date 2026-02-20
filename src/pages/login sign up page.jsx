@@ -195,6 +195,7 @@ const customStyles = {
 const CreateAccountPage = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
+    name: '',
     email: '',
     password: '',
     termsAccepted: false
@@ -269,6 +270,21 @@ const CreateAccountPage = () => {
         </header>
 
         <form onSubmit={handleSubmit}>
+          <div style={customStyles.formGroup}>
+            <label htmlFor="name" style={customStyles.label}>Your name</label>
+            <input
+              type="text"
+              id="name"
+              name="name"
+              placeholder="What should we call you?"
+              value={formData.name}
+              onChange={handleInputChange}
+              onFocus={() => setInputFocus(prev => ({ ...prev, name: true }))}
+              onBlur={() => setInputFocus(prev => ({ ...prev, name: false }))}
+              style={getInputStyle('name')}
+            />
+          </div>
+
           <div style={customStyles.formGroup}>
             <label htmlFor="email" style={customStyles.label}>Email address</label>
             <input
