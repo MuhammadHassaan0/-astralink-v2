@@ -142,4 +142,14 @@ app.post('/transcribe', upload.single('audio'), (req, res) => {
   });
 });
 
+app.delete('/delete-account', authMiddleware, (req, res) => {
+  const userId = req.user.userId;
+  db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+  db.prepare('DELETE FROM qa_entries WHERE user_id = ?').run(userId);
+  db.prepare('DELETE FROM voice_entries WHERE user_id = ?').run(userId);
+  db.prepare('DELETE FROM document_entries WHERE user_id = ?').run(userId);
+  db.prepare('DELETE FROM feedback WHERE user_id = ?').run(userId);
+  res.json({ success: true });
+});
+
 app.listen(3001, () => console.log('AstraLink backend running on port 3001'));

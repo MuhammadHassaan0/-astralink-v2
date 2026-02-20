@@ -217,7 +217,7 @@ const JourneySection = () => (
 
         <g transform="translate(380, 0)">
           <text x="30" y="160" textAnchor="middle" fill="#9CA3AF" fontSize="12" fontFamily="Inter">WEEK 4</text>
-          <text x="30" y="180" textAnchor="middle" fill="#1F2937" fontWeight="bold" fontSize="14" fontFamily="Inter">95%</text>
+          <text x="30" y="180" textAnchor="middle" fill="#1F2937" fontWeight="bold" fontSize="14" fontFamily="Inter">88%</text>
           
           <rect x="15" y="20" width="30" height="120" rx="4" fill="#E5E7EB" />
           <rect x="15" y="20" width="30" height="120" rx="4" fill="#6366F1">

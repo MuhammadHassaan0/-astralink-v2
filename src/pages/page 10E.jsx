@@ -238,15 +238,22 @@ const App = () => {
     alert('Data export initiated. You will receive a download link via email.');
   };
 
-  const handleDeleteAccount = () => {
-    const confirmed = window.confirm('Are you sure you want to delete your account? This action cannot be undone.');
+  const handleDeleteAccount = async () => {
+    const confirmed = window.confirm('Are you sure you want to delete your account? This cannot be undone.');
     if (confirmed) {
-      alert('Account deletion initiated.');
+      const token = localStorage.getItem('token');
+      await fetch('http://localhost:3001/delete-account', {
+        method: 'DELETE',
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      localStorage.clear();
+      window.location.href = '/';
     }
   };
 
   const handleSignOut = () => {
-    alert('Signing out...');
+    localStorage.clear();
+    window.location.href = '/';
   };
 
   return (
