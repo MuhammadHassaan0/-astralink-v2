@@ -692,7 +692,7 @@ const CTASection = () => {
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        Go to Recording Hub
+        Test Your Twin →
       </button>
     </section>
   );

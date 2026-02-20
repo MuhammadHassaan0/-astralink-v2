@@ -31,6 +31,15 @@ const Header = () => {
         <span>AstraLink</span>
       </div>
 
+      <div style={{display:'flex', gap:'8px'}}>
+        <button onClick={() => window.location.href = '/progress'} style={{background:'none', border:'1px solid #e5e7eb', borderRadius:'999px', padding:'8px 16px', fontSize:'13px', fontWeight:600, cursor:'pointer', color:'#6b7280'}}>
+          ← Dashboard
+        </button>
+        <button onClick={() => window.location.href = '/family'} style={{background:'#6366F1', border:'none', borderRadius:'999px', padding:'8px 16px', fontSize:'13px', fontWeight:600, cursor:'pointer', color:'white'}}>
+          Family Sharing →
+        </button>
+      </div>
+
       <div className="flex flex-col items-center">
         <div className="relative mb-1">
           <div className="w-9 h-9 bg-[var(--primary)] text-white rounded-full flex items-center justify-center text-sm font-medium">

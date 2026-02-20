@@ -29,11 +29,13 @@ export default function App() {
       <Route path="/why" element={<Page4 />} />
       <Route path="/footer" element={<Page5 />} />
       <Route path="/start" element={<Page6 />} />
-      <Route path="/questions" element={<QAPage />} />
+      <Route path="/questions" element={<Page7 />} />
+      <Route path="/qa" element={<QAPage />} />
       <Route path="/reveal" element={<Page8 />} />
       <Route path="/collect" element={<Page9 />} />
       <Route path="/auth" element={<Auth />} />
       <Route path="/share" element={<Page10 />} />
+      <Route path="/family" element={<Page10D />} />
       <Route path="/journey" element={<Page10A />} />
       <Route path="/record" element={<Page10B />} />
       <Route path="/progress" element={<Page10C />} />
