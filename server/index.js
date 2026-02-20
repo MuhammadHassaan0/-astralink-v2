@@ -4,6 +4,11 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const ollama = require('ollama').default;
 const { db, getUserContext } = require('./db');
+const multer = require('multer');
+const { exec } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+const upload = multer({ dest: '/tmp/' });
 
 const app = express();
 const JWT_SECRET = 'astralink-secret-2026';
@@ -113,6 +118,28 @@ app.post('/chat', authMiddleware, async (req, res) => {
     console.error(err);
     res.status(500).json({ error: err.message });
   }
+});
+
+app.post('/transcribe', upload.single('audio'), (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  let userId = 1;
+  try { userId = require('jsonwebtoken').verify(token, JWT_SECRET).userId; } catch {}
+
+  const audioPath = req.file.path;
+  const outDir = '/tmp';
+
+  exec(`/opt/homebrew/bin/whisper ${audioPath} --model tiny --output_dir ${outDir} --output_format txt --language en`, (err, stdout, stderr) => {
+    const txtPath = audioPath + '.txt';
+    if (err || !fs.existsSync(txtPath)) {
+      console.error('Whisper error:', err, stderr);
+      return res.status(500).json({ error: 'Transcription failed' });
+    }
+    const transcription = fs.readFileSync(txtPath, 'utf8').trim();
+    fs.unlinkSync(audioPath);
+    fs.unlinkSync(txtPath);
+    db.prepare('INSERT INTO voice_entries (user_id, transcription) VALUES (?, ?)').run(userId, transcription);
+    res.json({ success: true, transcription });
+  });
 });
 
 app.listen(3001, () => console.log('AstraLink backend running on port 3001'));

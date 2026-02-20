@@ -100,18 +100,31 @@ const App = () => {
     };
   }, []);
 
-  const toggleRecord = () => {
+  const mediaRecorderRef = React.useRef(null);
+  const audioChunksRef = React.useRef([]);
+
+  const toggleRecord = async () => {
     if (!isRecording) {
-      setIsRecording(true);
-      setSeconds(0);
-      timerIntervalRef.current = setInterval(() => {
-        setSeconds(prev => prev + 1);
-      }, 1000);
-    } else {
-      setIsRecording(false);
-      if (timerIntervalRef.current) {
-        clearInterval(timerIntervalRef.current);
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mediaRecorder = new MediaRecorder(stream);
+        mediaRecorderRef.current = mediaRecorder;
+        audioChunksRef.current = [];
+        mediaRecorder.ondataavailable = (e) => audioChunksRef.current.push(e.data);
+        mediaRecorder.start();
+        setIsRecording(true);
+        setSeconds(0);
+        timerIntervalRef.current = setInterval(() => {
+          setSeconds(prev => prev + 1);
+        }, 1000);
+      } catch (err) {
+        alert('Microphone access denied. Please allow microphone access.');
       }
+    } else {
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current.stream.getTracks().forEach(t => t.stop());
+      setIsRecording(false);
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       setShowPostRecordActions(true);
     }
   };
@@ -528,12 +541,22 @@ const App = () => {
                   <div style={styles.actionsGroup}>
                     <p style={{...styles.subtitle, marginBottom: '12px', textAlign: 'center'}}>Sounds good?</p>
                     <button style={{...styles.btn, ...styles.btnPrimary}} onClick={async () => {
-                      await fetch('http://localhost:3001/voice', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
-                        body: JSON.stringify({ transcription: 'Voice memo recorded on ' + new Date().toLocaleString() })
-                      });
-                      alert('Voice saved! Your twin is learning.');
+                      const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                      console.log('blob size:', blob.size, 'chunks:', audioChunksRef.current.length);
+                      if (blob.size === 0) { alert('No audio captured. Try again.'); return; }
+                      const formData = new FormData();
+                      formData.append('audio', blob, 'recording.webm');
+                      const token = localStorage.getItem('token');
+                      try {
+                        const res = await fetch('http://localhost:3001/transcribe', {
+                          method: 'POST',
+                          headers: { 'Authorization': 'Bearer ' + token },
+                          body: formData
+                        });
+                        const data = await res.json();
+                        if (data.success) alert('Saved! Transcribed: ' + data.transcription.slice(0, 100));
+                        else alert('Transcription failed');
+                      } catch(e) { alert('Error: ' + e.message); }
                       resetRecord();
                     }}>Save this voice</button>
                     <button style={{...styles.btn, ...styles.btnSecondary}} onClick={resetRecord}>Retake</button>
