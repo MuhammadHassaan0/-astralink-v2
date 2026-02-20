@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* { box-sizing: border-box; }
+body { font-family: 'Inter', sans-serif; }
+
+:root {
+  --color-primary: #6366F1;
+  --text-primary: #6366F1;
+}
+
+.text-primary { color: #6366F1; }
+.bg-primary { background-color: #6366F1; }
+.border-primary { border-color: #6366F1; }
