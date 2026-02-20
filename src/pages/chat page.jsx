@@ -252,7 +252,7 @@ const ChatPage = () => {
 
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:3001/chat', {
+      const res = await fetch('https://astralink-v2-production.up.railway.app/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
         body: JSON.stringify({ messages: payload })
@@ -293,7 +293,7 @@ const ChatPage = () => {
       const msg = prev.find(m => m.id === messageId);
       if (msg) {
         const token = localStorage.getItem('token');
-        fetch('http://localhost:3001/feedback', {
+        fetch('https://astralink-v2-production.up.railway.app/feedback', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
           body: JSON.stringify({ response: msg.text, rating: feedbackType })

@@ -24,7 +24,7 @@ export default function ChatPage() {
     setMessages([...newMessages, assistantMsg]);
 
     try {
-      const res = await fetch('http://localhost:3001/chat', {
+      const res = await fetch('https://astralink-v2-production.up.railway.app/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

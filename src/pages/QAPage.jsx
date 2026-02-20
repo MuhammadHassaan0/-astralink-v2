@@ -17,7 +17,7 @@ export default function QAPage() {
   const saveAndContinue = async () => {
     if (!answer.trim()) return;
     
-    await fetch('http://localhost:3001/qa', {
+    await fetch('https://astralink-v2-production.up.railway.app/qa', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId: 1, question: questions[current], answer })

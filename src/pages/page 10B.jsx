@@ -548,7 +548,7 @@ const App = () => {
                       formData.append('audio', blob, 'recording.webm');
                       const token = localStorage.getItem('token');
                       try {
-                        const res = await fetch('http://localhost:3001/transcribe', {
+                        const res = await fetch('https://astralink-v2-production.up.railway.app/transcribe', {
                           method: 'POST',
                           headers: { 'Authorization': 'Bearer ' + token },
                           body: formData
@@ -576,7 +576,7 @@ const App = () => {
                     const file = e.dataTransfer.files[0];
                     if (!file) return;
                     const text = await file.text();
-                    await fetch('http://localhost:3001/document', {
+                    await fetch('https://astralink-v2-production.up.railway.app/document', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
                       body: JSON.stringify({ filename: file.name, content: text })
@@ -591,7 +591,7 @@ const App = () => {
                     const file = e.target.files[0];
                     if (!file) return;
                     const text = await file.text();
-                    await fetch('http://localhost:3001/document', {
+                    await fetch('https://astralink-v2-production.up.railway.app/document', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
                       body: JSON.stringify({ filename: file.name, content: text })
@@ -630,7 +630,7 @@ const App = () => {
                     </div>
                     <button style={{...styles.btn, ...styles.btnPrimary, marginBottom: '12px'}} onClick={async () => {
                       if (!qAnswer.trim()) return;
-                      await fetch('http://localhost:3001/qa', {
+                      await fetch('https://astralink-v2-production.up.railway.app/qa', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
                         body: JSON.stringify({ question: questions[currentQ], answer: qAnswer })

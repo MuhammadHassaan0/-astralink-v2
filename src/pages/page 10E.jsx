@@ -226,7 +226,7 @@ const App = () => {
     const newEmail = window.prompt('Enter your new email address:');
     if (!newEmail) return;
     const token = localStorage.getItem('token');
-    const res = await fetch('http://localhost:3001/change-email', {
+    const res = await fetch('https://astralink-v2-production.up.railway.app/change-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
       body: JSON.stringify({ email: newEmail })
@@ -240,7 +240,7 @@ const App = () => {
     const newPassword = window.prompt('Enter your new password (min 6 characters):');
     if (!newPassword || newPassword.length < 6) return;
     const token = localStorage.getItem('token');
-    const res = await fetch('http://localhost:3001/change-password', {
+    const res = await fetch('https://astralink-v2-production.up.railway.app/change-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
       body: JSON.stringify({ password: newPassword })
@@ -256,7 +256,7 @@ const App = () => {
 
   const handleExportData = async () => {
     const token = localStorage.getItem('token');
-    const res = await fetch('http://localhost:3001/export', {
+    const res = await fetch('https://astralink-v2-production.up.railway.app/export', {
       headers: { 'Authorization': 'Bearer ' + token }
     });
     const data = await res.json();
@@ -272,7 +272,7 @@ const App = () => {
     const confirmed = window.confirm('Are you sure you want to delete your account? This cannot be undone.');
     if (confirmed) {
       const token = localStorage.getItem('token');
-      await fetch('http://localhost:3001/delete-account', {
+      await fetch('https://astralink-v2-production.up.railway.app/delete-account', {
         method: 'DELETE',
         headers: { 'Authorization': 'Bearer ' + token }
       });

@@ -228,7 +228,7 @@ const CreateAccountPage = () => {
     console.log('submitting', formData.email, formData.password);
     const endpoint = isLogin ? '/login' : '/register';
     try {
-      const res = await fetch('http://localhost:3001' + endpoint, {
+      const res = await fetch('https://astralink-v2-production.up.railway.app' + endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: formData.email, password: formData.password, name: formData.name || '' })
