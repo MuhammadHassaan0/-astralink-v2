@@ -530,8 +530,8 @@ const App = () => {
                     <button style={{...styles.btn, ...styles.btnPrimary}} onClick={async () => {
                       await fetch('http://localhost:3001/voice', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ userId: 1, transcription: 'Voice memo recorded on ' + new Date().toLocaleString() })
+                        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                        body: JSON.stringify({ transcription: 'Voice memo recorded on ' + new Date().toLocaleString() })
                       });
                       alert('Voice saved! Your twin is learning.');
                       resetRecord();
@@ -555,8 +555,8 @@ const App = () => {
                     const text = await file.text();
                     await fetch('http://localhost:3001/document', {
                       method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ userId: 1, filename: file.name, content: text })
+                      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                      body: JSON.stringify({ filename: file.name, content: text })
                     });
                     alert(file.name + ' uploaded! Your twin is learning.');
                   }}
@@ -570,8 +570,8 @@ const App = () => {
                     const text = await file.text();
                     await fetch('http://localhost:3001/document', {
                       method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ userId: 1, filename: file.name, content: text })
+                      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                      body: JSON.stringify({ filename: file.name, content: text })
                     });
                     alert(file.name + ' uploaded! Your twin is learning.');
                   }} />
@@ -609,8 +609,8 @@ const App = () => {
                       if (!qAnswer.trim()) return;
                       await fetch('http://localhost:3001/qa', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ userId: 1, question: questions[currentQ], answer: qAnswer })
+                        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                        body: JSON.stringify({ question: questions[currentQ], answer: qAnswer })
                       });
                       setQAnswer('');
                       if (currentQ + 1 >= questions.length) setQDone(true);

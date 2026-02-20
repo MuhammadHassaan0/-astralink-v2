@@ -1,9 +1,13 @@
 const express = require('express');
 const cors = require('cors');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 const ollama = require('ollama').default;
 const { db, getUserContext } = require('./db');
 
 const app = express();
+const JWT_SECRET = 'astralink-secret-2026';
+
 app.use(cors());
 app.use(express.json());
 
@@ -16,42 +20,79 @@ db.exec(`CREATE TABLE IF NOT EXISTS feedback (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 )`);
 
-app.post('/qa', (req, res) => {
-  const { userId, question, answer } = req.body;
-  db.prepare('INSERT INTO qa_entries (user_id, question, answer) VALUES (?, ?, ?)').run(userId, question, answer);
+// Auth middleware
+function authMiddleware(req, res, next) {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'No token' });
+  try {
+    req.user = jwt.verify(token, JWT_SECRET);
+    next();
+  } catch {
+    res.status(401).json({ error: 'Invalid token' });
+  }
+}
+
+// Register
+app.post('/register', async (req, res) => {
+  const { email, password, name } = req.body;
+  if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+  const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+  if (existing) return res.status(400).json({ error: 'Email already registered' });
+  const hash = await bcrypt.hash(password, 10);
+  const result = db.prepare('INSERT INTO users (email, name, password) VALUES (?, ?, ?)').run(email, name || '', hash);
+  const token = jwt.sign({ userId: result.lastInsertRowid, email }, JWT_SECRET, { expiresIn: '30d' });
+  res.json({ success: true, token, userId: result.lastInsertRowid, name, email });
+});
+
+// Login
+app.post('/login', async (req, res) => {
+  const { email, password } = req.body;
+  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+  if (!user) return res.status(400).json({ error: 'Invalid email or password' });
+  const valid = await bcrypt.compare(password, user.password);
+  if (!valid) return res.status(400).json({ error: 'Invalid email or password' });
+  const token = jwt.sign({ userId: user.id, email }, JWT_SECRET, { expiresIn: '30d' });
+  res.json({ success: true, token, userId: user.id, name: user.name, email });
+});
+
+// Protected routes
+app.post('/qa', authMiddleware, (req, res) => {
+  const { question, answer } = req.body;
+  db.prepare('INSERT INTO qa_entries (user_id, question, answer) VALUES (?, ?, ?)').run(req.user.userId, question, answer);
   res.json({ success: true });
 });
 
-app.post('/document', (req, res) => {
-  const { userId, filename, content } = req.body;
-  db.prepare('INSERT INTO document_entries (user_id, filename, content) VALUES (?, ?, ?)').run(userId, filename, content);
+app.post('/document', authMiddleware, (req, res) => {
+  const { filename, content } = req.body;
+  db.prepare('INSERT INTO document_entries (user_id, filename, content) VALUES (?, ?, ?)').run(req.user.userId, filename, content);
   res.json({ success: true });
 });
 
-app.post('/voice', (req, res) => {
-  const { userId, transcription } = req.body;
-  db.prepare('INSERT INTO voice_entries (user_id, transcription) VALUES (?, ?)').run(userId, transcription);
+app.post('/voice', authMiddleware, (req, res) => {
+  const { transcription } = req.body;
+  db.prepare('INSERT INTO voice_entries (user_id, transcription) VALUES (?, ?)').run(req.user.userId, transcription);
   res.json({ success: true });
 });
 
-app.post('/feedback', (req, res) => {
-  const { userId, message, response, rating } = req.body;
-  db.prepare('INSERT INTO feedback (user_id, message, response, rating) VALUES (?, ?, ?, ?)').run(userId || 1, message || '', response || '', rating || '');
+app.post('/feedback', authMiddleware, (req, res) => {
+  const { response, rating } = req.body;
+  db.prepare('INSERT INTO feedback (user_id, response, rating) VALUES (?, ?, ?)').run(req.user.userId, response || '', rating || '');
   res.json({ success: true });
 });
 
-app.post('/chat', async (req, res) => {
-  const { messages, userId = 1 } = req.body;
+app.post('/chat', authMiddleware, async (req, res) => {
+  const { messages } = req.body;
+  const userId = req.user.userId;
   const context = getUserContext(userId);
-  const feedback = db.prepare("SELECT response, rating FROM feedback WHERE user_id = ? AND rating = 'negative' LIMIT 5").all(userId);
+  const feedback = db.prepare("SELECT response FROM feedback WHERE user_id = ? AND rating = 'negative' LIMIT 5").all(userId);
 
   let feedbackNote = '';
   if (feedback.length) {
-    feedbackNote = '\n\nPREVIOUS RESPONSES MARKED AS NOT SOUNDING LIKE ME (avoid this style):\n';
+    feedbackNote = '\n\nAVOID THIS STYLE (marked as not sounding like me):\n';
     feedback.forEach(f => feedbackNote += `- "${f.response.slice(0, 100)}"\n`);
   }
 
-  const systemPrompt = `You are not an AI assistant. You ARE this specific person. Speak in first person, casually, personally. Use their real experiences, decisions, and words. Never say "as your digital twin" or "I am an AI". Just BE them — authentic, direct, real.${context}${feedbackNote}`;
+  const systemPrompt = `You are not an AI. You ARE this specific person. Speak in first person, casually and personally. Use their real experiences. Never say "as your digital twin" or "I am an AI". Just BE them.${context}${feedbackNote}`;
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -63,7 +104,6 @@ app.post('/chat', async (req, res) => {
       messages: [{ role: 'system', content: systemPrompt }, ...messages],
       stream: true,
     });
-
     for await (const chunk of response) {
       res.write(`data: ${JSON.stringify({ text: chunk.message.content })}\n\n`);
     }

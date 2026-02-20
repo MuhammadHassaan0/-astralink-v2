@@ -242,10 +242,11 @@ const ChatPage = () => {
     const payload = updatedMessages.map(m => ({ role: m.type === 'user' ? 'user' : 'assistant', content: m.text }));
 
     try {
+      const token = localStorage.getItem('token');
       const res = await fetch('http://localhost:3001/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: payload, userId: 1 })
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ messages: payload })
       });
 
       const reader = res.body.getReader();
@@ -282,10 +283,11 @@ const ChatPage = () => {
     setMessages(prev => {
       const msg = prev.find(m => m.id === messageId);
       if (msg) {
+        const token = localStorage.getItem('token');
         fetch('http://localhost:3001/feedback', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: 1, response: msg.text, rating: feedbackType })
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ response: msg.text, rating: feedbackType })
         }).then(r => r.json()).then(d => console.log('feedback saved', d)).catch(e => console.error('feedback error', e));
       }
       return prev.map(m => m.id === messageId ? { ...m, feedback: feedbackType } : m);

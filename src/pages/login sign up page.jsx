@@ -218,9 +218,29 @@ const CreateAccountPage = () => {
     }));
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    window.location.href = '/share';
+  const [authError, setAuthError] = useState('');
+  const [isLogin, setIsLogin] = useState(false);
+
+  const handleSubmit = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    setAuthError('');
+    console.log('submitting', formData.email, formData.password);
+    const endpoint = isLogin ? '/login' : '/register';
+    try {
+      const res = await fetch('http://localhost:3001' + endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email, password: formData.password, name: formData.name || '' })
+      });
+      const data = await res.json();
+      if (!res.ok) return setAuthError(data.error || 'Something went wrong');
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('userId', data.userId);
+      localStorage.setItem('userName', data.name || data.email);
+      window.location.href = '/share';
+    } catch (err) {
+      setAuthError('Could not connect to server');
+    }
   };
 
   const getInputStyle = (field) => {
@@ -322,12 +342,13 @@ const CreateAccountPage = () => {
           </label>
 
           <button
-            type="submit"
+            type="button"
             style={getButtonStyle()}
             onMouseEnter={() => setButtonHover(true)}
             onMouseLeave={() => setButtonHover(false)}
             onMouseDown={() => setButtonActive(true)}
             onMouseUp={() => setButtonActive(false)}
+            onClick={handleSubmit}
           >
             Create Account
           </button>
