@@ -222,20 +222,50 @@ const App = () => {
     alert('Logging out...');
   };
 
-  const handleChangeEmail = () => {
-    alert('Change email functionality would open here');
+  const handleChangeEmail = async () => {
+    const newEmail = window.prompt('Enter your new email address:');
+    if (!newEmail) return;
+    const token = localStorage.getItem('token');
+    const res = await fetch('http://localhost:3001/change-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ email: newEmail })
+    });
+    const data = await res.json();
+    if (data.success) alert('Email updated to ' + newEmail);
+    else alert('Error: ' + data.error);
   };
 
-  const handleChangePassword = () => {
-    alert('Change password functionality would open here');
+  const handleChangePassword = async () => {
+    const newPassword = window.prompt('Enter your new password (min 6 characters):');
+    if (!newPassword || newPassword.length < 6) return;
+    const token = localStorage.getItem('token');
+    const res = await fetch('http://localhost:3001/change-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ password: newPassword })
+    });
+    const data = await res.json();
+    if (data.success) alert('Password updated!');
+    else alert('Error: ' + data.error);
   };
 
   const handleEnable2FA = () => {
     alert('Two-factor authentication setup would open here');
   };
 
-  const handleExportData = () => {
-    alert('Data export initiated. You will receive a download link via email.');
+  const handleExportData = async () => {
+    const token = localStorage.getItem('token');
+    const res = await fetch('http://localhost:3001/export', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    const data = await res.json();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'astralink-data.json';
+    a.click();
   };
 
   const handleDeleteAccount = async () => {

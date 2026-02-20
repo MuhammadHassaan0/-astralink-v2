@@ -142,6 +142,30 @@ app.post('/transcribe', upload.single('audio'), (req, res) => {
   });
 });
 
+app.post('/change-email', authMiddleware, (req, res) => {
+  const { email } = req.body;
+  db.prepare('UPDATE users SET email = ? WHERE id = ?').run(email, req.user.userId);
+  res.json({ success: true });
+});
+
+app.post('/change-password', authMiddleware, async (req, res) => {
+  const { password } = req.body;
+  const hash = await require('bcrypt').hash(password, 10);
+  db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hash, req.user.userId);
+  res.json({ success: true });
+});
+
+app.get('/export', authMiddleware, (req, res) => {
+  const userId = req.user.userId;
+  const data = {
+    qa: db.prepare('SELECT * FROM qa_entries WHERE user_id = ?').all(userId),
+    voice: db.prepare('SELECT * FROM voice_entries WHERE user_id = ?').all(userId),
+    documents: db.prepare('SELECT * FROM document_entries WHERE user_id = ?').all(userId),
+    feedback: db.prepare('SELECT * FROM feedback WHERE user_id = ?').all(userId),
+  };
+  res.json(data);
+});
+
 app.delete('/delete-account', authMiddleware, (req, res) => {
   const userId = req.user.userId;
   db.prepare('DELETE FROM users WHERE id = ?').run(userId);
