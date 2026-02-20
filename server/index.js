@@ -2,30 +2,18 @@ const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const ollama = require('ollama').default;
-const { db, getUserContext } = require('./db');
 const multer = require('multer');
 const { exec } = require('child_process');
 const fs = require('fs');
-const path = require('path');
-const upload = multer({ dest: '/tmp/' });
+const { pool, initDB, getUserContext } = require('./db');
 
 const app = express();
-const JWT_SECRET = 'astralink-secret-2026';
+const JWT_SECRET = process.env.JWT_SECRET || 'astralink-secret-2026';
+const upload = multer({ dest: '/tmp/' });
 
 app.use(cors());
 app.use(express.json());
 
-db.exec(`CREATE TABLE IF NOT EXISTS feedback (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER,
-  message TEXT,
-  response TEXT,
-  rating TEXT,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-)`);
-
-// Auth middleware
 function authMiddleware(req, res, next) {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'No token' });
@@ -37,22 +25,22 @@ function authMiddleware(req, res, next) {
   }
 }
 
-// Register
 app.post('/register', async (req, res) => {
   const { email, password, name } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
-  const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
-  if (existing) return res.status(400).json({ error: 'Email already registered' });
+  const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+  if (existing.rows.length) return res.status(400).json({ error: 'Email already registered' });
   const hash = await bcrypt.hash(password, 10);
-  const result = db.prepare('INSERT INTO users (email, name, password) VALUES (?, ?, ?)').run(email, name || '', hash);
-  const token = jwt.sign({ userId: result.lastInsertRowid, email }, JWT_SECRET, { expiresIn: '30d' });
-  res.json({ success: true, token, userId: result.lastInsertRowid, name, email });
+  const result = await pool.query('INSERT INTO users (email, name, password) VALUES ($1, $2, $3) RETURNING id', [email, name || '', hash]);
+  const userId = result.rows[0].id;
+  const token = jwt.sign({ userId, email }, JWT_SECRET, { expiresIn: '30d' });
+  res.json({ success: true, token, userId, name, email });
 });
 
-// Login
 app.post('/login', async (req, res) => {
   const { email, password } = req.body;
-  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+  const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+  const user = result.rows[0];
   if (!user) return res.status(400).json({ error: 'Invalid email or password' });
   const valid = await bcrypt.compare(password, user.password);
   if (!valid) return res.status(400).json({ error: 'Invalid email or password' });
@@ -60,41 +48,56 @@ app.post('/login', async (req, res) => {
   res.json({ success: true, token, userId: user.id, name: user.name, email });
 });
 
-// Protected routes
-app.post('/qa', authMiddleware, (req, res) => {
+app.post('/qa', authMiddleware, async (req, res) => {
   const { question, answer } = req.body;
-  db.prepare('INSERT INTO qa_entries (user_id, question, answer) VALUES (?, ?, ?)').run(req.user.userId, question, answer);
+  await pool.query('INSERT INTO qa_entries (user_id, question, answer) VALUES ($1, $2, $3)', [req.user.userId, question, answer]);
   res.json({ success: true });
 });
 
-app.post('/document', authMiddleware, (req, res) => {
+app.post('/document', authMiddleware, async (req, res) => {
   const { filename, content } = req.body;
-  db.prepare('INSERT INTO document_entries (user_id, filename, content) VALUES (?, ?, ?)').run(req.user.userId, filename, content);
+  await pool.query('INSERT INTO document_entries (user_id, filename, content) VALUES ($1, $2, $3)', [req.user.userId, filename, content]);
   res.json({ success: true });
 });
 
-app.post('/voice', authMiddleware, (req, res) => {
+app.post('/voice', authMiddleware, async (req, res) => {
   const { transcription } = req.body;
-  db.prepare('INSERT INTO voice_entries (user_id, transcription) VALUES (?, ?)').run(req.user.userId, transcription);
+  await pool.query('INSERT INTO voice_entries (user_id, transcription) VALUES ($1, $2)', [req.user.userId, transcription]);
   res.json({ success: true });
 });
 
-app.post('/feedback', authMiddleware, (req, res) => {
+app.post('/feedback', authMiddleware, async (req, res) => {
   const { response, rating } = req.body;
-  db.prepare('INSERT INTO feedback (user_id, response, rating) VALUES (?, ?, ?)').run(req.user.userId, response || '', rating || '');
+  await pool.query('INSERT INTO feedback (user_id, response, rating) VALUES ($1, $2, $3)', [req.user.userId, response || '', rating || '']);
   res.json({ success: true });
+});
+
+app.post('/transcribe', upload.single('audio'), async (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  let userId = 1;
+  try { userId = jwt.verify(token, JWT_SECRET).userId; } catch {}
+  const audioPath = req.file.path;
+  exec(`/opt/homebrew/bin/whisper ${audioPath} --model tiny --output_dir /tmp --output_format txt --language en`, async (err, stdout, stderr) => {
+    const txtPath = audioPath + '.txt';
+    if (err || !fs.existsSync(txtPath)) return res.status(500).json({ error: 'Transcription failed' });
+    const transcription = fs.readFileSync(txtPath, 'utf8').trim();
+    fs.unlinkSync(audioPath);
+    fs.unlinkSync(txtPath);
+    await pool.query('INSERT INTO voice_entries (user_id, transcription) VALUES ($1, $2)', [userId, transcription]);
+    res.json({ success: true, transcription });
+  });
 });
 
 app.post('/chat', authMiddleware, async (req, res) => {
   const { messages } = req.body;
   const userId = req.user.userId;
-  const context = getUserContext(userId);
-  const feedback = db.prepare("SELECT response FROM feedback WHERE user_id = ? AND rating = 'negative' LIMIT 5").all(userId);
+  const context = await getUserContext(userId);
+  const feedback = await pool.query("SELECT response FROM feedback WHERE user_id = $1 AND rating = 'negative' LIMIT 5", [userId]);
 
   let feedbackNote = '';
-  if (feedback.length) {
-    feedbackNote = '\n\nAVOID THIS STYLE (marked as not sounding like me):\n';
-    feedback.forEach(f => feedbackNote += `- "${f.response.slice(0, 100)}"\n`);
+  if (feedback.rows.length) {
+    feedbackNote = '\n\nAVOID THIS STYLE:\n';
+    feedback.rows.forEach(f => feedbackNote += `- "${f.response.slice(0, 100)}"\n`);
   }
 
   const systemPrompt = `You are not an AI. You ARE this specific person. Speak in first person, casually and personally. Use their real experiences. Never say "as your digital twin" or "I am an AI". Just BE them.${context}${feedbackNote}`;
@@ -104,6 +107,7 @@ app.post('/chat', authMiddleware, async (req, res) => {
   res.setHeader('Connection', 'keep-alive');
 
   try {
+    const ollama = require('ollama').default;
     const response = await ollama.chat({
       model: 'llama3.1',
       messages: [{ role: 'system', content: systemPrompt }, ...messages],
@@ -120,60 +124,41 @@ app.post('/chat', authMiddleware, async (req, res) => {
   }
 });
 
-app.post('/transcribe', upload.single('audio'), (req, res) => {
-  const token = req.headers.authorization?.split(' ')[1];
-  let userId = 1;
-  try { userId = require('jsonwebtoken').verify(token, JWT_SECRET).userId; } catch {}
-
-  const audioPath = req.file.path;
-  const outDir = '/tmp';
-
-  exec(`/opt/homebrew/bin/whisper ${audioPath} --model tiny --output_dir ${outDir} --output_format txt --language en`, (err, stdout, stderr) => {
-    const txtPath = audioPath + '.txt';
-    if (err || !fs.existsSync(txtPath)) {
-      console.error('Whisper error:', err, stderr);
-      return res.status(500).json({ error: 'Transcription failed' });
-    }
-    const transcription = fs.readFileSync(txtPath, 'utf8').trim();
-    fs.unlinkSync(audioPath);
-    fs.unlinkSync(txtPath);
-    db.prepare('INSERT INTO voice_entries (user_id, transcription) VALUES (?, ?)').run(userId, transcription);
-    res.json({ success: true, transcription });
-  });
-});
-
-app.post('/change-email', authMiddleware, (req, res) => {
+app.post('/change-email', authMiddleware, async (req, res) => {
   const { email } = req.body;
-  db.prepare('UPDATE users SET email = ? WHERE id = ?').run(email, req.user.userId);
+  await pool.query('UPDATE users SET email = $1 WHERE id = $2', [email, req.user.userId]);
   res.json({ success: true });
 });
 
 app.post('/change-password', authMiddleware, async (req, res) => {
   const { password } = req.body;
-  const hash = await require('bcrypt').hash(password, 10);
-  db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hash, req.user.userId);
+  const hash = await bcrypt.hash(password, 10);
+  await pool.query('UPDATE users SET password = $1 WHERE id = $2', [hash, req.user.userId]);
   res.json({ success: true });
 });
 
-app.get('/export', authMiddleware, (req, res) => {
+app.get('/export', authMiddleware, async (req, res) => {
   const userId = req.user.userId;
-  const data = {
-    qa: db.prepare('SELECT * FROM qa_entries WHERE user_id = ?').all(userId),
-    voice: db.prepare('SELECT * FROM voice_entries WHERE user_id = ?').all(userId),
-    documents: db.prepare('SELECT * FROM document_entries WHERE user_id = ?').all(userId),
-    feedback: db.prepare('SELECT * FROM feedback WHERE user_id = ?').all(userId),
-  };
-  res.json(data);
+  const [qa, voice, docs, fb] = await Promise.all([
+    pool.query('SELECT * FROM qa_entries WHERE user_id = $1', [userId]),
+    pool.query('SELECT * FROM voice_entries WHERE user_id = $1', [userId]),
+    pool.query('SELECT * FROM document_entries WHERE user_id = $1', [userId]),
+    pool.query('SELECT * FROM feedback WHERE user_id = $1', [userId]),
+  ]);
+  res.json({ qa: qa.rows, voice: voice.rows, documents: docs.rows, feedback: fb.rows });
 });
 
-app.delete('/delete-account', authMiddleware, (req, res) => {
+app.delete('/delete-account', authMiddleware, async (req, res) => {
   const userId = req.user.userId;
-  db.prepare('DELETE FROM users WHERE id = ?').run(userId);
-  db.prepare('DELETE FROM qa_entries WHERE user_id = ?').run(userId);
-  db.prepare('DELETE FROM voice_entries WHERE user_id = ?').run(userId);
-  db.prepare('DELETE FROM document_entries WHERE user_id = ?').run(userId);
-  db.prepare('DELETE FROM feedback WHERE user_id = ?').run(userId);
+  await pool.query('DELETE FROM users WHERE id = $1', [userId]);
+  await pool.query('DELETE FROM qa_entries WHERE user_id = $1', [userId]);
+  await pool.query('DELETE FROM voice_entries WHERE user_id = $1', [userId]);
+  await pool.query('DELETE FROM document_entries WHERE user_id = $1', [userId]);
+  await pool.query('DELETE FROM feedback WHERE user_id = $1', [userId]);
   res.json({ success: true });
 });
 
-app.listen(3001, () => console.log('AstraLink backend running on port 3001'));
+const PORT = process.env.PORT || 3001;
+initDB().then(() => {
+  app.listen(PORT, () => console.log(`AstraLink backend running on port ${PORT}`));
+});

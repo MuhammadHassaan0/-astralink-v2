@@ -1,66 +1,77 @@
-const Database = require('better-sqlite3');
-const path = require('path');
+const { Pool } = require('pg');
 
-const db = new Database(path.join(__dirname, 'astralink.db'));
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+});
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    email TEXT UNIQUE NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
+async function initDB() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      name TEXT DEFAULT '',
+      password TEXT DEFAULT '',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS voice_entries (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER,
+      transcription TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS document_entries (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER,
+      filename TEXT,
+      content TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS qa_entries (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER,
+      question TEXT,
+      answer TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS feedback (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER,
+      message TEXT,
+      response TEXT,
+      rating TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+}
 
-  CREATE TABLE IF NOT EXISTS voice_entries (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER,
-    transcription TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id)
-  );
-
-  CREATE TABLE IF NOT EXISTS document_entries (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER,
-    filename TEXT,
-    content TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id)
-  );
-
-  CREATE TABLE IF NOT EXISTS qa_entries (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER,
-    question TEXT,
-    answer TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id)
-  );
-`);
-
-// Helper: get all context for a user to build system prompt
-function getUserContext(userId) {
-  const voices = db.prepare('SELECT transcription FROM voice_entries WHERE user_id = ?').all(userId);
-  const docs = db.prepare('SELECT filename, content FROM document_entries WHERE user_id = ?').all(userId);
-  const qas = db.prepare('SELECT question, answer FROM qa_entries WHERE user_id = ?').all(userId);
+async function getUserContext(userId) {
+  const voices = await pool.query('SELECT transcription FROM voice_entries WHERE user_id = $1', [userId]);
+  const docs = await pool.query('SELECT filename, content FROM document_entries WHERE user_id = $1', [userId]);
+  const qa = await pool.query('SELECT question, answer FROM qa_entries WHERE user_id = $1', [userId]);
 
   let context = '';
-
-  if (voices.length) {
-    context += '\n\nVOICE RECORDINGS (what this person said in their own words):\n';
-    voices.forEach((v, i) => context += `${i+1}. ${v.transcription}\n`);
+  if (voices.rows.length) {
+    context += '\n\nVOICE RECORDINGS:\n';
+    voices.rows.forEach(v => context += `- ${v.transcription}\n`);
   }
-
-  if (docs.length) {
-    context += '\n\nDOCUMENTS THEY SHARED:\n';
-    docs.forEach(d => context += `[${d.filename}]: ${d.content.slice(0, 1000)}\n`);
+  if (docs.rows.length) {
+    context += '\n\nDOCUMENTS:\n';
+    docs.rows.forEach(d => context += `${d.filename}: ${d.content.slice(0, 500)}\n`);
   }
-
-  if (qas.length) {
+  if (qa.rows.length) {
     context += '\n\nQ&A ANSWERS:\n';
-    qas.forEach(q => context += `Q: ${q.question}\nA: ${q.answer}\n\n`);
+    qa.rows.forEach(q => context += `Q: ${q.question}\nA: ${q.answer}\n`);
   }
-
   return context;
 }
 
-module.exports = { db, getUserContext };
+module.exports = { pool, initDB, getUserContext };
