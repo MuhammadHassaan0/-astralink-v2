@@ -6,6 +6,8 @@ const multer = require('multer');
 const { exec } = require('child_process');
 const fs = require('fs');
 const { pool, initDB, getUserContext } = require('./db');
+const Groq = require('groq-sdk');
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 const app = express();
 const JWT_SECRET = process.env.JWT_SECRET || 'astralink-secret-2026';
@@ -107,14 +109,14 @@ app.post('/chat', authMiddleware, async (req, res) => {
   res.setHeader('Connection', 'keep-alive');
 
   try {
-    const ollama = require('ollama').default;
-    const response = await ollama.chat({
-      model: 'llama3.1',
+    const stream = await groq.chat.completions.create({
+      model: 'llama-3.1-70b-versatile',
       messages: [{ role: 'system', content: systemPrompt }, ...messages],
       stream: true,
     });
-    for await (const chunk of response) {
-      res.write(`data: ${JSON.stringify({ text: chunk.message.content })}\n\n`);
+    for await (const chunk of stream) {
+      const text = chunk.choices[0]?.delta?.content || '';
+      if (text) res.write(`data: ${JSON.stringify({ text })}\n\n`);
     }
     res.write('data: [DONE]\n\n');
     res.end();
@@ -162,3 +164,4 @@ const PORT = process.env.PORT || 3001;
 initDB().then(() => {
   app.listen(PORT, () => console.log(`AstraLink backend running on port ${PORT}`));
 });
+ 
