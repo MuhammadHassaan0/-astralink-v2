@@ -78,16 +78,22 @@ app.post('/transcribe', upload.single('audio'), async (req, res) => {
   const token = req.headers.authorization?.split(' ')[1];
   let userId = 1;
   try { userId = jwt.verify(token, JWT_SECRET).userId; } catch {}
-  const audioPath = req.file.path;
-  exec(`/opt/homebrew/bin/whisper ${audioPath} --model tiny --output_dir /tmp --output_format txt --language en`, async (err, stdout, stderr) => {
-    const txtPath = audioPath + '.txt';
-    if (err || !fs.existsSync(txtPath)) return res.status(500).json({ error: 'Transcription failed' });
-    const transcription = fs.readFileSync(txtPath, 'utf8').trim();
+  try {
+    const audioPath = req.file.path;
+    const fileStream = fs.createReadStream(audioPath);
+    const transcriptionResponse = await groq.audio.transcriptions.create({
+      file: fileStream,
+      model: 'whisper-large-v3',
+      language: 'en',
+    });
+    const transcription = transcriptionResponse.text.trim();
     fs.unlinkSync(audioPath);
-    fs.unlinkSync(txtPath);
     await pool.query('INSERT INTO voice_entries (user_id, transcription) VALUES ($1, $2)', [userId, transcription]);
     res.json({ success: true, transcription });
-  });
+  } catch (err) {
+    console.error('Transcription error:', err);
+    res.status(500).json({ error: 'Transcription failed' });
+  }
 });
 
 app.post('/chat', authMiddleware, async (req, res) => {
