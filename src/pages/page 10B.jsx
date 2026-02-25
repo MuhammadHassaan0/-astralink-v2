@@ -15,7 +15,83 @@ const App = () => {
   const [currentQ, setCurrentQ] = useState(0);
   const [qAnswer, setQAnswer] = useState('');
   const [qDone, setQDone] = useState(false);
+  const [qRecording, setQRecording] = useState(false);
+  const [qSeconds, setQSeconds] = useState(0);
+  const qMediaRecorderRef = useRef(null);
+  const qAudioChunksRef = useRef([]);
+  const qTimerRef = useRef(null);
+
+  const toggleQRecord = async () => {
+    if (!qRecording) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mediaRecorder = new MediaRecorder(stream);
+        qMediaRecorderRef.current = mediaRecorder;
+        qAudioChunksRef.current = [];
+        mediaRecorder.ondataavailable = (e) => qAudioChunksRef.current.push(e.data);
+        mediaRecorder.start();
+        setQRecording(true);
+        setQSeconds(0);
+        qTimerRef.current = setInterval(() => setQSeconds(prev => prev + 1), 1000);
+      } catch(err) {
+        alert('Microphone access denied.');
+      }
+    } else {
+      qMediaRecorderRef.current.stop();
+      qMediaRecorderRef.current.stream.getTracks().forEach(t => t.stop());
+      setQRecording(false);
+      clearInterval(qTimerRef.current);
+      // Transcribe and save
+      const blob = new Blob(qAudioChunksRef.current, { type: 'audio/webm' });
+      if (blob.size === 0) { alert('No audio captured.'); return; }
+      const formData = new FormData();
+      formData.append('audio', blob, 'answer.webm');
+      const token = localStorage.getItem('token');
+      try {
+        const res = await fetch('https://astralink-v2-production.up.railway.app/transcribe', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + token },
+          body: formData
+        });
+        const data = await res.json();
+        if (data.success) {
+          setQAnswer(data.transcription);
+        } else {
+          alert('Transcription failed');
+        }
+      } catch(e) { alert('Error: ' + e.message); }
+    }
+  };
   const timerIntervalRef = useRef(null);
+  const [stats, setStats] = useState({ voices: 0, documents: 0, questions: 0, days: 0 });
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch('https://astralink-v2-production.up.railway.app/export', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await res.json();
+        const voices = data.voice?.length || 0;
+        const documents = data.documents?.length || 0;
+        const questions = data.qa?.length || 0;
+        // Calculate days active from first entry
+        const allDates = [
+          ...(data.voice || []),
+          ...(data.documents || []),
+          ...(data.qa || [])
+        ].map(e => new Date(e.created_at)).filter(Boolean);
+        let days = 0;
+        if (allDates.length > 0) {
+          const first = Math.min(...allDates);
+          days = Math.max(1, Math.ceil((Date.now() - first) / (1000 * 60 * 60 * 24)));
+        }
+        setStats({ voices, documents, questions, days });
+      } catch(e) { console.error('stats fetch failed', e); }
+    };
+    fetchStats();
+  }, []);
 
   useEffect(() => {
     const style = document.createElement('style');
@@ -641,6 +717,16 @@ const App = () => {
                       <span style={{fontSize: '12px', fontWeight: 700, color: '#6366F1', textTransform: 'uppercase'}}>Question {currentQ + 1} of {questions.length}</span>
                       <h3 style={{fontSize: '18px', color: '#111111', margin: '12px 0 24px 0'}}>{questions[currentQ]}</h3>
                       <textarea value={qAnswer} onChange={e => setQAnswer(e.target.value)} style={{width: '100%', height: '120px', border: '1px solid #E5E7EB', borderRadius: '8px', padding: '12px', fontFamily: 'Inter', resize: 'none', boxSizing: 'border-box'}} placeholder="Start typing your answer..."></textarea>
+                      <div style={{display: 'flex', alignItems: 'center', gap: '12px', marginTop: '12px'}}>
+                        <button onClick={toggleQRecord} style={{display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '999px', border: '2px solid #6366F1', background: qRecording ? '#6366F1' : 'white', color: qRecording ? 'white' : '#6366F1', fontWeight: 600, fontSize: '14px', cursor: 'pointer'}}>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                            <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                          </svg>
+                          {qRecording ? `Recording... ${formatTime(qSeconds)}` : 'Answer by voice'}
+                        </button>
+                        {qRecording && <span style={{fontSize: '13px', color: '#EF4444', fontWeight: 500}}>Tap to stop & transcribe</span>}
+                      </div>
                     </div>
                     <button style={{...styles.btn, ...styles.btnPrimary, marginBottom: '12px'}} onClick={async () => {
                       if (!qAnswer.trim()) return;
@@ -667,14 +753,14 @@ const App = () => {
 
         <aside style={styles.statsColumn}>
           <div style={{...styles.statCard, animationDelay: '0.1s'}}>
-            <div style={styles.trendPill}>↑ +5% this week</div>
-            <div style={styles.bigStat}>25%</div>
+            <div style={styles.trendPill}>↑ improving</div>
+            <div style={styles.bigStat}>{Math.min(95, Math.round((stats.voices * 5) + (stats.documents * 10) + (stats.questions * 3)))}%</div>
             <p style={{textAlign: 'center', color: '#666666', fontSize: '14px', marginBottom: '32px'}}>Your current accuracy</p>
             
             <div style={styles.progressContainer}>
               <div style={{display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 600}}>
                 <span>Next milestone: 50%</span>
-                <span style={{color: '#999999'}}>3 more voices</span>
+                <span style={{color: '#999999'}}>{stats.voices < 5 ? `${5 - stats.voices} more voices` : 'Keep going!'}</span>
               </div>
               <div style={styles.progressBarBg}>
                 <div className="progress-bar-fill" style={styles.progressBarFill}></div>
@@ -695,19 +781,19 @@ const App = () => {
             <h3 style={styles.h3}>Your progress</h3>
             <div style={styles.statRow}>
               <span>Voices recorded</span>
-              <span style={{fontWeight: 600, color: '#111111'}}>7</span>
+              <span style={{fontWeight: 600, color: '#111111'}}>{stats.voices}</span>
             </div>
             <div style={styles.statRow}>
               <span>Documents uploaded</span>
-              <span style={{fontWeight: 600, color: '#111111'}}>2</span>
+              <span style={{fontWeight: 600, color: '#111111'}}>{stats.documents}</span>
             </div>
             <div style={styles.statRow}>
               <span>Questions answered</span>
-              <span style={{fontWeight: 600, color: '#111111'}}>15</span>
+              <span style={{fontWeight: 600, color: '#111111'}}>{stats.questions}</span>
             </div>
             <div style={{...styles.statRow, borderBottom: 'none'}}>
               <span>Days active</span>
-              <span style={{fontWeight: 600, color: '#111111'}}>5</span>
+              <span style={{fontWeight: 600, color: '#111111'}}>{stats.days}</span>
             </div>
           </div>
 
