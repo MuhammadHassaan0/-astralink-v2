@@ -7,6 +7,43 @@ export default function ChatPage() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef(null);
+  const [chatRecording, setChatRecording] = useState(false);
+  const chatMediaRecorderRef = useRef(null);
+  const chatAudioChunksRef = useRef([]);
+
+  const toggleChatVoice = async () => {
+    if (!chatRecording) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mediaRecorder = new MediaRecorder(stream);
+        chatMediaRecorderRef.current = mediaRecorder;
+        chatAudioChunksRef.current = [];
+        mediaRecorder.ondataavailable = (e) => chatAudioChunksRef.current.push(e.data);
+        mediaRecorder.start();
+        setChatRecording(true);
+      } catch(err) {
+        alert('Microphone access denied.');
+      }
+    } else {
+      chatMediaRecorderRef.current.stop();
+      chatMediaRecorderRef.current.stream.getTracks().forEach(t => t.stop());
+      setChatRecording(false);
+      const blob = new Blob(chatAudioChunksRef.current, { type: 'audio/webm' });
+      if (blob.size === 0) return;
+      const formData = new FormData();
+      formData.append('audio', blob, 'chat.webm');
+      const token = localStorage.getItem('token');
+      try {
+        const res = await fetch('https://astralink-v2-production.up.railway.app/transcribe', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + token },
+          body: formData
+        });
+        const data = await res.json();
+        if (data.success) setInput(data.transcription);
+      } catch(e) { console.error(e); }
+    }
+  };
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -103,6 +140,15 @@ export default function ChatPage() {
           placeholder="Ask your digital twin anything..."
           style={{ flex: 1, padding: '12px 16px', borderRadius: '999px', border: '1px solid #e5e7eb', fontSize: '15px', outline: 'none', fontFamily: 'Inter, sans-serif' }}
         />
+        <button
+          onClick={toggleChatVoice}
+          style={{ background: chatRecording ? '#EF4444' : '#F3F4F6', color: chatRecording ? '#fff' : '#6366F1', border: 'none', borderRadius: '999px', padding: '12px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+            <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+          </svg>
+        </button>
         <button
           onClick={sendMessage}
           disabled={loading}
