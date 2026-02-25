@@ -651,7 +651,7 @@ const App = () => {
                     { label: '📝 iPhone Notes', tip: 'Open Notes → Share → Export as PDF → Upload here' },
                     { label: '📧 Emails', tip: 'Copy paste important emails into a .txt file and upload' },
                     { label: '📖 Journal', tip: 'Any personal writing, diary entries, letters' },
-                    { label: '📄 PDF', tip: 'Books, articles, anything you've written or resonates with you' },
+                    { label: '📄 PDF', tip: 'Books, articles, anything youve written or resonates with you' },
                   ].map((item, i) => (
                     <div key={i} style={{position: 'relative', group: true}}>
                       <span style={{padding: '8px 14px', borderRadius: '999px', background: '#F3F4F6', fontSize: '13px', fontWeight: 600, color: '#6366F1', cursor: 'default', display: 'inline-block'}}
