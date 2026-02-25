@@ -10,7 +10,12 @@ const App = () => {
     "How do you want to be remembered?",
     "What drives you forward?",
     "What's the most important lesson you've learned?",
-    "What would you tell your younger self?"
+    "What would you tell your younger self?",
+    "What do you believe that most people disagree with?",
+    "What does success mean to you personally?",
+    "How do you handle failure?",
+    "What's something you've changed your mind about recently?",
+    "What's the most important thing in your life right now?"
   ];
   const [currentQ, setCurrentQ] = useState(0);
   const [qAnswer, setQAnswer] = useState('');
