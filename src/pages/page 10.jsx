@@ -453,19 +453,64 @@ const HomePage = () => {
 
       @media (max-width: 768px) {
         .timeline-row {
-          grid-template-columns: 1fr;
-          grid-template-rows: auto auto auto;
+          display: flex;
+          flex-direction: column;
           text-align: center;
-          gap: 20px;
-          padding: 40px 20px;
+          gap: 12px;
+          padding: 32px 16px;
         }
-        .t-year { text-align: center; }
-        .t-center { border: none; height: 60px; }
-        .flow-line { width: 2px; height: 100%; top: -50%; bottom: -50%; }
-        
-        .orbit-container { height: 500px; }
-        .node { width: 90px; height: 90px; }
-        .node.center-node { width: 110px; height: 110px; }
+        .t-year { text-align: center; font-size: 12px; }
+        .t-center { border: none; height: 40px; min-height: unset; }
+        .flow-line { display: none; }
+        .t-col { padding: 8px 16px; }
+        .t-content h3 { font-size: 18px; }
+        .t-content p { font-size: 14px; }
+
+        .orbit-container {
+          height: auto !important;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 16px;
+          padding: 20px 0;
+        }
+        .orbit-lines { display: none; }
+        .node {
+          position: relative !important;
+          top: auto !important;
+          left: auto !important;
+          transform: none !important;
+          width: 100% !important;
+          height: auto !important;
+          min-height: 60px;
+          border-radius: 16px !important;
+          flex-direction: row;
+          justify-content: space-between;
+          padding: 16px 24px;
+          max-width: 320px;
+        }
+        .node.center-node {
+          position: relative !important;
+          top: auto !important;
+          left: auto !important;
+          transform: none !important;
+          width: 100% !important;
+          max-width: 320px;
+          height: 60px !important;
+          border-radius: 16px !important;
+        }
+        .node-label { margin-bottom: 0; font-size: 15px; }
+
+        .big-statement { font-size: 22px; }
+        .emotional-close { font-size: 16px; }
+        .main-title { font-size: 26px !important; }
+        .sub-title { font-size: 16px; }
+        .control-section { padding: 60px 16px; }
+        .promise-section { padding: 60px 16px; }
+        .cta-section { padding: 60px 16px; }
+        .cta-btn { padding: 16px 32px; font-size: 16px; }
+        .header-content { padding: 0 16px; }
+        header { min-height: 70vh; }
       }
     `;
     document.head.appendChild(styleElement);

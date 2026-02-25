@@ -586,17 +586,31 @@ const App = () => {
                   onDragOver={e => e.preventDefault()}
                   style={{...styles.uploadArea, cursor: 'pointer'}}>
                   <p style={{fontWeight: 500, color: '#666666', marginBottom: '8px'}}>Drag and drop a document here</p>
-                  <p style={{fontSize: '12px', color: '#999999'}}>Accepts: TXT, MD</p>
-                  <input id="docInput" type="file" accept=".txt,.md" style={{display:'none'}} onChange={async (e) => {
+                  <p style={{fontSize: '12px', color: '#999999'}}>Accepts: TXT, MD, PDF</p>
+                  <input id="docInput" type="file" accept=".txt,.md,.pdf" style={{display:'none'}} onChange={async (e) => {
                     const file = e.target.files[0];
                     if (!file) return;
-                    const text = await file.text();
-                    await fetch('https://astralink-v2-production.up.railway.app/document', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
-                      body: JSON.stringify({ filename: file.name, content: text })
-                    });
-                    alert(file.name + ' uploaded! Your twin is learning.');
+                    const token = localStorage.getItem('token');
+                    if (file.name.endsWith('.pdf')) {
+                      const formData = new FormData();
+                      formData.append('pdf', file);
+                      const res = await fetch('https://astralink-v2-production.up.railway.app/upload-pdf', {
+                        method: 'POST',
+                        headers: { 'Authorization': 'Bearer ' + token },
+                        body: formData
+                      });
+                      const data = await res.json();
+                      if (data.success) alert(file.name + ' uploaded! ' + data.chars + ' characters extracted.');
+                      else alert('PDF upload failed: ' + data.error);
+                    } else {
+                      const text = await file.text();
+                      await fetch('https://astralink-v2-production.up.railway.app/document', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                        body: JSON.stringify({ filename: file.name, content: text })
+                      });
+                      alert(file.name + ' uploaded! Your twin is learning.');
+                    }
                   }} />
                 </div>
                 

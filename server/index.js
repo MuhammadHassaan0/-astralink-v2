@@ -7,6 +7,8 @@ const { exec } = require('child_process');
 const fs = require('fs');
 const { pool, initDB, getUserContext } = require('./db');
 const Groq = require('groq-sdk');
+const pdfParse = require('pdf-parse');
+
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 const app = express();
@@ -72,6 +74,21 @@ app.post('/feedback', authMiddleware, async (req, res) => {
   const { response, rating } = req.body;
   await pool.query('INSERT INTO feedback (user_id, response, rating) VALUES ($1, $2, $3)', [req.user.userId, response || '', rating || '']);
   res.json({ success: true });
+});
+
+
+app.post('/upload-pdf', authMiddleware, upload.single('pdf'), async (req, res) => {
+  try {
+    const dataBuffer = fs.readFileSync(req.file.path);
+    const pdfData = await pdfParse(dataBuffer);
+    const text = pdfData.text;
+    const filename = req.file.originalname;
+    await pool.query('INSERT INTO document_entries (user_id, filename, content) VALUES ($1, $2, $3)', [req.user.userId, filename, text]);
+    fs.unlinkSync(req.file.path);
+    res.json({ success: true, filename, chars: text.length });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.post('/transcribe', upload.single('audio'), async (req, res) => {

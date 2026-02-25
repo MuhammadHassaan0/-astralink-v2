@@ -270,49 +270,111 @@ const App = () => {
       }
 
       @media (max-width: 768px) {
+        .page-container {
+          padding: 0 16px !important;
+        }
+
+        .intro-section {
+          margin: 40px auto 40px auto !important;
+        }
+
         .journey-title {
-          font-size: 36px !important;
+          font-size: 28px !important;
+          line-height: 1.2 !important;
+        }
+
+        .emotional-promise {
+          font-size: 15px !important;
+        }
+
+        .day-one-container {
+          margin-bottom: 40px !important;
         }
 
         .day-one-card {
           grid-template-columns: 1fr !important;
           min-height: auto !important;
+          border-radius: 12px !important;
         }
 
         .day-one-visual {
-          height: 250px;
+          height: 180px !important;
           order: -1;
         }
 
         .arch-window {
-          height: 200px !important;
-          width: 140px !important;
-          border-top-left-radius: 100px !important;
-          border-top-right-radius: 100px !important;
+          height: 160px !important;
+          width: 110px !important;
+          border-top-left-radius: 80px !important;
+          border-top-right-radius: 80px !important;
+        }
+
+        .mic-icon {
+          width: 40px !important;
+          height: 40px !important;
         }
 
         .day-one-content {
-          padding: 40px 24px !important;
+          padding: 28px 20px !important;
+        }
+
+        .day-one-headline {
+          font-size: 28px !important;
+        }
+
+        .day-one-desc {
+          font-size: 14px !important;
+          margin-bottom: 24px !important;
+        }
+
+        .cta-button {
+          width: 100% !important;
+          text-align: center !important;
+          padding: 14px 24px !important;
+        }
+
+        .timeline-section {
+          padding: 0 !important;
         }
 
         .timeline-line {
-          left: 16px !important;
+          left: 12px !important;
         }
 
         .day-row {
-          flex-direction: column !important;
+          flex-direction: row !important;
           gap: 16px !important;
-          padding-left: 48px !important;
+          padding: 20px 0 20px 36px !important;
         }
 
         .day-meta {
           padding-left: 0 !important;
-          min-width: auto !important;
+          min-width: 60px !important;
+        }
+
+        .day-icon-small {
+          width: 16px !important;
+          height: 16px !important;
         }
 
         .timeline-dot {
-          left: 11px !important;
-          top: 35px !important;
+          left: -24px !important;
+          top: 6px !important;
+        }
+
+        .day-headline {
+          font-size: 18px !important;
+        }
+
+        .day-desc {
+          font-size: 13px !important;
+        }
+
+        .bottom-message {
+          margin-top: 40px !important;
+          margin-bottom: 40px !important;
+          font-size: 14px !important;
+          padding: 0 8px !important;
         }
       }
     `;
