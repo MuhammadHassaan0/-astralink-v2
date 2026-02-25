@@ -644,7 +644,23 @@ const App = () => {
             {activeTab === 'doc' && (
               <div>
                 <h2 style={styles.h2}>Upload a document</h2>
-                <p style={styles.subtitle}>Journal entries, letters, emails, personal notes. Any writing that shows your thinking.</p>
+                <p style={styles.subtitle}>The more you share, the more your twin sounds like you.</p>
+                <div style={{display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '24px'}}>
+                  {[
+                    { label: '📱 WhatsApp', tip: 'Open WhatsApp → Chat → Export Chat → Upload the .txt file' },
+                    { label: '📝 iPhone Notes', tip: 'Open Notes → Share → Export as PDF → Upload here' },
+                    { label: '📧 Emails', tip: 'Copy paste important emails into a .txt file and upload' },
+                    { label: '📖 Journal', tip: 'Any personal writing, diary entries, letters' },
+                    { label: '📄 PDF', tip: 'Books, articles, anything you've written or resonates with you' },
+                  ].map((item, i) => (
+                    <div key={i} style={{position: 'relative', group: true}}>
+                      <span style={{padding: '8px 14px', borderRadius: '999px', background: '#F3F4F6', fontSize: '13px', fontWeight: 600, color: '#6366F1', cursor: 'default', display: 'inline-block'}}
+                        title={item.tip}>
+                        {item.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
                 
                 <div style={styles.uploadArea} onClick={() => document.getElementById('docInput').click()}
                   onDrop={async (e) => {
@@ -663,6 +679,7 @@ const App = () => {
                   style={{...styles.uploadArea, cursor: 'pointer'}}>
                   <p style={{fontWeight: 500, color: '#666666', marginBottom: '8px'}}>Drag and drop a document here</p>
                   <p style={{fontSize: '12px', color: '#999999'}}>Accepts: TXT, MD, PDF</p>
+                  <p style={{fontSize: '11px', color: '#aaaaaa', marginTop: '6px'}}>WhatsApp: Export Chat → .txt · iPhone Notes: Share → PDF</p>
                   <input id="docInput" type="file" accept=".txt,.md,.pdf" style={{display:'none'}} onChange={async (e) => {
                     const file = e.target.files[0];
                     if (!file) return;
