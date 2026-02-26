@@ -69,6 +69,7 @@ const App = () => {
   };
   const timerIntervalRef = useRef(null);
   const [stats, setStats] = useState({ voices: 0, documents: 0, questions: 0, days: 0 });
+  const [recentDocs, setRecentDocs] = useState([]);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -93,6 +94,7 @@ const App = () => {
           days = Math.max(1, Math.ceil((Date.now() - first) / (1000 * 60 * 60 * 24)));
         }
         setStats({ voices, documents, questions, days });
+        setRecentDocs((data.documents || []).slice(-3).reverse());
       } catch(e) { console.error('stats fetch failed', e); }
     };
     fetchStats();
@@ -714,10 +716,14 @@ const App = () => {
                 
                 <h3 style={styles.h3}>Your recent documents</h3>
                 <div style={styles.fileList}>
-                  <div style={styles.fileItem}>
-                    <span style={{fontSize: '14px', fontWeight: 500}}>personal_letter.pdf</span>
-                    <span style={{fontSize: '12px', color: '#999999'}}>2h ago</span>
-                  </div>
+                  {recentDocs.length === 0 ? (
+                    <p style={{fontSize: '14px', color: '#999999'}}>No documents uploaded yet.</p>
+                  ) : recentDocs.map((doc, i) => (
+                    <div key={i} style={styles.fileItem}>
+                      <span style={{fontSize: '14px', fontWeight: 500}}>{doc.filename}</span>
+                      <span style={{fontSize: '12px', color: '#999999'}}>{new Date(doc.created_at).toLocaleDateString()}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}

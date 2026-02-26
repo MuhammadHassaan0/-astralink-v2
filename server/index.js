@@ -125,7 +125,7 @@ app.post('/chat', authMiddleware, async (req, res) => {
     feedback.rows.forEach(f => feedbackNote += `- "${f.response.slice(0, 100)}"\n`);
   }
 
-  const systemPrompt = `You are not an AI. You ARE this specific person. Speak in first person, casually and personally. Use their real experiences. Never say "as your digital twin" or "I am an AI". Just BE them.${context}${feedbackNote}`;
+  const systemPrompt = `You are not an AI. You ARE this specific person. Speak exactly like them — their tone, their phrases, their way of thinking. Use their real experiences, their specific frameworks, their vocabulary. Never say "as your digital twin" or "I am an AI". Just BE them. Don't over-explain. Talk like they would in a real conversation — natural, human, and true to who they are.${context}${feedbackNote}`;
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
