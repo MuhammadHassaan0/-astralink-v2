@@ -372,7 +372,7 @@ const CreateAccountPage = () => {
 
         <div style={customStyles.authFooter}>
           Already have an account?{' '}
-          <span onClick={() => window.location.href = "/auth?mode=signin"} style={{...customStyles.authLink, cursor: "pointer"}}>
+          <span onClick={() => window.location.href = "/signin"} style={{...customStyles.authLink, cursor: "pointer"}}>
             Sign in
           </span>
         </div>
@@ -534,4 +534,5 @@ const App = () => {
   );
 };
 
+export { SignInPage };
 export default App;

@@ -18,7 +18,7 @@ import Page10D from './pages/page 10D.jsx';
 import ChatPage from './pages/chat page.jsx';
 import QAPage from './pages/QAPage.jsx';
 import Page10E from './pages/page 10E.jsx';
-import Auth from './pages/login sign up page.jsx';
+import Auth, { SignInPage } from './pages/login sign up page.jsx';
 
 export default function App() {
   return (
@@ -34,6 +34,7 @@ export default function App() {
       <Route path="/reveal" element={<Page8 />} />
       <Route path="/collect" element={<Page9 />} />
       <Route path="/auth" element={<Auth />} />
+      <Route path="/signin" element={<SignInPage />} />
       <Route path="/share" element={<Page10 />} />
       <Route path="/family" element={<Page10D />} />
       <Route path="/journey" element={<Page10A />} />
