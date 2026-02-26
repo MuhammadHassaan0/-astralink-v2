@@ -35,6 +35,9 @@ const Header = () => {
         <button onClick={() => window.location.href = '/progress'} style={{background:'none', border:'1px solid #e5e7eb', borderRadius:'999px', padding:'8px 16px', fontSize:'13px', fontWeight:600, cursor:'pointer', color:'#6b7280'}}>
           ← Dashboard
         </button>
+        <button onClick={() => window.location.href = '/record'} style={{background:'none', border:'1px solid #6366F1', borderRadius:'999px', padding:'8px 16px', fontSize:'13px', fontWeight:600, cursor:'pointer', color:'#6366F1'}}>
+          + Train
+        </button>
         <button onClick={() => window.location.href = '/family'} style={{background:'#6366F1', border:'none', borderRadius:'999px', padding:'8px 16px', fontSize:'13px', fontWeight:600, cursor:'pointer', color:'white'}}>
           Family Sharing →
         </button>
