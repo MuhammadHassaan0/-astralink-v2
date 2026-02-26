@@ -184,6 +184,12 @@ app.get('/export', authMiddleware, async (req, res) => {
   res.json({ qa: qa.rows, voice: voice.rows, documents: docs.rows, feedback: fb.rows });
 });
 
+app.delete('/clear-documents', authMiddleware, async (req, res) => {
+  const userId = req.user.userId;
+  await pool.query('DELETE FROM document_entries WHERE user_id = $1', [userId]);
+  res.json({ success: true });
+});
+
 app.delete('/delete-account', authMiddleware, async (req, res) => {
   const userId = req.user.userId;
   await pool.query('DELETE FROM users WHERE id = $1', [userId]);

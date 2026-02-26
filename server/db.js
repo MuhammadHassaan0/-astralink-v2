@@ -65,7 +65,7 @@ async function getUserContext(userId) {
   }
   if (docs.rows.length) {
     context += '\n\nDOCUMENTS:\n';
-    docs.rows.forEach(d => context += `${d.filename}: ${d.content.slice(0, 15000)}\n`);
+    docs.rows.forEach(d => context += `${d.filename}: ${d.content.slice(0, 8000)}\n`);
   }
   if (qa.rows.length) {
     context += '\n\nQ&A ANSWERS:\n';
