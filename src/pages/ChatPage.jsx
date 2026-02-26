@@ -72,6 +72,7 @@ export default function ChatPage() {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let full = '';
+      const token = localStorage.getItem('token');
 
       while (true) {
         const { done, value } = await reader.read();

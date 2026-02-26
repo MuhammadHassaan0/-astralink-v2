@@ -113,6 +113,12 @@ app.post('/transcribe', upload.single('audio'), async (req, res) => {
   }
 });
 
+app.get('/chat-history', authMiddleware, async (req, res) => {
+  const userId = req.user.userId;
+  const history = await pool.query('SELECT role, content FROM chat_history WHERE user_id = $1 ORDER BY created_at ASC LIMIT 50', [userId]);
+  res.json({ messages: history.rows });
+});
+
 app.post('/chat', authMiddleware, async (req, res) => {
   const { messages } = req.body;
   const userId = req.user.userId;
@@ -143,6 +149,11 @@ app.post('/chat', authMiddleware, async (req, res) => {
     }
     res.write('data: [DONE]\n\n');
     res.end();
+    // Save the last user message and full assistant response
+    const lastUser = messages[messages.length - 1];
+    if (lastUser) {
+      await pool.query('INSERT INTO chat_history (user_id, role, content) VALUES ($1, $2, $3)', [userId, lastUser.role, lastUser.content]);
+    }
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
