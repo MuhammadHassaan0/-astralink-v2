@@ -133,13 +133,9 @@ app.post('/public-chat/:slug', async (req, res) => {
     });
     for await (const chunk of stream) {
       const text = chunk.choices[0]?.delta?.content || '';
-      if (text) res.write(`data: ${JSON.stringify({ text })}
-
-`);
+      if (text) res.write(`data: ${JSON.stringify({ text })}\n\n`);
     }
-    res.write('data: [DONE]
-
-');
+    res.write('data: [DONE]\n\n');
     res.end();
   } catch(e) {
     res.status(500).json({ error: e.message });
