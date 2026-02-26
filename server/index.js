@@ -113,6 +113,50 @@ app.post('/transcribe', upload.single('audio'), async (req, res) => {
   }
 });
 
+app.post('/public-chat/:slug', async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const { messages } = req.body;
+    const user = await pool.query('SELECT id, name FROM users WHERE public_slug = $1', [slug]);
+    if (!user.rows.length) return res.status(404).json({ error: 'Twin not found' });
+    const userId = user.rows[0].id;
+    const name = user.rows[0].name;
+    const context = await getUserContext(userId);
+    const systemPrompt = `You are ${name}. Not an AI, not an assistant — you ARE them. Speak exactly how they speak in casual conversation. Short sentences. Their actual phrases and verbal habits. Never introduce yourself unless asked. Never say you are an AI or digital twin. Draw on specific examples and frameworks from their actual content. Sound like a real person texting a friend, not writing a blog post.${context}`;
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    const stream = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      messages: [{ role: 'system', content: systemPrompt }, ...messages],
+      stream: true,
+    });
+    for await (const chunk of stream) {
+      const text = chunk.choices[0]?.delta?.content || '';
+      if (text) res.write(`data: ${JSON.stringify({ text })}
+
+`);
+    }
+    res.write('data: [DONE]
+
+');
+    res.end();
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Set public slug for a user
+app.post('/set-slug', authMiddleware, async (req, res) => {
+  const { slug } = req.body;
+  try {
+    await pool.query('UPDATE users SET public_slug = $1 WHERE id = $2', [slug, req.user.userId]);
+    res.json({ success: true });
+  } catch(e) {
+    res.status(500).json({ error: 'Slug already taken' });
+  }
+});
+
 app.get('/chat-history', authMiddleware, async (req, res) => {
   const userId = req.user.userId;
   const history = await pool.query('SELECT role, content FROM chat_history WHERE user_id = $1 ORDER BY created_at ASC LIMIT 50', [userId]);

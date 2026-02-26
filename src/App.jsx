@@ -19,6 +19,7 @@ import ChatPage from './pages/chat page.jsx';
 import QAPage from './pages/QAPage.jsx';
 import Page10E from './pages/page 10E.jsx';
 import Auth, { SignInPage } from './pages/login sign up page.jsx';
+import PublicTwinPage from './pages/PublicTwinPage.jsx';
 
 export default function App() {
   return (
@@ -42,6 +43,7 @@ export default function App() {
       <Route path="/progress" element={<Page10C />} />
       <Route path="/chat" element={<ChatPage />} />
       <Route path="/settings" element={<Page10E />} />
+      <Route path="/twin/:slug" element={<PublicTwinPage />} />
     </Routes>
   );
 }
