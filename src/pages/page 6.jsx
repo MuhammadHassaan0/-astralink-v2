@@ -392,7 +392,7 @@ const ProfileQuestionPage = () => {
               Let's Go
             </button>
             <p
-              onClick={() => window.location.href = '/login'}
+              onClick={() => window.location.href = '/auth'}
               style={{textAlign: 'center', marginTop: '16px', fontSize: '14px', color: '#888', cursor: 'pointer', fontFamily: 'inherit'}}
             >
               Already have an account? <span style={{color: '#6366F1', fontWeight: 600}}>Sign in</span>
