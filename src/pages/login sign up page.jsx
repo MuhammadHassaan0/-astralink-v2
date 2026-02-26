@@ -372,9 +372,9 @@ const CreateAccountPage = () => {
 
         <div style={customStyles.authFooter}>
           Already have an account?{' '}
-          <Link to="/signin" style={customStyles.authLink}>
+          <span onClick={() => window.location.href = "/auth?mode=signin"} style={{...customStyles.authLink, cursor: "pointer"}}>
             Sign in
-          </Link>
+          </span>
         </div>
       </main>
     </div>
@@ -383,6 +383,33 @@ const CreateAccountPage = () => {
 
 const SignInPage = () => {
   const navigate = useNavigate();
+  const [email, setEmail] = React.useState('');
+  const [password, setPassword] = React.useState('');
+  const [error, setError] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
+
+  const handleSignIn = async () => {
+    if (!email || !password) { setError('Please fill in all fields.'); return; }
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch('https://astralink-v2-production.up.railway.app/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+        window.location.href = '/chat';
+      } else {
+        setError(data.error || 'Invalid email or password.');
+      }
+    } catch(e) {
+      setError('Something went wrong. Try again.');
+    }
+    setLoading(false);
+  };
 
   return (
     <div style={customStyles.body}>
@@ -393,11 +420,42 @@ const SignInPage = () => {
           <p style={customStyles.subhead}>Sign in to continue preserving your wisdom.</p>
         </header>
 
+        <form onSubmit={e => { e.preventDefault(); handleSignIn(); }} style={{width: '100%'}}>
+          <div style={customStyles.fieldGroup}>
+            <label style={customStyles.label}>EMAIL ADDRESS</label>
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              style={customStyles.input}
+            />
+          </div>
+          <div style={customStyles.fieldGroup}>
+            <label style={customStyles.label}>PASSWORD</label>
+            <input
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              placeholder="Your password"
+              style={customStyles.input}
+            />
+          </div>
+          {error && <p style={{color: 'red', fontSize: '14px', marginBottom: '12px'}}>{error}</p>}
+          <button
+            type="submit"
+            disabled={loading}
+            style={{width: '100%', padding: '16px', background: '#6366F1', color: 'white', border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1}}
+          >
+            {loading ? 'Signing in...' : 'Sign In'}
+          </button>
+        </form>
+
         <div style={customStyles.authFooter}>
           Don't have an account?{' '}
-          <Link to="/" style={customStyles.authLink}>
+          <span onClick={() => window.location.href = '/auth'} style={{...customStyles.authLink, cursor: 'pointer'}}>
             Create account
-          </Link>
+          </span>
         </div>
       </main>
     </div>
