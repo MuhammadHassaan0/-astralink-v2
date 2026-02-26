@@ -106,12 +106,20 @@ export default function ChatPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#f9fafb', fontFamily: 'Inter, sans-serif' }}>
       {/* Header */}
-      <div style={{ background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '16px 24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#6366F1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700 }}>A</div>
-        <div>
-          <div style={{ fontWeight: 600, color: '#1f2937' }}>Your Digital Twin</div>
-          <div style={{ fontSize: '12px', color: '#10b981' }}>● Online</div>
+      <div style={{ background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#6366F1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700 }}>A</div>
+          <div>
+            <div style={{ fontWeight: 600, color: '#1f2937' }}>Your Digital Twin</div>
+            <div style={{ fontSize: '12px', color: '#10b981' }}>● Online</div>
+          </div>
         </div>
+        <button
+          onClick={() => window.location.href = '/record'}
+          style={{ background: '#F3F4F6', color: '#6366F1', border: 'none', borderRadius: '999px', padding: '8px 16px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+        >
+          + Train your twin
+        </button>
       </div>
 
       {/* Messages */}
