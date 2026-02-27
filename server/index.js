@@ -138,7 +138,8 @@ app.post('/public-chat/:slug', async (req, res) => {
     res.write('data: [DONE]\n\n');
     res.end();
   } catch(e) {
-    res.status(500).json({ error: e.message });
+    console.error('Public chat error:', e);
+    res.status(500).json({ error: e.message, stack: e.stack });
   }
 });
 
