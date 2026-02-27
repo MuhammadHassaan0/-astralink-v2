@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const { exec } = require('child_process');
 const fs = require('fs');
-const { pool, initDB, getUserContext } = require('./db');
+const { pool, initDB, getUserContext, getPublicContext } = require('./db');
 const Groq = require('groq-sdk');
 const pdfParse = require('pdf-parse');
 
@@ -121,7 +121,7 @@ app.post('/public-chat/:slug', async (req, res) => {
     if (!user.rows.length) return res.status(404).json({ error: 'Twin not found' });
     const userId = user.rows[0].id;
     const name = user.rows[0].name;
-    const context = await getUserContext(userId);
+    const context = await getPublicContext(userId);
     const systemPrompt = `You are ${name}. Not an AI, not an assistant — you ARE them. Speak exactly how they speak in casual conversation. Short sentences. Their actual phrases and verbal habits. Never introduce yourself unless asked. Never say you are an AI or digital twin. Draw on specific examples and frameworks from their actual content. Sound like a real person texting a friend, not writing a blog post.${context}`;
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');

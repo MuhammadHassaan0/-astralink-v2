@@ -74,4 +74,25 @@ async function getUserContext(userId) {
   return context;
 }
 
-module.exports = { pool, initDB, getUserContext };
+async function getPublicContext(userId) {
+  const voices = await pool.query('SELECT transcription FROM voice_entries WHERE user_id = $1 LIMIT 3', [userId]);
+  const docs = await pool.query('SELECT filename, content FROM document_entries WHERE user_id = $1 ORDER BY created_at DESC LIMIT 2', [userId]);
+  const qa = await pool.query('SELECT question, answer FROM qa_entries WHERE user_id = $1 LIMIT 5', [userId]);
+
+  let context = '';
+  if (voices.rows.length) {
+    context += '\n\nVOICE RECORDINGS:\n';
+    voices.rows.forEach(v => context += `- ${v.transcription}\n`);
+  }
+  if (docs.rows.length) {
+    context += '\n\nDOCUMENTS:\n';
+    docs.rows.forEach(d => context += `${d.filename}: ${d.content.slice(0, 3000)}\n`);
+  }
+  if (qa.rows.length) {
+    context += '\n\nQ&A ANSWERS:\n';
+    qa.rows.forEach(q => context += `Q: ${q.question}\nA: ${q.answer}\n`);
+  }
+  return context;
+}
+
+module.exports = { pool, initDB, getUserContext, getPublicContext };
