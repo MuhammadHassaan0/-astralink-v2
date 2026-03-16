@@ -204,11 +204,13 @@ const App = () => {
         alert('Microphone access denied. Please allow microphone access.');
       }
     } else {
+      mediaRecorderRef.current.onstop = () => {
+        setShowPostRecordActions(true);
+      };
       mediaRecorderRef.current.stop();
       mediaRecorderRef.current.stream.getTracks().forEach(t => t.stop());
       setIsRecording(false);
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-      setShowPostRecordActions(true);
     }
   };
 
