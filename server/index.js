@@ -9,7 +9,7 @@ const { pool, initDB, getUserContext, getPublicContext } = require('./db');
 const Groq = require('groq-sdk');
 const pdfParse = require('pdf-parse');
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const groq = new Groq({ apiKey: (process.env.GROQ_API_KEY || '').trim() });
 
 const app = express();
 const JWT_SECRET = process.env.JWT_SECRET || 'astralink-secret-2026';
