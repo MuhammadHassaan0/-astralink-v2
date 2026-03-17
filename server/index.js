@@ -100,7 +100,7 @@ app.post('/transcribe', upload.single('audio'), async (req, res) => {
     const fileStream = fs.createReadStream(audioPath);
     const transcriptionResponse = await groq.audio.transcriptions.create({
       file: fileStream,
-      model: 'whisper-large-v3',
+      model: 'whisper-large-v3-turbo',
       language: 'en',
     });
     const transcription = transcriptionResponse.text.trim();
