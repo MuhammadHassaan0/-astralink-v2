@@ -97,7 +97,9 @@ app.post('/transcribe', upload.single('audio'), async (req, res) => {
   try { userId = jwt.verify(token, JWT_SECRET).userId; } catch {}
   try {
     const audioPath = req.file.path;
-    const fileStream = fs.createReadStream(audioPath);
+    const webmPath = audioPath + '.webm';
+    fs.renameSync(audioPath, webmPath);
+    const fileStream = fs.createReadStream(webmPath);
     const transcriptionResponse = await groq.audio.transcriptions.create({
       file: fileStream,
       model: 'whisper-large-v3-turbo',
