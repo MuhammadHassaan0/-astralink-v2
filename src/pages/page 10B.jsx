@@ -657,7 +657,7 @@ const App = () => {
                           body: formData
                         });
                         const data = await res.json();
-                        if (data.success) alert('Saved! Transcribed: ' + data.transcription.slice(0, 100));
+                        if (data.success) { alert('Saved! Transcribed: ' + data.transcription.slice(0, 100)); fetchRecordings(); }
                         else alert('Transcription failed');
                       } catch(e) { alert('Error: ' + e.message); }
                       resetRecord();
