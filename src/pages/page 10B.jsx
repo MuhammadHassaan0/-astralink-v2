@@ -17,6 +17,24 @@ const App = () => {
     "What's something you've changed your mind about recently?",
     "What's the most important thing in your life right now?"
   ];
+  const [recordings, setRecordings] = useState([]);
+  const [loadingRecordings, setLoadingRecordings] = useState(false);
+
+  const fetchRecordings = async () => {
+    setLoadingRecordings(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('https://astralink-v2-production.up.railway.app/recordings', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const data = await res.json();
+      setRecordings(data.recordings || []);
+    } catch(e) { console.error(e); }
+    setLoadingRecordings(false);
+  };
+
+  useEffect(() => { fetchRecordings(); }, []);
+
   const [currentQ, setCurrentQ] = useState(0);
   const [qAnswer, setQAnswer] = useState('');
   const [qDone, setQDone] = useState(false);
@@ -647,6 +665,33 @@ const App = () => {
                     <button style={{...styles.btn, ...styles.btnSecondary}} onClick={resetRecord}>Retake</button>
                   </div>
                 )}
+              </div>
+            )}
+
+            {activeTab === 'voice' && recordings.length > 0 && (
+              <div style={{marginTop: '32px', width: '100%'}}>
+                <h3 style={{fontSize: '14px', fontWeight: 700, color: '#111111', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '16px', opacity: 0.8}}>Your Voice Memos</h3>
+                {recordings.map((rec, i) => (
+                  <div key={i} style={{background: '#F9FAFB', borderRadius: '12px', padding: '16px', marginBottom: '12px', border: '1px solid #E5E7EB'}}>
+                    <p style={{fontSize: '13px', color: '#666666', marginBottom: '10px', lineHeight: 1.5}}>{rec.transcription}</p>
+                    <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
+                      <span style={{fontSize: '11px', color: '#999999'}}>{new Date(rec.created_at).toLocaleDateString()}</span>
+                      {rec.audio_data && (
+                        <button onClick={() => {
+                          const binary = atob(rec.audio_data);
+                          const bytes = new Uint8Array(binary.length);
+                          for(let j = 0; j < binary.length; j++) bytes[j] = binary.charCodeAt(j);
+                          const blob = new Blob([bytes], {type: 'audio/webm'});
+                          const url = URL.createObjectURL(blob);
+                          const audio = new Audio(url);
+                          audio.play();
+                        }} style={{background: '#6366F1', color: 'white', border: 'none', borderRadius: '999px', padding: '6px 16px', fontSize: '12px', fontWeight: 600, cursor: 'pointer'}}>
+                          ▶ Play
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 

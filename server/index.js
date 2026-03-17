@@ -66,6 +66,12 @@ app.post('/document', authMiddleware, async (req, res) => {
   res.json({ success: true });
 });
 
+app.get('/recordings', authMiddleware, async (req, res) => {
+  const userId = req.user.userId;
+  const result = await pool.query('SELECT id, transcription, audio_data, created_at FROM voice_entries WHERE user_id = $1 ORDER BY created_at DESC LIMIT 20', [userId]);
+  res.json({ recordings: result.rows });
+});
+
 app.post('/voice', authMiddleware, async (req, res) => {
   const { transcription } = req.body;
   await pool.query('INSERT INTO voice_entries (user_id, transcription) VALUES ($1, $2)', [req.user.userId, transcription]);
@@ -108,8 +114,10 @@ app.post('/transcribe', upload.single('audio'), async (req, res) => {
       language: 'en',
     });
     const transcription = transcriptionResponse.text.trim();
+    const audioBuffer = fs.readFileSync(webmPath);
+    const audioBase64 = audioBuffer.toString('base64');
     try { fs.unlinkSync(webmPath); } catch(e) {}
-    await pool.query('INSERT INTO voice_entries (user_id, transcription) VALUES ($1, $2)', [userId, transcription]);
+    await pool.query('INSERT INTO voice_entries (user_id, transcription, audio_data) VALUES ($1, $2, $3)', [userId, transcription, audioBase64]);
     res.json({ success: true, transcription });
   } catch (err) {
     console.error('Transcription error:', err);

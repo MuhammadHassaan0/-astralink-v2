@@ -19,7 +19,7 @@ async function initDB() {
     CREATE TABLE IF NOT EXISTS voice_entries (
       id SERIAL PRIMARY KEY,
       user_id INTEGER,
-      transcription TEXT,
+      transcription TEXT, audio_data TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
