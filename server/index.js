@@ -108,7 +108,7 @@ app.post('/transcribe', upload.single('audio'), async (req, res) => {
       language: 'en',
     });
     const transcription = transcriptionResponse.text.trim();
-    fs.unlinkSync(audioPath);
+    try { fs.unlinkSync(webmPath); } catch(e) {}
     await pool.query('INSERT INTO voice_entries (user_id, transcription) VALUES ($1, $2)', [userId, transcription]);
     res.json({ success: true, transcription });
   } catch (err) {
