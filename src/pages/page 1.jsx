@@ -298,7 +298,15 @@ const HomePage = ({ mousePosition, handleCTAClick }) => {
     <>
       <div className="grain-overlay"></div>
 
-      <main className="hero-container">
+      <header style={{position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1000, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 64px', background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(10px)', borderBottom: '1px solid #F3F4F6'}}>
+        <span style={{fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '18px', color: '#6366F1'}}>AstraLink</span>
+        <div style={{display: 'flex', alignItems: 'center', gap: '16px'}}>
+          <span style={{fontSize: '14px', color: '#6B7280'}}>Preserving how experts think so their wisdom outlives them</span>
+          <a href="/auth" style={{background: '#6366F1', color: 'white', padding: '10px 24px', borderRadius: '9999px', fontSize: '14px', fontWeight: 500, textDecoration: 'none'}}>Sign In</a>
+        </div>
+      </header>
+
+      <main className="hero-container" style={{paddingTop: '72px'}}>
         <div className="content-side">
           <h1>Your kids will ask you a question you'll never hear.</h1>
           <h2>Unless you make sure you're there to answer.</h2>
