@@ -10,7 +10,7 @@ const Groq = require('groq-sdk');
 const pdfParse = require('pdf-parse');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-const gemini = new GoogleGenerativeAI('AIzaSyDxdTJkb5s7Wv-57b_3sQN23dFGCZNIkgA');
+const gemini = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 const apiKey = (process.env.GROQ_API_KEY || '').trim().replace(/[\r\n\t]/g, '');
 console.log('API KEY LENGTH:', apiKey.length, 'CHARS:', JSON.stringify(apiKey.slice(0,10)));
