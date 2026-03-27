@@ -3,51 +3,326 @@ import { flushSync } from 'react-dom';
 
 const API = 'https://astralink-v2-production.up.railway.app';
 
-const fadeInKeyframes = `
-@keyframes fadeSlideIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
+const GLOBAL_STYLES = `
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@700;800&family=Inter:wght@400;500&display=swap');
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes headerFade {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes dotPulse {
+    0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
+    40%           { opacity: 1;   transform: scale(1); }
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #FFFFFF;
+    font-family: 'Inter', sans-serif;
+  }
+
+  .vint-root {
+    min-height: 100vh;
+    background: #FFFFFF;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+  }
+
+  .vint-root::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.022;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
+    background-repeat: repeat;
+    background-size: 200px 200px;
+  }
+
+  .vint-inner {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 760px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding: 0 24px;
+  }
+
+  /* Header */
+  .vint-header {
+    padding-top: 56px;
+    padding-bottom: 0;
+    text-align: center;
+    animation: headerFade 0.6s ease forwards;
+  }
+
+  .vint-brand {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.3em;
+    color: #6366F1;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+
+  .vint-name {
+    font-family: 'Manrope', sans-serif;
+    font-size: 42px;
+    font-weight: 800;
+    color: #111827;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    margin-bottom: 12px;
+  }
+
+  .vint-subtitle {
+    font-family: 'Inter', sans-serif;
+    font-size: 16px;
+    font-weight: 400;
+    color: #9CA3AF;
+    font-style: italic;
+    margin-bottom: 24px;
+  }
+
+  .vint-divider {
+    width: 60px;
+    height: 1px;
+    background: #C49A2A;
+    margin: 0 auto 28px auto;
+  }
+
+  /* Disclaimer */
+  .vint-disclaimer {
+    background: #FDF8F0;
+    border-left: 3px solid #C49A2A;
+    border-radius: 4px;
+    padding: 12px 16px;
+    margin-bottom: 36px;
+    text-align: left;
+  }
+
+  .vint-disclaimer p {
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    font-weight: 400;
+    color: #92400E;
+    font-style: italic;
+    line-height: 1.7;
+  }
+
+  /* Messages */
+  .vint-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding-bottom: 130px;
+  }
+
+  .vint-message-row {
+    display: flex;
+    margin-bottom: 20px;
+    animation: fadeUp 0.3s ease forwards;
+    opacity: 0;
+  }
+
+  .vint-message-row.user { justify-content: flex-end; }
+  .vint-message-row.assistant { justify-content: flex-start; }
+
+  .vint-bubble {
+    word-break: break-word;
+    white-space: pre-wrap;
+  }
+
+  .vint-bubble.user {
+    background: #6366F1;
+    color: #FFFFFF;
+    border-radius: 18px 18px 4px 18px;
+    max-width: 70%;
+    padding: 14px 18px;
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    font-weight: 400;
+    line-height: 1.6;
+  }
+
+  .vint-bubble.assistant {
+    background: #FFFFFF;
+    color: #1F2937;
+    border: 1px solid #E5E7EB;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    border-radius: 18px 18px 18px 4px;
+    max-width: 75%;
+    padding: 16px 20px;
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    font-weight: 400;
+    line-height: 1.8;
+  }
+
+  /* Thinking dots */
+  .vint-dots {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+    padding: 4px 0;
+  }
+
+  .vint-dots span {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #6366F1;
+    display: inline-block;
+    animation: dotPulse 1.4s ease-in-out infinite;
+  }
+
+  .vint-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .vint-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+  /* Empty state */
+  .vint-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 64px 0 48px 0;
+    gap: 12px;
+  }
+
+  .vint-monogram {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: #F5F3FF;
+    border: 1px solid #E0E7FF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Manrope', sans-serif;
+    font-size: 16px;
+    font-weight: 800;
+    color: #6366F1;
+    margin-bottom: 4px;
+  }
+
+  .vint-empty-label {
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 400;
+    color: #9CA3AF;
+    font-style: italic;
+  }
+
+  .vint-empty-meta {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 400;
+    color: #D1D5DB;
+    letter-spacing: 0.03em;
+  }
+
+  /* Input area */
+  .vint-input-area {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 760px;
+    padding: 16px 24px 24px 24px;
+    background: #FFFFFF;
+    border-top: 1px solid #F3F4F6;
+  }
+
+  .vint-input-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .vint-input {
+    flex: 1;
+    border: 1px solid #E5E7EB;
+    border-radius: 9999px;
+    padding: 14px 20px;
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    font-weight: 400;
+    color: #111827;
+    background: #FFFFFF;
+    outline: none;
+    resize: none;
+    line-height: 1.5;
+    max-height: 120px;
+    overflow-y: auto;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .vint-input::placeholder { color: #9CA3AF; }
+
+  .vint-input:focus {
+    border-color: #6366F1;
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+  }
+
+  .vint-send {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: #6366F1;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.15s ease, opacity 0.15s ease;
+  }
+
+  .vint-send:hover:not(:disabled) { background: #4F46E5; }
+  .vint-send:disabled { opacity: 0.4; cursor: default; }
+
+  /* Footer */
+  .vint-footer {
+    text-align: center;
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    color: #D1D5DB;
+    padding-top: 10px;
+    padding-bottom: 0;
+    letter-spacing: 0.02em;
+  }
 `;
+
+function ThinkingDots() {
+  return (
+    <div className="vint-dots">
+      <span /><span /><span />
+    </div>
+  );
+}
 
 function Message({ msg, index }) {
   const isUser = msg.role === 'user';
   return (
     <div
-      key={index}
-      style={{
-        display: 'flex',
-        justifyContent: isUser ? 'flex-end' : 'flex-start',
-        marginBottom: '18px',
-        animation: 'fadeSlideIn 0.35s ease forwards',
-        opacity: 0,
-        animationDelay: `${Math.min(index * 0.04, 0.2)}s`,
-      }}
+      className={`vint-message-row ${isUser ? 'user' : 'assistant'}`}
+      style={{ animationDelay: `${Math.min(index * 0.03, 0.15)}s` }}
     >
-      <div
-        style={{
-          maxWidth: '72%',
-          padding: isUser ? '12px 18px' : '16px 22px',
-          borderRadius: isUser ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-          background: isUser ? '#312E81' : '#ffffff',
-          color: isUser ? '#ffffff' : '#1a1a2e',
-          boxShadow: isUser
-            ? '0 2px 12px rgba(49,46,129,0.18)'
-            : '0 2px 16px rgba(0,0,0,0.07)',
-          border: isUser ? 'none' : '1px solid #ede9e1',
-          fontSize: isUser ? '15px' : '15.5px',
-          lineHeight: isUser ? '1.5' : '1.85',
-          fontFamily: "'Manrope', 'Georgia', serif",
-          fontWeight: isUser ? '500' : '400',
-          letterSpacing: isUser ? '0' : '0.01em',
-          wordBreak: 'break-word',
-          whiteSpace: 'pre-wrap',
-        }}
-      >
-        {msg.content}
-        {msg.role === 'assistant' && msg.content === '' && (
-          <span style={{ opacity: 0.4, fontStyle: 'italic', fontSize: '13px' }}>thinking…</span>
-        )}
+      <div className={`vint-bubble ${isUser ? 'user' : 'assistant'}`}>
+        {msg.content === '' && !isUser ? <ThinkingDots /> : msg.content}
       </div>
     </div>
   );
@@ -61,17 +336,10 @@ export default function VintPage() {
   const inputRef = useRef(null);
 
   useEffect(() => {
-    const link = document.createElement('link');
-    link.href = 'https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;800&display=swap';
-    link.rel = 'stylesheet';
-    document.head.appendChild(link);
     const style = document.createElement('style');
-    style.textContent = fadeInKeyframes;
+    style.textContent = GLOBAL_STYLES;
     document.head.appendChild(style);
-    return () => {
-      document.head.removeChild(link);
-      document.head.removeChild(style);
-    };
+    return () => document.head.removeChild(style);
   }, []);
 
   useEffect(() => {
@@ -152,101 +420,17 @@ export default function VintPage() {
   };
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: '#ffffff',
-        fontFamily: "'Manrope', 'Georgia', sans-serif",
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-      }}
-    >
-      <div
-        style={{
-          width: '100%',
-          maxWidth: '760px',
-          display: 'flex',
-          flexDirection: 'column',
-          minHeight: '100vh',
-          padding: '0 24px',
-          boxSizing: 'border-box',
-        }}
-      >
+    <div className="vint-root">
+      <div className="vint-inner">
+
         {/* Header */}
-        <div style={{ paddingTop: '52px', paddingBottom: '0', textAlign: 'center' }}>
-          <div
-            style={{
-              fontSize: '11px',
-              fontWeight: '600',
-              letterSpacing: '0.25em',
-              color: '#4338ca',
-              textTransform: 'uppercase',
-              marginBottom: '18px',
-              fontFamily: "'Manrope', sans-serif",
-            }}
-          >
-            ASTRALINK
-          </div>
-
-          <h1
-            style={{
-              fontSize: '52px',
-              fontWeight: '800',
-              color: '#0f0e1a',
-              margin: '0 0 14px 0',
-              fontFamily: "'Manrope', sans-serif",
-              lineHeight: '1.1',
-              letterSpacing: '-0.02em',
-            }}
-          >
-            Vint Cerf
-          </h1>
-
-          <p
-            style={{
-              fontSize: '16px',
-              fontWeight: '300',
-              color: '#a0a0a8',
-              margin: '0 0 28px 0',
-              fontFamily: "'Manrope', sans-serif",
-              letterSpacing: '0.01em',
-            }}
-          >
-            An attempt to preserve how he thinks.
-          </p>
-
-          {/* Gold divider */}
-          <div
-            style={{
-              width: '48px',
-              height: '1px',
-              background: '#C49A2A',
-              margin: '0 auto 28px auto',
-            }}
-          />
-
-          {/* Disclaimer */}
-          <div
-            style={{
-              background: '#fdf8f0',
-              border: '1px solid #ede5d0',
-              borderRadius: '10px',
-              padding: '14px 20px',
-              marginBottom: '36px',
-              textAlign: 'left',
-            }}
-          >
-            <p
-              style={{
-                fontSize: '12.5px',
-                color: '#8b7d65',
-                margin: 0,
-                lineHeight: '1.7',
-                fontFamily: "'Manrope', sans-serif",
-                fontWeight: '400',
-              }}
-            >
+        <div className="vint-header">
+          <div className="vint-brand">ASTRALINK</div>
+          <h1 className="vint-name">Vint Cerf</h1>
+          <p className="vint-subtitle">An attempt to preserve how he thinks.</p>
+          <div className="vint-divider" />
+          <div className="vint-disclaimer">
+            <p>
               Private experimental prototype — not for public release. Built from public interviews,
               talks, and writings only. Not for distribution.
             </p>
@@ -254,26 +438,12 @@ export default function VintPage() {
         </div>
 
         {/* Messages */}
-        <div
-          style={{
-            flex: 1,
-            overflowY: 'auto',
-            paddingBottom: '120px',
-          }}
-        >
+        <div className="vint-messages">
           {messages.length === 0 && (
-            <div
-              style={{
-                textAlign: 'center',
-                padding: '48px 0',
-                color: '#c8c4bc',
-                fontSize: '14px',
-                fontStyle: 'italic',
-                fontFamily: "'Manrope', sans-serif",
-                fontWeight: '300',
-              }}
-            >
-              Begin the conversation.
+            <div className="vint-empty">
+              <div className="vint-monogram">VC</div>
+              <p className="vint-empty-label">Ask anything grounded in the public record.</p>
+              <p className="vint-empty-meta">14 sources · March 2026</p>
             </div>
           )}
           {messages.map((msg, i) => (
@@ -282,75 +452,26 @@ export default function VintPage() {
           <div ref={bottomRef} />
         </div>
 
-        {/* Input area — fixed to bottom of container */}
-        <div
-          style={{
-            position: 'fixed',
-            bottom: 0,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: '100%',
-            maxWidth: '760px',
-            padding: '16px 24px 28px 24px',
-            background: 'linear-gradient(to top, #ffffff 70%, rgba(255,255,255,0))',
-            boxSizing: 'border-box',
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              gap: '10px',
-              alignItems: 'flex-end',
-              background: '#ffffff',
-              border: '1px solid #e2ddd6',
-              borderRadius: '16px',
-              padding: '10px 10px 10px 18px',
-              boxShadow: '0 4px 24px rgba(0,0,0,0.07)',
-            }}
-          >
+        {/* Input area */}
+        <div className="vint-input-area">
+          <div className="vint-input-row">
             <textarea
               ref={inputRef}
+              className="vint-input"
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Ask anything…"
               rows={1}
-              style={{
-                flex: 1,
-                border: 'none',
-                outline: 'none',
-                resize: 'none',
-                fontSize: '15px',
-                fontFamily: "'Manrope', sans-serif",
-                fontWeight: '400',
-                color: '#1a1a2e',
-                background: 'transparent',
-                lineHeight: '1.6',
-                maxHeight: '120px',
-                overflowY: 'auto',
-              }}
               onInput={e => {
                 e.target.style.height = 'auto';
                 e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
               }}
             />
             <button
+              className="vint-send"
               onClick={sendMessage}
               disabled={!input.trim() || streaming}
-              style={{
-                background: input.trim() && !streaming ? '#312E81' : '#d4d0e8',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '10px',
-                width: '40px',
-                height: '40px',
-                cursor: input.trim() && !streaming ? 'pointer' : 'default',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-                transition: 'background 0.2s ease',
-              }}
             >
               {streaming ? (
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -360,29 +481,16 @@ export default function VintPage() {
                   </path>
                 </svg>
               ) : (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="22" y1="2" x2="11" y2="13"/>
                   <polygon points="22 2 15 22 11 13 2 9 22 2"/>
                 </svg>
               )}
             </button>
           </div>
-
-          {/* Footer */}
-          <p
-            style={{
-              textAlign: 'center',
-              fontSize: '11px',
-              color: '#d4cfc8',
-              margin: '10px 0 0 0',
-              fontFamily: "'Manrope', sans-serif",
-              fontWeight: '400',
-              letterSpacing: '0.02em',
-            }}
-          >
-            Built by AstraLink — astralink.life
-          </p>
+          <p className="vint-footer">Built by AstraLink — astralink.life</p>
         </div>
+
       </div>
     </div>
   );
