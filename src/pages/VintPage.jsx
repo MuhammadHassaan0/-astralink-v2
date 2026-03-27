@@ -442,8 +442,7 @@ export default function VintPage() {
           {messages.length === 0 && (
             <div className="vint-empty">
               <div className="vint-monogram">VC</div>
-              <p className="vint-empty-label">Ask anything grounded in the public record.</p>
-              <p className="vint-empty-meta">14 sources · March 2026</p>
+<p className="vint-empty-meta">14 sources · March 2026</p>
             </div>
           )}
           {messages.map((msg, i) => (
