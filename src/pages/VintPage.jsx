@@ -3,6 +3,89 @@ import { flushSync } from 'react-dom';
 
 const API = 'https://astralink-v2-production.up.railway.app';
 
+const GATE_STYLES = `
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
+  .vp-gate {
+    min-height: 100vh;
+    background: #FFFFFF;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Inter', sans-serif;
+  }
+
+  .vp-gate-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    width: 100%;
+    max-width: 320px;
+    padding: 0 24px;
+    box-sizing: border-box;
+  }
+
+  .vp-gate-brand {
+    font-family: 'Inter', sans-serif;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.3em;
+    color: #6366F1;
+    text-transform: uppercase;
+    margin-bottom: 40px;
+  }
+
+  .vp-gate-input {
+    width: 100%;
+    border: none;
+    border-bottom: 1.5px solid #6366F1;
+    background: transparent;
+    padding: 8px 0;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 15px;
+    color: #1A1A1A;
+    outline: none;
+    text-align: center;
+    box-sizing: border-box;
+  }
+
+  .vp-gate-input::placeholder {
+    color: #9CA3AF;
+    font-style: italic;
+  }
+
+  .vp-gate-input:focus {
+    border-bottom-color: #4F46E5;
+  }
+
+  .vp-gate-btn {
+    margin-top: 20px;
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    color: #C49A2A;
+    text-transform: uppercase;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    transition: color 0.15s ease;
+  }
+
+  .vp-gate-btn:hover { color: #1A1A1A; }
+
+  .vp-gate-error {
+    margin-top: 12px;
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    color: #EF4444;
+    text-align: center;
+  }
+`;
+
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
 
@@ -276,6 +359,50 @@ const STYLES = `
 /* Header height offset so chat doesn't hide under fixed header */
 const HEADER_HEIGHT = 148;
 
+const GATE_KEY = 'vint_access';
+const GATE_PASS = 'vint2026';
+
+function PasswordGate({ onUnlock }) {
+  const [code, setCode] = useState('');
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = GATE_STYLES;
+    document.head.appendChild(style);
+    return () => document.head.removeChild(style);
+  }, []);
+
+  const attempt = () => {
+    if (code === GATE_PASS) {
+      sessionStorage.setItem(GATE_KEY, '1');
+      onUnlock();
+    } else {
+      setError(true);
+      setCode('');
+    }
+  };
+
+  return (
+    <div className="vp-gate">
+      <div className="vp-gate-inner">
+        <div className="vp-gate-brand">Astralink</div>
+        <input
+          className="vp-gate-input"
+          type="password"
+          placeholder="Enter access code"
+          value={code}
+          onChange={e => { setCode(e.target.value); setError(false); }}
+          onKeyDown={e => e.key === 'Enter' && attempt()}
+          autoFocus
+        />
+        <button className="vp-gate-btn" onClick={attempt}>Enter</button>
+        {error && <div className="vp-gate-error">Incorrect access code</div>}
+      </div>
+    </div>
+  );
+}
+
 function Message({ msg, index }) {
   const isUser = msg.role === 'user';
   return (
@@ -296,11 +423,14 @@ function Message({ msg, index }) {
 }
 
 export default function VintPage() {
+  const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem(GATE_KEY) === '1');
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
+
+  if (!unlocked) return <PasswordGate onUnlock={() => setUnlocked(true)} />;
 
   useEffect(() => {
     const style = document.createElement('style');
