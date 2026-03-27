@@ -366,15 +366,8 @@ function PasswordGate({ onUnlock }) {
   const [code, setCode] = useState('');
   const [error, setError] = useState(false);
 
-  useEffect(() => {
-    const style = document.createElement('style');
-    style.textContent = GATE_STYLES;
-    document.head.appendChild(style);
-    return () => document.head.removeChild(style);
-  }, []);
-
   const attempt = () => {
-    if (code === GATE_PASS) {
+    if (code.trim() === GATE_PASS) {
       sessionStorage.setItem(GATE_KEY, '1');
       onUnlock();
     } else {
@@ -430,18 +423,29 @@ export default function VintPage() {
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
-  if (!unlocked) return <PasswordGate onUnlock={() => setUnlocked(true)} />;
-
+  // Always inject styles — hooks must come before any conditional return
   useEffect(() => {
-    const style = document.createElement('style');
-    style.textContent = STYLES;
-    document.head.appendChild(style);
-    return () => document.head.removeChild(style);
+    const gateStyle = document.createElement('style');
+    gateStyle.id = 'vp-gate-styles';
+    gateStyle.textContent = GATE_STYLES;
+    document.head.appendChild(gateStyle);
+
+    const chatStyle = document.createElement('style');
+    chatStyle.id = 'vp-chat-styles';
+    chatStyle.textContent = STYLES;
+    document.head.appendChild(chatStyle);
+
+    return () => {
+      document.getElementById('vp-gate-styles')?.remove();
+      document.getElementById('vp-chat-styles')?.remove();
+    };
   }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  if (!unlocked) return <PasswordGate onUnlock={() => setUnlocked(true)} />;
 
   const sendMessage = async () => {
     if (!input.trim() || streaming) return;
