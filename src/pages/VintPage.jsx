@@ -396,7 +396,7 @@ export default function VintPage() {
           <div className="vp-subtitle">An attempt to preserve how he thinks.</div>
           <hr className="vp-rule" />
           <div className="vp-disclaimer">
-            Private experimental prototype — not for public release — built from 14 public sources
+            Private experimental prototype — not for public release
           </div>
         </div>
 
