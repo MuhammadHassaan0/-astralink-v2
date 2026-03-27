@@ -8,6 +8,9 @@ const fs = require('fs');
 const { pool, initDB, getUserContext, getPublicContext } = require('./db');
 const Groq = require('groq-sdk');
 const pdfParse = require('pdf-parse');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+
+const gemini = new GoogleGenerativeAI('AIzaSyBbQt3dMOzrahPUCAnPadhF9tfAmMxTcfs');
 
 const apiKey = (process.env.GROQ_API_KEY || '').trim().replace(/[\r\n\t]/g, '');
 console.log('API KEY LENGTH:', apiKey.length, 'CHARS:', JSON.stringify(apiKey.slice(0,10)));
@@ -408,13 +411,24 @@ app.post('/vint-chat', async (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
-    const stream = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages: [{ role: 'system', content: VINT_SYSTEM_PROMPT }, ...messages],
-      stream: true,
+
+    const model = gemini.getGenerativeModel({
+      model: 'gemini-2.0-flash',
+      systemInstruction: VINT_SYSTEM_PROMPT,
     });
-    for await (const chunk of stream) {
-      const text = chunk.choices[0]?.delta?.content || '';
+
+    // Convert messages to Gemini format (role: user/model, parts: [{text}])
+    const history = messages.slice(0, -1).map(m => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }],
+    }));
+    const lastMessage = messages[messages.length - 1];
+
+    const chat = model.startChat({ history });
+    const result = await chat.sendMessageStream(lastMessage.content);
+
+    for await (const chunk of result.stream) {
+      const text = chunk.text();
       if (text) res.write(`data: ${JSON.stringify({ text })}\n\n`);
     }
     res.write('data: [DONE]\n\n');
