@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { flushSync } from 'react-dom';
 
 const API = 'https://astralink-v2-production.up.railway.app';
 
@@ -112,13 +113,15 @@ export default function VintPage() {
             try {
               const { text } = JSON.parse(data);
               if (text) {
-                setMessages(prev => {
-                  const updated = [...prev];
-                  updated[updated.length - 1] = {
-                    ...updated[updated.length - 1],
-                    content: updated[updated.length - 1].content + text,
-                  };
-                  return updated;
+                flushSync(() => {
+                  setMessages(prev => {
+                    const updated = [...prev];
+                    updated[updated.length - 1] = {
+                      ...updated[updated.length - 1],
+                      content: updated[updated.length - 1].content + text,
+                    };
+                    return updated;
+                  });
                 });
               }
             } catch {}
