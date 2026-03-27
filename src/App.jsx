@@ -20,6 +20,7 @@ import QAPage from './pages/QAPage.jsx';
 import Page10E from './pages/page 10E.jsx';
 import Auth, { SignInPage } from './pages/login sign up page.jsx';
 import PublicTwinPage from './pages/PublicTwinPage.jsx';
+import VintPage from './pages/VintPage.jsx';
 
 export default function App() {
   return (
@@ -44,6 +45,7 @@ export default function App() {
       <Route path="/chat" element={<ChatPage />} />
       <Route path="/settings" element={<Page10E />} />
       <Route path="/twin/:slug" element={<PublicTwinPage />} />
+      <Route path="/vint" element={<VintPage />} />
     </Routes>
   );
 }
