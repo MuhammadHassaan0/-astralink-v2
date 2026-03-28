@@ -408,7 +408,15 @@ function Message({ msg, index }) {
         <div className="vp-thinking">…</div>
       ) : (
         <div className={`vp-msg-text ${isUser ? 'user' : 'assistant'}`}>
-          {msg.content}
+          {isUser
+            ? msg.content
+            : msg.content.split('\n\n').map((para, pi) => (
+                <p key={pi} style={{ margin: 0, marginBottom: pi < msg.content.split('\n\n').length - 1 ? '12px' : 0 }}>
+                  {para.split('\n').map((line, li, arr) => (
+                    <span key={li}>{line}{li < arr.length - 1 && <br />}</span>
+                  ))}
+                </p>
+              ))}
         </div>
       )}
     </div>
@@ -447,6 +455,9 @@ export default function VintPage() {
 
   if (!unlocked) return <PasswordGate onUnlock={() => setUnlocked(true)} />;
 
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+  const randDelay = () => 10 + Math.random() * 20; // 10–30ms
+
   const sendMessage = async () => {
     if (!input.trim() || streaming) return;
     const userMsg = { role: 'user', content: input.trim() };
@@ -481,6 +492,7 @@ export default function VintPage() {
             try {
               const { text } = JSON.parse(data);
               if (text) {
+                await sleep(randDelay());
                 flushSync(() => {
                   setMessages(prev => {
                     const updated = [...prev];
