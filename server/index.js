@@ -511,11 +511,18 @@ app.post('/vint-chat', async (req, res) => {
 app.post('/vint-voice', async (req, res) => {
   try {
     const { text, history = [] } = req.body;
+
+    // Sanitize env vars — strip leading whitespace, = signs, and surrounding whitespace
+    const groupId = (process.env.MINIMAX_GROUP_ID || '').replace(/^[\s=]+/, '').trim();
+    const apiKey  = (process.env.MINIMAX_API_KEY  || '').replace(/^[\s=]+/, '').trim();
+    const voiceId = (process.env.MINIMAX_VOICE_ID || '').replace(/^[\s=]+/, '').trim();
+    console.log('[vint-voice] sanitized voiceId:', JSON.stringify(voiceId));
+
     console.log('[vint-voice] HIT — incoming text:', text);
     console.log('[vint-voice] history length:', history.length);
-    console.log('[vint-voice] MINIMAX_GROUP_ID present:', !!process.env.MINIMAX_GROUP_ID);
-    console.log('[vint-voice] MINIMAX_API_KEY present:', !!process.env.MINIMAX_API_KEY);
-    console.log('[vint-voice] MINIMAX_VOICE_ID:', process.env.MINIMAX_VOICE_ID);
+    console.log('[vint-voice] MINIMAX_GROUP_ID present:', !!groupId);
+    console.log('[vint-voice] MINIMAX_API_KEY present:', !!apiKey);
+    console.log('[vint-voice] MINIMAX_VOICE_ID:', voiceId);
 
     // 1. Get Vint's text response from Groq (non-streaming, short)
     console.log('[vint-voice] Calling Groq...');
@@ -533,22 +540,21 @@ app.post('/vint-voice', async (req, res) => {
     console.log('[vint-voice] Groq responseText:', responseText);
 
     // 2. Call MiniMax TTS (non-streaming — simpler, more reliable)
-    const mmUrl = `https://api.minimax.io/v1/t2a_v2?GroupId=${process.env.MINIMAX_GROUP_ID}`;
+    const mmUrl = `https://api.minimax.io/v1/t2a_v2?GroupId=${groupId}`;
     console.log('[vint-voice] MiniMax auth check:', {
-      hasApiKey: !!process.env.MINIMAX_API_KEY,
-      keyPrefix: process.env.MINIMAX_API_KEY?.slice(0, 8),
-      hasGroupId: !!process.env.MINIMAX_GROUP_ID,
-      groupId: process.env.MINIMAX_GROUP_ID,
-      hasVoiceId: !!process.env.MINIMAX_VOICE_ID,
-      voiceId: process.env.MINIMAX_VOICE_ID,
+      hasApiKey: !!apiKey,
+      keyPrefix: apiKey.slice(0, 8),
+      hasGroupId: !!groupId,
+      groupId,
+      hasVoiceId: !!voiceId,
+      voiceId,
     });
-    console.log('[vint-voice] MINIMAX_VOICE_ID raw value:', JSON.stringify(process.env.MINIMAX_VOICE_ID));
     console.log('[vint-voice] Calling MiniMax at:', mmUrl);
 
     const mmRes = await fetch(mmUrl, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${process.env.MINIMAX_API_KEY}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -556,7 +562,7 @@ app.post('/vint-voice', async (req, res) => {
         text: responseText,
         stream: false,
         voice_setting: {
-          voice_id: process.env.MINIMAX_VOICE_ID,
+          voice_id: voiceId,
           speed: 1.0,
           vol: 1.0,
           pitch: 0,
