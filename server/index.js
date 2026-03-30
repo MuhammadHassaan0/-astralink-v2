@@ -16,6 +16,7 @@ const groq = new Groq({ apiKey });
 const app = express();
 const JWT_SECRET = process.env.JWT_SECRET || 'astralink-secret-2026';
 const upload = multer({ dest: '/tmp/' });
+const uploadMem = multer({ storage: multer.memoryStorage() });
 
 app.use(cors());
 app.use(express.json());
@@ -589,6 +590,26 @@ app.post('/vint-voice', async (req, res) => {
     console.error('[vint-voice] CAUGHT ERROR:', e.message, e.stack);
     if (!res.headersSent) res.status(500).json({ error: e.message });
     else res.end();
+  }
+});
+
+app.post('/vint-transcribe', uploadMem.single('audio'), async (req, res) => {
+  try {
+    console.log('[vint-transcribe] HIT — file size:', req.file?.size, 'mimetype:', req.file?.mimetype);
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({ error: 'No audio file received' });
+    }
+
+    const transcription = await groq.audio.transcriptions.create({
+      file: new File([req.file.buffer], 'audio.webm', { type: req.file.mimetype || 'audio/webm' }),
+      model: 'whisper-large-v3-turbo',
+    });
+
+    console.log('[vint-transcribe] Result:', transcription.text);
+    res.json({ text: transcription.text });
+  } catch (e) {
+    console.error('[vint-transcribe] ERROR:', e.message, e.stack);
+    res.status(500).json({ error: e.message });
   }
 });
 

@@ -40,7 +40,7 @@ const CALL_STYLES = `
     50%       { box-shadow: 0 0 0 6px rgba(34,197,94,0.08); }
   }
 
-  /* ── Portal overlay — rendered into document.body ── */
+  /* ── Portal overlay ── */
   .vc-overlay {
     position: fixed !important;
     top: 0 !important;
@@ -58,10 +58,7 @@ const CALL_STYLES = `
     justify-content: center !important;
     animation: vcFadeIn 0.2s ease forwards;
   }
-  @keyframes vcFadeIn {
-    from { opacity: 0; }
-    to   { opacity: 1; }
-  }
+  @keyframes vcFadeIn { from { opacity:0; } to { opacity:1; } }
 
   /* ── Card ── */
   .vc-card {
@@ -81,8 +78,8 @@ const CALL_STYLES = `
     box-sizing: border-box;
   }
   @keyframes vcSlideUp {
-    from { transform: translateY(20px); opacity: 0; }
-    to   { transform: translateY(0);    opacity: 1; }
+    from { transform: translateY(20px); opacity:0; }
+    to   { transform: translateY(0);    opacity:1; }
   }
 
   /* ── Avatar ── */
@@ -99,10 +96,9 @@ const CALL_STYLES = `
     border-radius: 50%;
     background: #E5E7EB;
   }
-  .vc-avatar-ring.idle    { background: #E5E7EB; }
   .vc-avatar-ring.listening {
     background: conic-gradient(#ef4444, #fca5a5, #ef4444);
-    animation: vcSpin 1.4s linear infinite;
+    animation: vcSpin 1.0s linear infinite;
   }
   .vc-avatar-ring.thinking {
     background: conic-gradient(#f59e0b, #fcd34d, #f59e0b);
@@ -127,7 +123,6 @@ const CALL_STYLES = `
     font-size: 26px;
     font-style: italic;
     color: #6366F1;
-    font-weight: normal;
     user-select: none;
   }
 
@@ -149,6 +144,8 @@ const CALL_STYLES = `
     min-height: 16px;
     text-align: center;
   }
+  .vc-status.recording { color: #ef4444; animation: vcBlink 0.9s ease-in-out infinite; }
+  @keyframes vcBlink { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
 
   /* ── Transcript ── */
   .vc-transcript {
@@ -173,19 +170,8 @@ const CALL_STYLES = `
     font-style: italic;
     margin: auto;
   }
-  .vc-tx-user {
-    font-size: 12px;
-    color: #6366F1;
-    text-align: right;
-    line-height: 1.5;
-  }
-  .vc-tx-vint {
-    font-size: 12px;
-    color: #1F2937;
-    text-align: left;
-    line-height: 1.6;
-    font-family: Georgia, serif;
-  }
+  .vc-tx-user { font-size:12px; color:#6366F1; text-align:right; line-height:1.5; }
+  .vc-tx-vint { font-size:12px; color:#1F2937; text-align:left; line-height:1.6; font-family:Georgia,serif; }
 
   /* ── Mic button ── */
   .vc-mic-btn {
@@ -198,22 +184,37 @@ const CALL_STYLES = `
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+    transition: border-color 0.15s, box-shadow 0.15s, background 0.15s, transform 0.1s;
     box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    margin-bottom: 16px;
+    margin-bottom: 8px;
     flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    touch-action: none;
   }
   .vc-mic-btn:hover:not(:disabled) {
     border-color: #6366F1;
     box-shadow: 0 4px 16px rgba(99,102,241,0.2);
   }
-  .vc-mic-btn.listening {
+  .vc-mic-btn.recording {
     background: #fef2f2;
     border-color: #ef4444;
-    box-shadow: 0 0 0 8px rgba(239,68,68,0.1);
+    box-shadow: 0 0 0 10px rgba(239,68,68,0.1);
+    transform: scale(1.06);
   }
-  .vc-mic-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-  .vc-mic-icon { width: 28px; height: 28px; }
+  .vc-mic-btn:disabled { opacity:0.35; cursor:not-allowed; }
+  .vc-mic-icon { width:28px; height:28px; pointer-events:none; }
+
+  /* ── Hint text under mic ── */
+  .vc-mic-hint {
+    font-size: 10px;
+    color: #D1D5DB;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+  .vc-mic-hint.recording { color: #ef4444; }
 
   /* ── Error ── */
   .vc-error {
@@ -244,9 +245,9 @@ const CALL_STYLES = `
   .vc-end-btn:hover { background: #FEF2F2; }
 `;
 
-const MicIcon = ({ active }) => (
+const MicIcon = ({ recording }) => (
   <svg className="vc-mic-icon" viewBox="0 0 24 24" fill="none"
-    stroke={active ? '#ef4444' : '#6366F1'} strokeWidth="2"
+    stroke={recording ? '#ef4444' : '#6366F1'} strokeWidth="2"
     strokeLinecap="round" strokeLinejoin="round">
     <rect x="9" y="2" width="6" height="12" rx="3"/>
     <path d="M19 10a7 7 0 0 1-14 0"/>
@@ -255,21 +256,19 @@ const MicIcon = ({ active }) => (
   </svg>
 );
 
-// Portal renders directly into document.body, escaping any parent stacking context
-function ModalPortal({ children }) {
-  return createPortal(children, document.body);
-}
-
 export default function VintCall({ messages = [], onNewExchange }) {
-  const [open, setOpen]       = useState(false);
-  const [phase, setPhase]     = useState('idle'); // idle | listening | thinking | speaking
+  const [open, setOpen]         = useState(false);
+  const [phase, setPhase]       = useState('idle'); // idle | recording | thinking | speaking
   const [lastUser, setLastUser] = useState('');
   const [lastVint, setLastVint] = useState('');
-  const [error, setError]     = useState('');
-  const audioRef              = useRef(null);
-  const recognitionRef        = useRef(null);
+  const [error, setError]       = useState('');
 
-  // Inject styles once on mount
+  const audioRef        = useRef(null);
+  const mediaRecRef     = useRef(null);
+  const chunksRef       = useRef([]);
+  const streamRef       = useRef(null);
+
+  // Inject styles once
   useEffect(() => {
     const el = document.createElement('style');
     el.id = 'vc-styles';
@@ -286,75 +285,108 @@ export default function VintCall({ messages = [], onNewExchange }) {
     }
   }, []);
 
+  const stopStream = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
+  }, []);
+
   const handleClose = useCallback(() => {
     stopAudio();
-    if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch {}
-      recognitionRef.current = null;
+    stopStream();
+    if (mediaRecRef.current && mediaRecRef.current.state !== 'inactive') {
+      try { mediaRecRef.current.stop(); } catch {}
     }
+    mediaRecRef.current = null;
+    chunksRef.current = [];
     setOpen(false);
     setPhase('idle');
     setError('');
-  }, [stopAudio]);
+  }, [stopAudio, stopStream]);
 
-  const sendVoice = useCallback(async (transcript) => {
-    console.log('[VintCall] sendVoice — transcript:', transcript);
-    if (!transcript.trim()) { setPhase('idle'); return; }
+  // Called once we have a recorded blob — transcribe then synthesise
+  const handleBlob = useCallback(async (blob) => {
+    console.log('[VintCall] handleBlob — size:', blob.size, 'type:', blob.type);
+    if (blob.size < 1000) {
+      console.warn('[VintCall] Blob too small, ignoring');
+      setPhase('idle');
+      return;
+    }
 
-    setLastUser(transcript);
-    setLastVint('');
     setPhase('thinking');
     setError('');
 
     try {
-      const fetchUrl = `${API}/vint-voice`;
-      console.log('[VintCall] POST →', fetchUrl);
+      // 1. Transcribe via Groq Whisper
+      const fd = new FormData();
+      fd.append('audio', blob, 'audio.webm');
+      console.log('[VintCall] POST /vint-transcribe...');
+      const txRes = await fetch(`${API}/vint-transcribe`, { method: 'POST', body: fd });
+      console.log('[VintCall] /vint-transcribe status:', txRes.status);
 
-      const res = await fetch(fetchUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: transcript, history: messages }),
-      });
-
-      console.log('[VintCall] Response status:', res.status);
-
-      if (!res.ok) {
-        const errBody = await res.text();
-        console.error('[VintCall] Server error body:', errBody);
-        throw new Error(`Server ${res.status}: ${errBody}`);
+      if (!txRes.ok) {
+        const errBody = await txRes.text();
+        console.error('[VintCall] Transcribe error:', errBody);
+        throw new Error(`Transcribe failed ${txRes.status}: ${errBody}`);
       }
 
-      const vintText = decodeURIComponent(res.headers.get('X-Vint-Text') || '');
+      const { text } = await txRes.json();
+      console.log('[VintCall] Transcript:', text);
+
+      if (!text || !text.trim()) {
+        setError('No speech detected. Hold the mic and speak clearly.');
+        setPhase('idle');
+        return;
+      }
+
+      setLastUser(text);
+      setLastVint('');
+
+      // 2. Get Vint's voice response
+      console.log('[VintCall] POST /vint-voice...');
+      const voiceRes = await fetch(`${API}/vint-voice`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, history: messages }),
+      });
+      console.log('[VintCall] /vint-voice status:', voiceRes.status);
+
+      if (!voiceRes.ok) {
+        const errBody = await voiceRes.text();
+        console.error('[VintCall] Voice error:', errBody);
+        throw new Error(`Voice failed ${voiceRes.status}: ${errBody}`);
+      }
+
+      const vintText = decodeURIComponent(voiceRes.headers.get('X-Vint-Text') || '');
       console.log('[VintCall] X-Vint-Text:', vintText);
       setLastVint(vintText);
 
-      const blob = await res.blob();
-      console.log('[VintCall] Blob size:', blob.size, 'type:', blob.type);
+      const audioBlob = await voiceRes.blob();
+      console.log('[VintCall] Audio blob size:', audioBlob.size);
 
-      if (blob.size === 0) throw new Error('Empty audio blob — MiniMax may not be configured');
+      if (audioBlob.size === 0) throw new Error('Empty audio — check MiniMax env vars');
 
-      const url = URL.createObjectURL(blob);
+      const url = URL.createObjectURL(audioBlob);
       const audio = new Audio(url);
       audioRef.current = audio;
       setPhase('speaking');
 
       audio.onended = () => {
-        console.log('[VintCall] Audio ended');
+        console.log('[VintCall] Playback ended');
         URL.revokeObjectURL(url);
         audioRef.current = null;
         setPhase('idle');
-        if (vintText && onNewExchange) onNewExchange(transcript, vintText);
+        if (vintText && onNewExchange) onNewExchange(text, vintText);
       };
-
       audio.onerror = (e) => {
-        console.error('[VintCall] Audio error:', e);
+        console.error('[VintCall] Playback error:', e);
         URL.revokeObjectURL(url);
         audioRef.current = null;
         setPhase('idle');
-        if (vintText && onNewExchange) onNewExchange(transcript, vintText);
+        if (vintText && onNewExchange) onNewExchange(text, vintText);
       };
 
-      console.log('[VintCall] Starting playback...');
       audio.play().catch((e) => {
         console.error('[VintCall] play() rejected:', e);
         setError(`Playback blocked: ${e.message}`);
@@ -362,134 +394,130 @@ export default function VintCall({ messages = [], onNewExchange }) {
       });
 
     } catch (e) {
-      console.error('[VintCall] sendVoice caught:', e);
+      console.error('[VintCall] handleBlob caught:', e);
       setError(e.message);
       setPhase('idle');
     }
   }, [messages, onNewExchange]);
 
-  const startListening = useCallback(() => {
-    // DEBUG: confirm button is reachable
-    alert('[VintCall] Mic button clicked — phase: ' + phase);
-
+  // ── Start recording ──────────────────────────────────────────────────
+  const startRecording = useCallback(async (e) => {
+    e.preventDefault();
     if (phase !== 'idle') return;
     setError('');
+    console.log('[VintCall] startRecording');
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      const msg = 'Speech recognition not supported in this browser. Use Chrome.';
-      setError(msg);
-      console.error('[VintCall]', msg);
-      return;
-    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
 
-    const rec = new SpeechRecognition();
-    rec.lang = 'en-US';
-    rec.interimResults = false;
-    rec.maxAlternatives = 1;
-    recognitionRef.current = rec;
-    let gotResult = false;
+      // Pick a supported MIME type
+      const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/ogg', '']
+        .find(m => !m || MediaRecorder.isTypeSupported(m)) || '';
 
-    rec.onstart = () => {
-      console.log('[VintCall] Recognition started');
-      setPhase('listening');
-    };
+      console.log('[VintCall] Using MIME type:', mimeType || '(browser default)');
+      const rec = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+      mediaRecRef.current = rec;
+      chunksRef.current = [];
 
-    rec.onresult = (e) => {
-      const transcript = e.results[0][0].transcript;
-      const confidence = e.results[0][0].confidence;
-      console.log('[VintCall] Result:', transcript, '| confidence:', confidence);
-      gotResult = true;
-      recognitionRef.current = null;
-      sendVoice(transcript);
-    };
+      rec.ondataavailable = (ev) => {
+        if (ev.data && ev.data.size > 0) chunksRef.current.push(ev.data);
+      };
 
-    rec.onerror = (e) => {
-      console.error('[VintCall] Recognition error:', e.error);
-      recognitionRef.current = null;
-      gotResult = true;
-      if (e.error !== 'no-speech') setError(`Mic error: ${e.error}`);
+      rec.onstop = () => {
+        stopStream();
+        const blob = new Blob(chunksRef.current, { type: rec.mimeType || 'audio/webm' });
+        chunksRef.current = [];
+        handleBlob(blob);
+      };
+
+      rec.start();
+      setPhase('recording');
+    } catch (e) {
+      console.error('[VintCall] getUserMedia error:', e);
+      setError(`Mic access denied: ${e.message}`);
       setPhase('idle');
-    };
+    }
+  }, [phase, handleBlob, stopStream]);
 
-    rec.onend = () => {
-      console.log('[VintCall] Recognition onend — gotResult:', gotResult);
-      recognitionRef.current = null;
-      if (!gotResult) setPhase('idle');
-    };
-
-    console.log('[VintCall] rec.start()...');
-    rec.start();
-  }, [phase, sendVoice]);
-
-  const stopListening = useCallback(() => {
-    console.log('[VintCall] stopListening called');
-    if (recognitionRef.current) recognitionRef.current.stop();
+  // ── Stop recording ───────────────────────────────────────────────────
+  const stopRecording = useCallback((e) => {
+    e.preventDefault();
+    console.log('[VintCall] stopRecording — state:', mediaRecRef.current?.state);
+    if (mediaRecRef.current && mediaRecRef.current.state === 'recording') {
+      mediaRecRef.current.stop();
+    }
   }, []);
 
   const statusLabel = {
-    idle:      'Tap mic to speak',
-    listening: 'Listening…',
+    idle:      'Hold mic to speak',
+    recording: 'Recording…',
     thinking:  'Thinking…',
     speaking:  'Speaking…',
   }[phase];
 
+  const hintLabel = phase === 'recording' ? 'RELEASE TO SEND' : 'HOLD TO SPEAK';
+
   return (
     <>
-      {/* Trigger button — inline on page */}
       <button className="vc-trigger" onClick={() => setOpen(true)}>
         <span className="vc-pulse-dot" />
         Call Vint
       </button>
 
-      {/* Modal rendered via portal directly into document.body */}
-      {open && (
-        <ModalPortal>
-          <div
-            className="vc-overlay"
-            onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
-          >
-            <div className="vc-card">
+      {open && createPortal(
+        <div
+          className="vc-overlay"
+          onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
+        >
+          <div className="vc-card">
 
-              {/* Avatar — VC initials, no external image */}
-              <div className="vc-avatar-wrap">
-                <div className={`vc-avatar-ring ${phase}`} />
-                <div className="vc-avatar-initials">VC</div>
-              </div>
-
-              <div className="vc-name">Vint Cerf</div>
-              <div className="vc-status">{statusLabel}</div>
-
-              {/* Transcript */}
-              <div className="vc-transcript">
-                {!lastUser && !lastVint
-                  ? <div className="vc-transcript-empty">Conversation will appear here</div>
-                  : <>
-                      {lastUser && <div className="vc-tx-user">{lastUser}</div>}
-                      {lastVint && <div className="vc-tx-vint">{lastVint}</div>}
-                    </>
-                }
-              </div>
-
-              {/* Mic button */}
-              <button
-                className={`vc-mic-btn${phase === 'listening' ? ' listening' : ''}`}
-                onClick={phase === 'listening' ? stopListening : startListening}
-                disabled={phase === 'thinking' || phase === 'speaking'}
-                title={phase === 'listening' ? 'Stop listening' : 'Speak'}
-              >
-                <MicIcon active={phase === 'listening'} />
-              </button>
-
-              {/* Error */}
-              {error && <div className="vc-error">{error}</div>}
-
-              {/* End call */}
-              <button className="vc-end-btn" onClick={handleClose}>End call</button>
-
+            {/* Avatar */}
+            <div className="vc-avatar-wrap">
+              <div className={`vc-avatar-ring ${phase === 'recording' ? 'listening' : phase}`} />
+              <div className="vc-avatar-initials">VC</div>
             </div>
+
+            <div className="vc-name">Vint Cerf</div>
+            <div className={`vc-status${phase === 'recording' ? ' recording' : ''}`}>
+              {statusLabel}
+            </div>
+
+            {/* Transcript */}
+            <div className="vc-transcript">
+              {!lastUser && !lastVint
+                ? <div className="vc-transcript-empty">Conversation will appear here</div>
+                : <>
+                    {lastUser && <div className="vc-tx-user">{lastUser}</div>}
+                    {lastVint && <div className="vc-tx-vint">{lastVint}</div>}
+                  </>
+              }
+            </div>
+
+            {/* Mic button — push to talk */}
+            <button
+              className={`vc-mic-btn${phase === 'recording' ? ' recording' : ''}`}
+              onMouseDown={startRecording}
+              onMouseUp={stopRecording}
+              onMouseLeave={phase === 'recording' ? stopRecording : undefined}
+              onTouchStart={startRecording}
+              onTouchEnd={stopRecording}
+              disabled={phase === 'thinking' || phase === 'speaking'}
+              title={hintLabel}
+            >
+              <MicIcon recording={phase === 'recording'} />
+            </button>
+
+            <div className={`vc-mic-hint${phase === 'recording' ? ' recording' : ''}`}>
+              {hintLabel}
+            </div>
+
+            {error && <div className="vc-error">{error}</div>}
+
+            <button className="vc-end-btn" onClick={handleClose}>End call</button>
           </div>
-        </ModalPortal>
+        </div>,
+        document.body
       )}
     </>
   );
