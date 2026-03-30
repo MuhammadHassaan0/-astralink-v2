@@ -5,6 +5,8 @@ const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const { exec } = require('child_process');
 const fs = require('fs');
+const path = require('path');
+const os = require('os');
 const { pool, initDB, getUserContext, getPublicContext } = require('./db');
 const Groq = require('groq-sdk');
 const pdfParse = require('pdf-parse');
@@ -594,22 +596,30 @@ app.post('/vint-voice', async (req, res) => {
 });
 
 app.post('/vint-transcribe', uploadMem.single('audio'), async (req, res) => {
+  console.log('[vint-transcribe] HIT — file size:', req.file?.size, 'mimetype:', req.file?.mimetype);
+  if (!req.file || !req.file.buffer) {
+    return res.status(400).json({ error: 'No audio file received' });
+  }
+
+  const ext = (req.file.mimetype || 'audio/webm').includes('ogg') ? 'ogg' : 'webm';
+  const tmpPath = path.join(os.tmpdir(), `vint-audio-${Date.now()}.${ext}`);
+
   try {
-    console.log('[vint-transcribe] HIT — file size:', req.file?.size, 'mimetype:', req.file?.mimetype);
-    if (!req.file || !req.file.buffer) {
-      return res.status(400).json({ error: 'No audio file received' });
-    }
+    fs.writeFileSync(tmpPath, req.file.buffer);
+    console.log('[vint-transcribe] Wrote temp file:', tmpPath);
 
     const transcription = await groq.audio.transcriptions.create({
-      file: new File([req.file.buffer], 'audio.webm', { type: req.file.mimetype || 'audio/webm' }),
+      file: fs.createReadStream(tmpPath),
       model: 'whisper-large-v3-turbo',
     });
 
-    console.log('[vint-transcribe] Result:', transcription.text);
+    console.log('[vint-transcribe] Success — text:', transcription.text);
     res.json({ text: transcription.text });
   } catch (e) {
     console.error('[vint-transcribe] ERROR:', e.message, e.stack);
     res.status(500).json({ error: e.message });
+  } finally {
+    try { fs.unlinkSync(tmpPath); } catch {}
   }
 });
 
