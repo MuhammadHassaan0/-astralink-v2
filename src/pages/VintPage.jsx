@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { flushSync } from 'react-dom';
+import VintCall from '../components/VintCall';
 
 const API = 'https://astralink-v2-production.up.railway.app';
 
@@ -584,6 +585,18 @@ export default function VintPage() {
             >
               {streaming ? 'Sending…' : 'Send'}
             </button>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'center', paddingBottom: 4 }}>
+            <VintCall
+              messages={messages}
+              onNewExchange={(userText, vintText) =>
+                setMessages(prev => [
+                  ...prev,
+                  { role: 'user', content: userText },
+                  { role: 'assistant', content: vintText },
+                ])
+              }
+            />
           </div>
           <div className="vp-footer">AstraLink — astralink.life</div>
         </div>

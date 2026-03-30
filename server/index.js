@@ -505,6 +505,92 @@ app.post('/vint-chat', async (req, res) => {
   }
 });
 
+app.post('/vint-voice', async (req, res) => {
+  try {
+    const { text, history = [] } = req.body;
+
+    // 1. Get Vint's text response from Groq (non-streaming, short)
+    const completion = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        { role: 'system', content: VINT_SYSTEM_PROMPT },
+        ...history.slice(-16),
+        { role: 'user', content: text },
+      ],
+      stream: false,
+      max_tokens: 180,
+    });
+    const responseText = completion.choices[0]?.message?.content || '';
+
+    // 2. Stream audio back from MiniMax TTS
+    res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('X-Vint-Text', encodeURIComponent(responseText));
+    res.setHeader('Access-Control-Expose-Headers', 'X-Vint-Text');
+
+    const mmRes = await fetch(
+      `https://api.minimax.io/v1/t2a_v2?GroupId=${process.env.MINIMAX_GROUP_ID}`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.MINIMAX_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'speech-02-turbo',
+          text: responseText,
+          stream: true,
+          voice_setting: {
+            voice_id: process.env.MINIMAX_VOICE_ID,
+            speed: 1.0,
+            vol: 1.0,
+            pitch: 0,
+          },
+          audio_setting: {
+            format: 'mp3',
+            sample_rate: 32000,
+            bitrate: 128000,
+            channel: 1,
+          },
+        }),
+      }
+    );
+
+    if (!mmRes.ok) {
+      const errText = await mmRes.text();
+      console.error('MiniMax error:', errText);
+      return res.status(502).json({ error: 'TTS failed', detail: errText });
+    }
+
+    // Parse MiniMax SSE stream and pipe audio chunks
+    const reader = mmRes.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop(); // keep incomplete line
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue;
+        const raw = line.slice(5).trim();
+        if (raw === '[DONE]') { res.end(); return; }
+        try {
+          const parsed = JSON.parse(raw);
+          const hex = parsed?.data?.audio;
+          if (hex) res.write(Buffer.from(hex, 'hex'));
+        } catch {}
+      }
+    }
+    res.end();
+  } catch (e) {
+    console.error('Vint voice error:', e);
+    if (!res.headersSent) res.status(500).json({ error: e.message });
+    else res.end();
+  }
+});
+
 app.post('/woz-chat', async (req, res) => {
   try {
     const { messages } = req.body;
