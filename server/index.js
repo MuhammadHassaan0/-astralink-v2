@@ -534,6 +534,14 @@ app.post('/vint-voice', async (req, res) => {
 
     // 2. Call MiniMax TTS (non-streaming — simpler, more reliable)
     const mmUrl = `https://api.minimax.io/v1/t2a_v2?GroupId=${process.env.MINIMAX_GROUP_ID}`;
+    console.log('[vint-voice] MiniMax auth check:', {
+      hasApiKey: !!process.env.MINIMAX_API_KEY,
+      keyPrefix: process.env.MINIMAX_API_KEY?.slice(0, 8),
+      hasGroupId: !!process.env.MINIMAX_GROUP_ID,
+      groupId: process.env.MINIMAX_GROUP_ID,
+      hasVoiceId: !!process.env.MINIMAX_VOICE_ID,
+      voiceId: process.env.MINIMAX_VOICE_ID,
+    });
     console.log('[vint-voice] Calling MiniMax at:', mmUrl);
 
     const mmRes = await fetch(mmUrl, {
