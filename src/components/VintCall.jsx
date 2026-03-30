@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 
 const API = 'https://astralink-v2-production.up.railway.app';
 
@@ -39,17 +40,22 @@ const CALL_STYLES = `
     50%       { box-shadow: 0 0 0 6px rgba(34,197,94,0.08); }
   }
 
-  /* ── Modal overlay ── */
+  /* ── Portal overlay — rendered into document.body ── */
   .vc-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.55);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-    z-index: 9999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 99999 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
     animation: vcFadeIn 0.2s ease forwards;
   }
   @keyframes vcFadeIn {
@@ -63,35 +69,37 @@ const CALL_STYLES = `
     border-radius: 20px;
     padding: 36px 28px 28px;
     width: 100%;
-    max-width: 360px;
+    max-width: 340px;
+    min-height: 500px;
+    margin: 16px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0;
-    box-shadow: 0 24px 64px rgba(0,0,0,0.18);
+    box-shadow: 0 32px 80px rgba(0,0,0,0.25);
     font-family: 'DM Mono', monospace;
-    animation: vcSlideUp 0.2s ease forwards;
+    animation: vcSlideUp 0.22s ease forwards;
+    box-sizing: border-box;
   }
   @keyframes vcSlideUp {
-    from { transform: translateY(16px); opacity: 0; }
+    from { transform: translateY(20px); opacity: 0; }
     to   { transform: translateY(0);    opacity: 1; }
   }
 
-  /* ── Avatar ring ── */
+  /* ── Avatar ── */
   .vc-avatar-wrap {
     position: relative;
     width: 96px;
     height: 96px;
     margin-bottom: 16px;
+    flex-shrink: 0;
   }
   .vc-avatar-ring {
     position: absolute;
     inset: -4px;
     border-radius: 50%;
-    background: conic-gradient(#6366F1, #818cf8, #6366F1);
-    animation: none;
+    background: #E5E7EB;
   }
-  .vc-avatar-ring.idle    { background: #E5E7EB; animation: none; }
+  .vc-avatar-ring.idle    { background: #E5E7EB; }
   .vc-avatar-ring.listening {
     background: conic-gradient(#ef4444, #fca5a5, #ef4444);
     animation: vcSpin 1.4s linear infinite;
@@ -104,17 +112,23 @@ const CALL_STYLES = `
     background: conic-gradient(#22c55e, #86efac, #22c55e);
     animation: vcSpin 1.4s linear infinite;
   }
-  @keyframes vcSpin {
-    to { transform: rotate(360deg); }
-  }
-  .vc-avatar-img {
+  @keyframes vcSpin { to { transform: rotate(360deg); } }
+
+  .vc-avatar-initials {
     position: absolute;
     inset: 4px;
     border-radius: 50%;
-    object-fit: cover;
-    object-position: top;
-    background: #f3f4f6;
+    background: #EEF2FF;
     border: 3px solid #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: Georgia, serif;
+    font-size: 26px;
+    font-style: italic;
+    color: #6366F1;
+    font-weight: normal;
+    user-select: none;
   }
 
   /* ── Name & status ── */
@@ -139,8 +153,9 @@ const CALL_STYLES = `
   /* ── Transcript ── */
   .vc-transcript {
     width: 100%;
-    min-height: 68px;
-    max-height: 120px;
+    flex: 1;
+    min-height: 80px;
+    max-height: 140px;
     overflow-y: auto;
     background: #F9FAFB;
     border-radius: 10px;
@@ -149,7 +164,7 @@ const CALL_STYLES = `
     margin-bottom: 24px;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
   }
   .vc-transcript-empty {
     font-size: 12px;
@@ -184,21 +199,32 @@ const CALL_STYLES = `
     justify-content: center;
     cursor: pointer;
     transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    margin-bottom: 16px;
     flex-shrink: 0;
   }
   .vc-mic-btn:hover:not(:disabled) {
     border-color: #6366F1;
-    box-shadow: 0 4px 16px rgba(99,102,241,0.18);
+    box-shadow: 0 4px 16px rgba(99,102,241,0.2);
   }
   .vc-mic-btn.listening {
     background: #fef2f2;
     border-color: #ef4444;
-    box-shadow: 0 0 0 6px rgba(239,68,68,0.12);
+    box-shadow: 0 0 0 8px rgba(239,68,68,0.1);
   }
-  .vc-mic-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .vc-mic-btn:disabled { opacity: 0.35; cursor: not-allowed; }
   .vc-mic-icon { width: 28px; height: 28px; }
+
+  /* ── Error ── */
+  .vc-error {
+    font-size: 11px;
+    color: #ef4444;
+    margin-bottom: 8px;
+    text-align: center;
+    font-family: 'DM Mono', monospace;
+    max-width: 280px;
+    word-break: break-word;
+  }
 
   /* ── End call ── */
   .vc-end-btn {
@@ -210,15 +236,18 @@ const CALL_STYLES = `
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: #EF4444;
-    padding: 6px 12px;
+    padding: 6px 14px;
     border-radius: 6px;
     transition: background 0.15s;
+    flex-shrink: 0;
   }
   .vc-end-btn:hover { background: #FEF2F2; }
 `;
 
 const MicIcon = ({ active }) => (
-  <svg className="vc-mic-icon" viewBox="0 0 24 24" fill="none" stroke={active ? '#ef4444' : '#6366F1'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg className="vc-mic-icon" viewBox="0 0 24 24" fill="none"
+    stroke={active ? '#ef4444' : '#6366F1'} strokeWidth="2"
+    strokeLinecap="round" strokeLinejoin="round">
     <rect x="9" y="2" width="6" height="12" rx="3"/>
     <path d="M19 10a7 7 0 0 1-14 0"/>
     <line x1="12" y1="19" x2="12" y2="22"/>
@@ -226,30 +255,33 @@ const MicIcon = ({ active }) => (
   </svg>
 );
 
+// Portal renders directly into document.body, escaping any parent stacking context
+function ModalPortal({ children }) {
+  return createPortal(children, document.body);
+}
+
 export default function VintCall({ messages = [], onNewExchange }) {
-  const [open, setOpen] = useState(false);
-  const [phase, setPhase] = useState('idle'); // idle | listening | thinking | speaking
+  const [open, setOpen]       = useState(false);
+  const [phase, setPhase]     = useState('idle'); // idle | listening | thinking | speaking
   const [lastUser, setLastUser] = useState('');
   const [lastVint, setLastVint] = useState('');
-  const [error, setError] = useState('');
-  const audioRef = useRef(null);
-  const recognitionRef = useRef(null);
-  const styleRef = useRef(null);
+  const [error, setError]     = useState('');
+  const audioRef              = useRef(null);
+  const recognitionRef        = useRef(null);
 
-  // Inject styles once
+  // Inject styles once on mount
   useEffect(() => {
     const el = document.createElement('style');
     el.id = 'vc-styles';
     el.textContent = CALL_STYLES;
     document.head.appendChild(el);
-    styleRef.current = el;
     return () => el.remove();
   }, []);
 
   const stopAudio = useCallback(() => {
     if (audioRef.current) {
       audioRef.current.pause();
-      URL.revokeObjectURL(audioRef.current.src);
+      try { URL.revokeObjectURL(audioRef.current.src); } catch {}
       audioRef.current = null;
     }
   }, []);
@@ -266,12 +298,9 @@ export default function VintCall({ messages = [], onNewExchange }) {
   }, [stopAudio]);
 
   const sendVoice = useCallback(async (transcript) => {
-    console.log('[VintCall] sendVoice called with transcript:', transcript);
-    if (!transcript.trim()) {
-      console.log('[VintCall] Empty transcript — going idle');
-      setPhase('idle');
-      return;
-    }
+    console.log('[VintCall] sendVoice — transcript:', transcript);
+    if (!transcript.trim()) { setPhase('idle'); return; }
+
     setLastUser(transcript);
     setLastVint('');
     setPhase('thinking');
@@ -279,34 +308,30 @@ export default function VintCall({ messages = [], onNewExchange }) {
 
     try {
       const fetchUrl = `${API}/vint-voice`;
-      console.log('[VintCall] Fetching:', fetchUrl);
+      console.log('[VintCall] POST →', fetchUrl);
+
       const res = await fetch(fetchUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: transcript, history: messages }),
       });
 
-      console.log('[VintCall] Fetch response status:', res.status);
+      console.log('[VintCall] Response status:', res.status);
 
       if (!res.ok) {
         const errBody = await res.text();
         console.error('[VintCall] Server error body:', errBody);
-        throw new Error(`Server error ${res.status}: ${errBody}`);
+        throw new Error(`Server ${res.status}: ${errBody}`);
       }
 
-      // Extract Vint's text from response header
       const vintText = decodeURIComponent(res.headers.get('X-Vint-Text') || '');
-      console.log('[VintCall] X-Vint-Text header:', vintText);
+      console.log('[VintCall] X-Vint-Text:', vintText);
       setLastVint(vintText);
 
-      // Play audio
       const blob = await res.blob();
-      console.log('[VintCall] Audio blob size (bytes):', blob.size, 'type:', blob.type);
+      console.log('[VintCall] Blob size:', blob.size, 'type:', blob.type);
 
-      if (blob.size === 0) {
-        console.error('[VintCall] Empty audio blob received');
-        throw new Error('Empty audio received from server');
-      }
+      if (blob.size === 0) throw new Error('Empty audio blob — MiniMax may not be configured');
 
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
@@ -314,7 +339,7 @@ export default function VintCall({ messages = [], onNewExchange }) {
       setPhase('speaking');
 
       audio.onended = () => {
-        console.log('[VintCall] Audio playback ended');
+        console.log('[VintCall] Audio ended');
         URL.revokeObjectURL(url);
         audioRef.current = null;
         setPhase('idle');
@@ -322,33 +347,39 @@ export default function VintCall({ messages = [], onNewExchange }) {
       };
 
       audio.onerror = (e) => {
-        console.error('[VintCall] Audio playback error:', e);
+        console.error('[VintCall] Audio error:', e);
         URL.revokeObjectURL(url);
         audioRef.current = null;
         setPhase('idle');
         if (vintText && onNewExchange) onNewExchange(transcript, vintText);
       };
 
-      console.log('[VintCall] Starting audio playback...');
+      console.log('[VintCall] Starting playback...');
       audio.play().catch((e) => {
-        console.error('[VintCall] audio.play() rejected:', e);
+        console.error('[VintCall] play() rejected:', e);
+        setError(`Playback blocked: ${e.message}`);
         setPhase('idle');
       });
+
     } catch (e) {
-      console.error('[VintCall] sendVoice error:', e);
-      setError(`Error: ${e.message}`);
+      console.error('[VintCall] sendVoice caught:', e);
+      setError(e.message);
       setPhase('idle');
     }
   }, [messages, onNewExchange]);
 
   const startListening = useCallback(() => {
+    // DEBUG: confirm button is reachable
+    alert('[VintCall] Mic button clicked — phase: ' + phase);
+
     if (phase !== 'idle') return;
     setError('');
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      setError('Speech recognition not supported in this browser.');
-      console.error('[VintCall] SpeechRecognition not available in this browser');
+      const msg = 'Speech recognition not supported in this browser. Use Chrome.';
+      setError(msg);
+      console.error('[VintCall]', msg);
       return;
     }
 
@@ -357,7 +388,7 @@ export default function VintCall({ messages = [], onNewExchange }) {
     rec.interimResults = false;
     rec.maxAlternatives = 1;
     recognitionRef.current = rec;
-    let gotResult = false; // flag to prevent onend from resetting phase after a result
+    let gotResult = false;
 
     rec.onstart = () => {
       console.log('[VintCall] Recognition started');
@@ -367,7 +398,7 @@ export default function VintCall({ messages = [], onNewExchange }) {
     rec.onresult = (e) => {
       const transcript = e.results[0][0].transcript;
       const confidence = e.results[0][0].confidence;
-      console.log('[VintCall] Recognition result:', transcript, '(confidence:', confidence, ')');
+      console.log('[VintCall] Result:', transcript, '| confidence:', confidence);
       gotResult = true;
       recognitionRef.current = null;
       sendVoice(transcript);
@@ -376,90 +407,89 @@ export default function VintCall({ messages = [], onNewExchange }) {
     rec.onerror = (e) => {
       console.error('[VintCall] Recognition error:', e.error);
       recognitionRef.current = null;
-      gotResult = true; // prevent onend from double-firing
+      gotResult = true;
       if (e.error !== 'no-speech') setError(`Mic error: ${e.error}`);
       setPhase('idle');
     };
 
     rec.onend = () => {
-      console.log('[VintCall] Recognition ended. gotResult:', gotResult);
+      console.log('[VintCall] Recognition onend — gotResult:', gotResult);
       recognitionRef.current = null;
-      if (!gotResult) {
-        // ended without capturing anything (no-speech, timeout, etc.)
-        console.log('[VintCall] No result captured — returning to idle');
-        setPhase('idle');
-      }
+      if (!gotResult) setPhase('idle');
     };
 
-    console.log('[VintCall] Starting recognition...');
+    console.log('[VintCall] rec.start()...');
     rec.start();
   }, [phase, sendVoice]);
 
   const stopListening = useCallback(() => {
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-    }
+    console.log('[VintCall] stopListening called');
+    if (recognitionRef.current) recognitionRef.current.stop();
   }, []);
 
-  const statusLabel = { idle: 'Tap mic to speak', listening: 'Listening…', thinking: 'Thinking…', speaking: 'Speaking…' }[phase];
+  const statusLabel = {
+    idle:      'Tap mic to speak',
+    listening: 'Listening…',
+    thinking:  'Thinking…',
+    speaking:  'Speaking…',
+  }[phase];
 
   return (
     <>
+      {/* Trigger button — inline on page */}
       <button className="vc-trigger" onClick={() => setOpen(true)}>
         <span className="vc-pulse-dot" />
         Call Vint
       </button>
 
+      {/* Modal rendered via portal directly into document.body */}
       {open && (
-        <div className="vc-overlay" onClick={(e) => e.target === e.currentTarget && handleClose()}>
-          <div className="vc-card">
+        <ModalPortal>
+          <div
+            className="vc-overlay"
+            onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
+          >
+            <div className="vc-card">
 
-            {/* Avatar with animated ring */}
-            <div className="vc-avatar-wrap">
-              <div className={`vc-avatar-ring ${phase}`} />
-              <img
-                className="vc-avatar-img"
-                src="https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/Vint_Cerf_-_2010_%28cropped%29.jpg/440px-Vint_Cerf_-_2010_%28cropped%29.jpg"
-                alt="Vint Cerf"
-                draggable={false}
-              />
-            </div>
-
-            <div className="vc-name">Vint Cerf</div>
-            <div className="vc-status">{statusLabel}</div>
-
-            {/* Transcript */}
-            <div className="vc-transcript">
-              {!lastUser && !lastVint ? (
-                <div className="vc-transcript-empty">Conversation will appear here</div>
-              ) : (
-                <>
-                  {lastUser && <div className="vc-tx-user">{lastUser}</div>}
-                  {lastVint && <div className="vc-tx-vint">{lastVint}</div>}
-                </>
-              )}
-            </div>
-
-            {/* Mic button */}
-            <button
-              className={`vc-mic-btn ${phase === 'listening' ? 'listening' : ''}`}
-              onClick={phase === 'listening' ? stopListening : startListening}
-              disabled={phase === 'thinking' || phase === 'speaking'}
-              title={phase === 'listening' ? 'Stop' : 'Speak'}
-            >
-              <MicIcon active={phase === 'listening'} />
-            </button>
-
-            {error && (
-              <div style={{ fontSize: 11, color: '#ef4444', marginBottom: 8, textAlign: 'center', fontFamily: 'DM Mono, monospace' }}>
-                {error}
+              {/* Avatar — VC initials, no external image */}
+              <div className="vc-avatar-wrap">
+                <div className={`vc-avatar-ring ${phase}`} />
+                <div className="vc-avatar-initials">VC</div>
               </div>
-            )}
 
-            {/* End call */}
-            <button className="vc-end-btn" onClick={handleClose}>End call</button>
+              <div className="vc-name">Vint Cerf</div>
+              <div className="vc-status">{statusLabel}</div>
+
+              {/* Transcript */}
+              <div className="vc-transcript">
+                {!lastUser && !lastVint
+                  ? <div className="vc-transcript-empty">Conversation will appear here</div>
+                  : <>
+                      {lastUser && <div className="vc-tx-user">{lastUser}</div>}
+                      {lastVint && <div className="vc-tx-vint">{lastVint}</div>}
+                    </>
+                }
+              </div>
+
+              {/* Mic button */}
+              <button
+                className={`vc-mic-btn${phase === 'listening' ? ' listening' : ''}`}
+                onClick={phase === 'listening' ? stopListening : startListening}
+                disabled={phase === 'thinking' || phase === 'speaking'}
+                title={phase === 'listening' ? 'Stop listening' : 'Speak'}
+              >
+                <MicIcon active={phase === 'listening'} />
+              </button>
+
+              {/* Error */}
+              {error && <div className="vc-error">{error}</div>}
+
+              {/* End call */}
+              <button className="vc-end-btn" onClick={handleClose}>End call</button>
+
+            </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
     </>
   );
