@@ -266,50 +266,77 @@ export default function VintCall({ messages = [], onNewExchange }) {
   }, [stopAudio]);
 
   const sendVoice = useCallback(async (transcript) => {
-    if (!transcript.trim()) { setPhase('idle'); return; }
+    console.log('[VintCall] sendVoice called with transcript:', transcript);
+    if (!transcript.trim()) {
+      console.log('[VintCall] Empty transcript — going idle');
+      setPhase('idle');
+      return;
+    }
     setLastUser(transcript);
     setLastVint('');
     setPhase('thinking');
     setError('');
 
     try {
-      const res = await fetch(`${API}/vint-voice`, {
+      const fetchUrl = `${API}/vint-voice`;
+      console.log('[VintCall] Fetching:', fetchUrl);
+      const res = await fetch(fetchUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: transcript, history: messages }),
       });
 
-      if (!res.ok) throw new Error(`Server error ${res.status}`);
+      console.log('[VintCall] Fetch response status:', res.status);
+
+      if (!res.ok) {
+        const errBody = await res.text();
+        console.error('[VintCall] Server error body:', errBody);
+        throw new Error(`Server error ${res.status}: ${errBody}`);
+      }
 
       // Extract Vint's text from response header
       const vintText = decodeURIComponent(res.headers.get('X-Vint-Text') || '');
+      console.log('[VintCall] X-Vint-Text header:', vintText);
       setLastVint(vintText);
 
       // Play audio
       const blob = await res.blob();
+      console.log('[VintCall] Audio blob size (bytes):', blob.size, 'type:', blob.type);
+
+      if (blob.size === 0) {
+        console.error('[VintCall] Empty audio blob received');
+        throw new Error('Empty audio received from server');
+      }
+
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
       audioRef.current = audio;
       setPhase('speaking');
 
       audio.onended = () => {
+        console.log('[VintCall] Audio playback ended');
         URL.revokeObjectURL(url);
         audioRef.current = null;
         setPhase('idle');
         if (vintText && onNewExchange) onNewExchange(transcript, vintText);
       };
 
-      audio.onerror = () => {
+      audio.onerror = (e) => {
+        console.error('[VintCall] Audio playback error:', e);
         URL.revokeObjectURL(url);
         audioRef.current = null;
         setPhase('idle');
         if (vintText && onNewExchange) onNewExchange(transcript, vintText);
       };
 
-      audio.play().catch(() => setPhase('idle'));
+      console.log('[VintCall] Starting audio playback...');
+      audio.play().catch((e) => {
+        console.error('[VintCall] audio.play() rejected:', e);
+        setPhase('idle');
+      });
     } catch (e) {
-      console.error('VintCall error:', e);
-      setError('Something went wrong. Try again.');
+      console.error('[VintCall] sendVoice error:', e);
+      setError(`Error: ${e.message}`);
       setPhase('idle');
     }
   }, [messages, onNewExchange]);
@@ -321,6 +348,7 @@ export default function VintCall({ messages = [], onNewExchange }) {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
       setError('Speech recognition not supported in this browser.');
+      console.error('[VintCall] SpeechRecognition not available in this browser');
       return;
     }
 
@@ -329,30 +357,41 @@ export default function VintCall({ messages = [], onNewExchange }) {
     rec.interimResults = false;
     rec.maxAlternatives = 1;
     recognitionRef.current = rec;
+    let gotResult = false; // flag to prevent onend from resetting phase after a result
 
-    rec.onstart = () => setPhase('listening');
+    rec.onstart = () => {
+      console.log('[VintCall] Recognition started');
+      setPhase('listening');
+    };
 
     rec.onresult = (e) => {
       const transcript = e.results[0][0].transcript;
+      const confidence = e.results[0][0].confidence;
+      console.log('[VintCall] Recognition result:', transcript, '(confidence:', confidence, ')');
+      gotResult = true;
       recognitionRef.current = null;
       sendVoice(transcript);
     };
 
     rec.onerror = (e) => {
-      console.error('Speech error:', e.error);
+      console.error('[VintCall] Recognition error:', e.error);
       recognitionRef.current = null;
+      gotResult = true; // prevent onend from double-firing
       if (e.error !== 'no-speech') setError(`Mic error: ${e.error}`);
       setPhase('idle');
     };
 
     rec.onend = () => {
-      // if no result was captured yet, just go idle
-      if (recognitionRef.current) {
-        recognitionRef.current = null;
+      console.log('[VintCall] Recognition ended. gotResult:', gotResult);
+      recognitionRef.current = null;
+      if (!gotResult) {
+        // ended without capturing anything (no-speech, timeout, etc.)
+        console.log('[VintCall] No result captured — returning to idle');
         setPhase('idle');
       }
     };
 
+    console.log('[VintCall] Starting recognition...');
     rec.start();
   }, [phase, sendVoice]);
 

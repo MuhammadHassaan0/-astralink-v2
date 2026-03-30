@@ -508,8 +508,14 @@ app.post('/vint-chat', async (req, res) => {
 app.post('/vint-voice', async (req, res) => {
   try {
     const { text, history = [] } = req.body;
+    console.log('[vint-voice] HIT — incoming text:', text);
+    console.log('[vint-voice] history length:', history.length);
+    console.log('[vint-voice] MINIMAX_GROUP_ID present:', !!process.env.MINIMAX_GROUP_ID);
+    console.log('[vint-voice] MINIMAX_API_KEY present:', !!process.env.MINIMAX_API_KEY);
+    console.log('[vint-voice] MINIMAX_VOICE_ID:', process.env.MINIMAX_VOICE_ID);
 
     // 1. Get Vint's text response from Groq (non-streaming, short)
+    console.log('[vint-voice] Calling Groq...');
     const completion = await groq.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
       messages: [
@@ -521,71 +527,66 @@ app.post('/vint-voice', async (req, res) => {
       max_tokens: 180,
     });
     const responseText = completion.choices[0]?.message?.content || '';
+    console.log('[vint-voice] Groq responseText:', responseText);
 
-    // 2. Stream audio back from MiniMax TTS
+    // 2. Call MiniMax TTS (non-streaming — simpler, more reliable)
+    const mmUrl = `https://api.minimax.io/v1/t2a_v2?GroupId=${process.env.MINIMAX_GROUP_ID}`;
+    console.log('[vint-voice] Calling MiniMax at:', mmUrl);
+
+    const mmRes = await fetch(mmUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.MINIMAX_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'speech-02-turbo',
+        text: responseText,
+        stream: false,
+        voice_setting: {
+          voice_id: process.env.MINIMAX_VOICE_ID,
+          speed: 1.0,
+          vol: 1.0,
+          pitch: 0,
+        },
+        audio_setting: {
+          format: 'mp3',
+          sample_rate: 32000,
+          bitrate: 128000,
+          channel: 1,
+        },
+      }),
+    });
+
+    console.log('[vint-voice] MiniMax HTTP status:', mmRes.status);
+
+    const mmJson = await mmRes.json();
+    console.log('[vint-voice] MiniMax response (truncated):', JSON.stringify(mmJson).slice(0, 400));
+
+    if (!mmRes.ok || mmJson.base_resp?.status_code !== 0) {
+      const detail = mmJson.base_resp?.status_msg || mmJson;
+      console.error('[vint-voice] MiniMax error detail:', detail);
+      return res.status(502).json({ error: 'TTS failed', detail });
+    }
+
+    const hex = mmJson.data?.audio;
+    if (!hex) {
+      console.error('[vint-voice] No audio field in MiniMax response. Full response:', JSON.stringify(mmJson));
+      return res.status(502).json({ error: 'No audio data returned from MiniMax' });
+    }
+
+    const audioBuf = Buffer.from(hex, 'hex');
+    console.log('[vint-voice] Audio buffer bytes:', audioBuf.length);
+
+    // 3. Send audio back to client
     res.setHeader('Content-Type', 'audio/mpeg');
     res.setHeader('X-Vint-Text', encodeURIComponent(responseText));
     res.setHeader('Access-Control-Expose-Headers', 'X-Vint-Text');
-
-    const mmRes = await fetch(
-      `https://api.minimax.io/v1/t2a_v2?GroupId=${process.env.MINIMAX_GROUP_ID}`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.MINIMAX_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'speech-02-turbo',
-          text: responseText,
-          stream: true,
-          voice_setting: {
-            voice_id: process.env.MINIMAX_VOICE_ID,
-            speed: 1.0,
-            vol: 1.0,
-            pitch: 0,
-          },
-          audio_setting: {
-            format: 'mp3',
-            sample_rate: 32000,
-            bitrate: 128000,
-            channel: 1,
-          },
-        }),
-      }
-    );
-
-    if (!mmRes.ok) {
-      const errText = await mmRes.text();
-      console.error('MiniMax error:', errText);
-      return res.status(502).json({ error: 'TTS failed', detail: errText });
-    }
-
-    // Parse MiniMax SSE stream and pipe audio chunks
-    const reader = mmRes.body.getReader();
-    const decoder = new TextDecoder();
-    let buf = '';
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += decoder.decode(value, { stream: true });
-      const lines = buf.split('\n');
-      buf = lines.pop(); // keep incomplete line
-      for (const line of lines) {
-        if (!line.startsWith('data:')) continue;
-        const raw = line.slice(5).trim();
-        if (raw === '[DONE]') { res.end(); return; }
-        try {
-          const parsed = JSON.parse(raw);
-          const hex = parsed?.data?.audio;
-          if (hex) res.write(Buffer.from(hex, 'hex'));
-        } catch {}
-      }
-    }
+    res.write(audioBuf);
     res.end();
+    console.log('[vint-voice] Done — audio sent successfully');
   } catch (e) {
-    console.error('Vint voice error:', e);
+    console.error('[vint-voice] CAUGHT ERROR:', e.message, e.stack);
     if (!res.headersSent) res.status(500).json({ error: e.message });
     else res.end();
   }
