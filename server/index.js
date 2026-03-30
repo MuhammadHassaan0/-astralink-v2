@@ -12,6 +12,10 @@ const Groq = require('groq-sdk');
 const pdfParse = require('pdf-parse');
 
 const apiKey = (process.env.GROQ_API_KEY || '').trim().replace(/[\r\n\t]/g, '');
+
+// MiniMax — voice ID hardcoded to avoid Railway env var corruption
+const VINT_VOICE_ID = 'moss_audio_21c523e1-2be3-11f1-bd1c-42ad608c28be';
+const MINIMAX_GROUP_ID_FALLBACK = '20380913055228032143';
 console.log('API KEY LENGTH:', apiKey.length, 'CHARS:', JSON.stringify(apiKey.slice(0,10)));
 const groq = new Groq({ apiKey });
 
@@ -513,16 +517,14 @@ app.post('/vint-voice', async (req, res) => {
     const { text, history = [] } = req.body;
 
     // Sanitize env vars — strip leading whitespace, = signs, and surrounding whitespace
-    const groupId = (process.env.MINIMAX_GROUP_ID || '').replace(/^[\s=]+/, '').trim();
-    const apiKey  = (process.env.MINIMAX_API_KEY  || '').replace(/^[\s=]+/, '').trim();
-    const voiceId = (process.env.MINIMAX_VOICE_ID || '').replace(/^[\s=]+/, '').trim();
-    console.log('[vint-voice] sanitized voiceId:', JSON.stringify(voiceId));
+    const groupId = ((process.env.MINIMAX_GROUP_ID || '').replace(/^[\s=]+/, '').trim()) || MINIMAX_GROUP_ID_FALLBACK;
+    const mmApiKey = (process.env.MINIMAX_API_KEY || '').replace(/^[\s=]+/, '').trim();
 
     console.log('[vint-voice] HIT — incoming text:', text);
     console.log('[vint-voice] history length:', history.length);
-    console.log('[vint-voice] MINIMAX_GROUP_ID present:', !!groupId);
-    console.log('[vint-voice] MINIMAX_API_KEY present:', !!apiKey);
-    console.log('[vint-voice] MINIMAX_VOICE_ID:', voiceId);
+    console.log('[vint-voice] groupId:', groupId);
+    console.log('[vint-voice] MINIMAX_API_KEY present:', !!mmApiKey);
+    console.log('[vint-voice] voiceId (hardcoded):', VINT_VOICE_ID);
 
     // 1. Get Vint's text response from Groq (non-streaming, short)
     console.log('[vint-voice] Calling Groq...');
@@ -542,19 +544,17 @@ app.post('/vint-voice', async (req, res) => {
     // 2. Call MiniMax TTS (non-streaming — simpler, more reliable)
     const mmUrl = `https://api.minimax.io/v1/t2a_v2?GroupId=${groupId}`;
     console.log('[vint-voice] MiniMax auth check:', {
-      hasApiKey: !!apiKey,
-      keyPrefix: apiKey.slice(0, 8),
-      hasGroupId: !!groupId,
+      hasApiKey: !!mmApiKey,
+      keyPrefix: mmApiKey.slice(0, 8),
       groupId,
-      hasVoiceId: !!voiceId,
-      voiceId,
+      voiceId: VINT_VOICE_ID,
     });
     console.log('[vint-voice] Calling MiniMax at:', mmUrl);
 
     const mmRes = await fetch(mmUrl, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        'Authorization': `Bearer ${mmApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -562,7 +562,7 @@ app.post('/vint-voice', async (req, res) => {
         text: responseText,
         stream: false,
         voice_setting: {
-          voice_id: voiceId,
+          voice_id: VINT_VOICE_ID,
           speed: 1.0,
           vol: 1.0,
           pitch: 0,
