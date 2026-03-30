@@ -542,6 +542,7 @@ app.post('/vint-voice', async (req, res) => {
       hasVoiceId: !!process.env.MINIMAX_VOICE_ID,
       voiceId: process.env.MINIMAX_VOICE_ID,
     });
+    console.log('[vint-voice] MINIMAX_VOICE_ID raw value:', JSON.stringify(process.env.MINIMAX_VOICE_ID));
     console.log('[vint-voice] Calling MiniMax at:', mmUrl);
 
     const mmRes = await fetch(mmUrl, {
