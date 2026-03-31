@@ -13,9 +13,6 @@ const pdfParse = require('pdf-parse');
 
 const apiKey = (process.env.GROQ_API_KEY || '').trim().replace(/[\r\n\t]/g, '');
 
-// MiniMax — voice ID hardcoded to avoid Railway env var corruption
-const VINT_VOICE_ID = 'moss_audio_21c523e1-2be3-11f1-bd1c-42ad608c28be';
-const MINIMAX_GROUP_ID_FALLBACK = '20380913055228032143';
 console.log('API KEY LENGTH:', apiKey.length, 'CHARS:', JSON.stringify(apiKey.slice(0,10)));
 const groq = new Groq({ apiKey });
 
@@ -516,15 +513,8 @@ app.post('/vint-voice', async (req, res) => {
   try {
     const { text, history = [] } = req.body;
 
-    // Sanitize env vars — strip leading whitespace, = signs, and surrounding whitespace
-    const groupId = ((process.env.MINIMAX_GROUP_ID || '').replace(/^[\s=]+/, '').trim()) || MINIMAX_GROUP_ID_FALLBACK;
-    const mmApiKey = (process.env.MINIMAX_API_KEY || '').replace(/^[\s=]+/, '').trim();
-
     console.log('[vint-voice] HIT — incoming text:', text);
     console.log('[vint-voice] history length:', history.length);
-    console.log('[vint-voice] groupId:', groupId);
-    console.log('[vint-voice] MINIMAX_API_KEY present:', !!mmApiKey);
-    console.log('[vint-voice] voiceId (hardcoded):', VINT_VOICE_ID);
 
     // 1. Get Vint's text response from Groq (non-streaming, short)
     console.log('[vint-voice] Calling Groq...');
@@ -541,67 +531,25 @@ app.post('/vint-voice', async (req, res) => {
     const responseText = completion.choices[0]?.message?.content || '';
     console.log('[vint-voice] Groq responseText:', responseText);
 
-    // 2. Call MiniMax TTS (non-streaming — simpler, more reliable)
-    const mmUrl = `https://api.minimax.io/v1/t2a_v2?GroupId=${groupId}`;
-    console.log('[vint-voice] MiniMax auth check:', {
-      hasApiKey: !!mmApiKey,
-      keyPrefix: mmApiKey.slice(0, 8),
-      groupId,
-      voiceId: VINT_VOICE_ID,
-    });
-    console.log('[vint-voice] Calling MiniMax at:', mmUrl);
+    // 2. Call F5-TTS on Colab via ngrok
+    const colabUrl = process.env.COLAB_TTS_URL;
+    if (!colabUrl) throw new Error('COLAB_TTS_URL not set');
 
-    const mmRes = await fetch(mmUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${mmApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'speech-02-turbo',
-        text: responseText,
-        stream: false,
-        voice_setting: {
-          voice_id: VINT_VOICE_ID,
-          speed: 1.0,
-          vol: 1.0,
-          pitch: 0,
-        },
-        audio_setting: {
-          format: 'mp3',
-          sample_rate: 32000,
-          bitrate: 128000,
-          channel: 1,
-        },
-      }),
-    });
+    console.log('[vint-voice] Calling F5-TTS at:', colabUrl);
 
-    console.log('[vint-voice] MiniMax HTTP status:', mmRes.status);
+    const ttsRes = await fetch(`${colabUrl}/tts?text=${encodeURIComponent(responseText)}`);
 
-    const mmJson = await mmRes.json();
-    console.log('[vint-voice] MiniMax response (truncated):', JSON.stringify(mmJson).slice(0, 400));
-
-    if (!mmRes.ok || mmJson.base_resp?.status_code !== 0) {
-      const detail = mmJson.base_resp?.status_msg || mmJson;
-      console.error('[vint-voice] MiniMax error detail:', detail);
-      return res.status(502).json({ error: 'TTS failed', detail });
+    if (!ttsRes.ok) {
+      const err = await ttsRes.text();
+      throw new Error('F5-TTS failed: ' + err);
     }
 
-    const hex = mmJson.data?.audio;
-    if (!hex) {
-      console.error('[vint-voice] No audio field in MiniMax response. Full response:', JSON.stringify(mmJson));
-      return res.status(502).json({ error: 'No audio data returned from MiniMax' });
-    }
-
-    const audioBuf = Buffer.from(hex, 'hex');
-    console.log('[vint-voice] Audio buffer bytes:', audioBuf.length);
-
-    // 3. Send audio back to client
-    res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('Content-Type', 'audio/wav');
     res.setHeader('X-Vint-Text', encodeURIComponent(responseText));
     res.setHeader('Access-Control-Expose-Headers', 'X-Vint-Text');
-    res.write(audioBuf);
-    res.end();
+
+    const audioBuffer = await ttsRes.arrayBuffer();
+    res.end(Buffer.from(audioBuffer));
     console.log('[vint-voice] Done — audio sent successfully');
   } catch (e) {
     console.error('[vint-voice] CAUGHT ERROR:', e.message, e.stack);
