@@ -365,7 +365,7 @@ export default function VintCall({ messages = [], onNewExchange }) {
       const audioBlob = await voiceRes.blob();
       console.log('[VintCall] Audio blob size:', audioBlob.size);
 
-      if (audioBlob.size === 0) throw new Error('Empty audio — check MiniMax env vars');
+      if (audioBlob.size === 0) throw new Error('Empty audio — check TTS server');
 
       const url = URL.createObjectURL(audioBlob);
       const audio = new Audio(url);
