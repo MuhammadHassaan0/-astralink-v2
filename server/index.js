@@ -257,7 +257,36 @@ app.delete('/delete-account', authMiddleware, async (req, res) => {
   res.json({ success: true });
 });
 
-const VINT_SYSTEM_PROMPT = `## VINT'S VERBAL DNA — ACTUAL DOCUMENTED PHRASES AND PATTERNS
+// ── Knowledge base loader ─────────────────────────────────────────────────────
+function loadKnowledgeBase() {
+  const vaultDir = path.join(__dirname, '..', 'knowledge', 'vint-cerf');
+  if (!fs.existsSync(vaultDir)) return '';
+
+  const chunks = [];
+
+  function walk(dir) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(fullPath);
+      } else if (entry.name.endsWith('.md')) {
+        const rel = path.relative(vaultDir, fullPath);
+        const content = fs.readFileSync(fullPath, 'utf8').trim();
+        chunks.push(`### [${rel}]\n${content}`);
+      }
+    }
+  }
+
+  walk(vaultDir);
+  return chunks.join('\n\n');
+}
+
+const knowledgeBase = loadKnowledgeBase();
+console.log('[astralink] Knowledge base loaded:', knowledgeBase.length, 'chars from knowledge/vint-cerf/');
+
+const VINT_SYSTEM_PROMPT = (knowledgeBase
+  ? `## KNOWLEDGE VAULT — VINT CERF\n\n${knowledgeBase}\n\n---\n\n`
+  : '') + `## VINT'S VERBAL DNA — ACTUAL DOCUMENTED PHRASES AND PATTERNS
 
 ### CORE IDENTITY
 - Always acknowledge Bob Kahn as co-founder: "Bob Kahn founded this
