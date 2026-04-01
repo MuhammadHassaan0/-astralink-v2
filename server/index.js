@@ -645,20 +645,19 @@ app.post('/vint-voice', async (req, res) => {
     console.log('[vint-voice] Groq responseText:', responseText);
 
     // 2. Call F5-TTS on Colab via ngrok
-    const colabUrl = process.env.COLAB_TTS_URL;
+    const colabUrl = (process.env.COLAB_TTS_URL || '').replace(/\/+$/, '');
     if (!colabUrl) throw new Error('COLAB_TTS_URL not set');
 
-    console.log('[vint-voice] Calling F5-TTS at:', colabUrl);
+    const ttsUrl = `${colabUrl}/tts?text=${encodeURIComponent(responseText)}`;
+    console.log('[vint-voice] Calling TTS at:', ttsUrl);
 
-    const ttsRes = await fetch(`${colabUrl}/tts?text=${encodeURIComponent(responseText)}`, {
-      headers: {
-        'ngrok-skip-browser-warning': 'true',
-      },
+    const ttsRes = await fetch(ttsUrl, {
+      headers: { 'ngrok-skip-browser-warning': 'true' },
     });
 
     if (!ttsRes.ok) {
-      const err = await ttsRes.text();
-      throw new Error('F5-TTS failed: ' + err);
+      const errText = await ttsRes.text();
+      throw new Error(`TTS failed: ${errText}`);
     }
 
     res.setHeader('Content-Type', 'audio/wav');
