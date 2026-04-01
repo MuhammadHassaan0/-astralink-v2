@@ -650,7 +650,11 @@ app.post('/vint-voice', async (req, res) => {
 
     console.log('[vint-voice] Calling F5-TTS at:', colabUrl);
 
-    const ttsRes = await fetch(`${colabUrl}/tts?text=${encodeURIComponent(responseText)}`);
+    const ttsRes = await fetch(`${colabUrl}/tts?text=${encodeURIComponent(responseText)}`, {
+      headers: {
+        'ngrok-skip-browser-warning': 'true',
+      },
+    });
 
     if (!ttsRes.ok) {
       const err = await ttsRes.text();
