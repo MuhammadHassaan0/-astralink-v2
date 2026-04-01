@@ -642,7 +642,7 @@ app.post('/vint-voice', async (req, res) => {
         { role: 'user', content: text },
       ],
       stream: false,
-      max_tokens: 80,
+      max_tokens: 150,
     });
     const responseText = completion.choices[0]?.message?.content || '';
     console.log('[vint-voice] Groq responseText:', responseText);
