@@ -746,7 +746,10 @@ app.post('/woz-chat', async (req, res) => {
     });
     for await (const chunk of stream) {
       const text = chunk.choices[0]?.delta?.content || '';
-      if (text) res.write(`data: ${JSON.stringify({ text })}\n\n`);
+      if (text) {
+        res.write(`data: ${JSON.stringify({ text })}\n\n`);
+        await new Promise(resolve => setTimeout(resolve, 25));
+      }
     }
     res.write('data: [DONE]\n\n');
     res.end();
