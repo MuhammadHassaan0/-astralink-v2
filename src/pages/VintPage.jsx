@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { flushSync } from 'react-dom';
 import VintCall from '../components/VintCall';
+import vintImage from '../assets/vint.jpg';
 
 const API = 'https://astralink-v2-production.up.railway.app';
 
@@ -392,10 +393,12 @@ function PasswordGate({ onUnlock }) {
     <div className="vp-gate">
       <div className="vp-gate-inner">
         <div className="vp-gate-brand">Astralink</div>
+        <div style={{ fontSize: 20, fontWeight: 600, color: '#1A1626', marginBottom: 8, textAlign: 'center', lineHeight: 1.3 }}>Talk to Vint Cerf</div>
+        <div style={{ fontSize: 13, color: '#6B6580', marginBottom: 24, textAlign: 'center', lineHeight: 1.6 }}>Enter your access code to speak with a digital Vint — co-creator of the internet, Turing Award laureate, and Chief Internet Evangelist at Google.</div>
         <input
           className="vp-gate-input"
           type="password"
-          placeholder="Enter access code"
+          placeholder="Access code"
           value={code}
           onChange={e => { setCode(e.target.value); setError(false); }}
           onKeyDown={e => e.key === 'Enter' && attempt()}
@@ -558,7 +561,7 @@ export default function VintPage() {
         {/* Fixed hero header */}
         <div className="vp-header">
           <div className="vp-brand">Astralink</div>
-          <div className="vp-avatar-hero">VC</div>
+          <img src={vintImage} alt="Vint Cerf" style={{ width: 72, height: 72, borderRadius: '50%', objectFit: 'cover', objectPosition: 'top', border: '3px solid #6B5CE7', boxShadow: '0 0 0 6px #EDE9FD, 0 6px 24px rgba(107,92,231,0.18)', flexShrink: 0 }} />
           <div className="vp-name">Vint Cerf</div>
           <div className="vp-subtitle">An attempt to preserve how he thinks.</div>
           <div className="vp-header-call">

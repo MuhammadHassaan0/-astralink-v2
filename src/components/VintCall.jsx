@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import vintImage from '../assets/vint.jpg';
 
 const API = 'https://astralink-v2-production.up.railway.app';
 
@@ -483,7 +484,7 @@ export default function VintCall({ messages = [], onNewExchange }) {
             {/* Avatar */}
             <div className="vc-avatar-wrap">
               <div className={`vc-avatar-ring ${phase === 'recording' ? 'listening' : phase}`} />
-              <div className="vc-avatar-initials">VC</div>
+              <img src={vintImage} alt="Vint Cerf" style={{ position: 'absolute', inset: 4, width: 'calc(100% - 8px)', height: 'calc(100% - 8px)', borderRadius: '50%', objectFit: 'cover', objectPosition: 'top', border: '4px solid rgba(255,255,255,0.15)', boxShadow: '0 8px 40px rgba(0,0,0,0.55)' }} />
             </div>
 
             <div className="vc-name">Vint Cerf</div>
