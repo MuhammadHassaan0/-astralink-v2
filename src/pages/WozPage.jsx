@@ -259,14 +259,7 @@ const STYLES = `
   .woz-send:active { transform: scale(0.93); }
   .woz-send:disabled { cursor: default; }
 
-  .woz-disclaimer {
-    font-size: 11px;
-    color: #86868b;
-    text-align: center;
-    padding-top: 8px;
-    line-height: 1.4;
-    opacity: 0.7;
-  }
+
 
   @media (min-width: 600px) {
     .woz-header  { padding: 0 48px; }
@@ -497,9 +490,7 @@ export default function WozPage() {
               )}
             </button>
           </div>
-          <div className="woz-disclaimer">
-            Private experimental prototype — not for public release
-          </div>
+
         </div>
 
       </div>
