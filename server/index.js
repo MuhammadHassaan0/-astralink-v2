@@ -630,16 +630,19 @@ app.post('/vint-voice', async (req, res) => {
     console.log('[vint-voice] history length:', history.length);
 
     // 1. Get Vint's text response from Groq (non-streaming, short)
+    const VOICE_SYSTEM_PROMPT = VINT_SYSTEM_PROMPT +
+      '\n\nYou are on a voice call. Keep responses to 2-3 sentences maximum. Be concise and conversational.';
+
     console.log('[vint-voice] Calling Groq...');
     const completion = await groq.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
       messages: [
-        { role: 'system', content: VINT_SYSTEM_PROMPT },
+        { role: 'system', content: VOICE_SYSTEM_PROMPT },
         ...history.slice(-16),
         { role: 'user', content: text },
       ],
       stream: false,
-      max_tokens: 180,
+      max_tokens: 80,
     });
     const responseText = completion.choices[0]?.message?.content || '';
     console.log('[vint-voice] Groq responseText:', responseText);
