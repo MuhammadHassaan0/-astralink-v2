@@ -6,25 +6,43 @@ const API = 'https://astralink-v2-production.up.railway.app';
 const CALL_STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,400;0,500;1,400&display=swap');
 
+  @keyframes vcFadeIn   { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes vcPulse {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(34,197,94,0.25); }
+    50%       { box-shadow: 0 0 0 6px rgba(34,197,94,0.08); }
+  }
+  @keyframes vcBlink    { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+  @keyframes ring-pulse {
+    0%, 100% { transform: scale(1); opacity: 0.4; }
+    50%       { transform: scale(1.08); opacity: 1; }
+  }
+  @keyframes ring-slow-pulse {
+    0%, 100% { transform: scale(1); opacity: 0.3; }
+    50%       { transform: scale(1.05); opacity: 0.7; }
+  }
+
   /* ── Trigger button ── */
   .vc-trigger {
     display: flex;
     align-items: center;
     gap: 8px;
-    background: none;
-    border: 1px solid #6366F1;
+    background: #6B5CE7;
+    border: none;
     border-radius: 9999px;
-    padding: 7px 16px 7px 12px;
+    padding: 9px 20px 9px 14px;
     cursor: pointer;
-    font-family: 'DM Mono', monospace;
-    font-size: 12px;
-    color: #6366F1;
-    letter-spacing: 0.04em;
-    transition: background 0.15s, color 0.15s;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: #FFFFFF;
+    letter-spacing: 0.01em;
+    transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+    box-shadow: 0 2px 10px rgba(107,92,231,0.32);
     white-space: nowrap;
+    -webkit-tap-highlight-color: transparent;
   }
-  .vc-trigger:hover { background: #6366F1; color: #fff; }
-  .vc-trigger:hover .vc-pulse-dot { background: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,0.4); }
+  .vc-trigger:hover { background: #4A3DB5; box-shadow: 0 4px 18px rgba(107,92,231,0.42); }
+  .vc-trigger:active { transform: scale(0.96); }
 
   .vc-pulse-dot {
     width: 8px;
@@ -35,12 +53,8 @@ const CALL_STYLES = `
     animation: vcPulse 1.8s ease-in-out infinite;
     flex-shrink: 0;
   }
-  @keyframes vcPulse {
-    0%, 100% { box-shadow: 0 0 0 3px rgba(34,197,94,0.25); }
-    50%       { box-shadow: 0 0 0 6px rgba(34,197,94,0.08); }
-  }
 
-  /* ── Portal overlay ── */
+  /* ── Portal overlay — full dark, no card ── */
   .vc-overlay {
     position: fixed !important;
     top: 0 !important;
@@ -49,205 +63,199 @@ const CALL_STYLES = `
     bottom: 0 !important;
     width: 100vw !important;
     height: 100vh !important;
-    background: rgba(0,0,0,0.6);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    background: rgba(13,10,26,0.92);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     z-index: 99999 !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
     animation: vcFadeIn 0.2s ease forwards;
   }
-  @keyframes vcFadeIn { from { opacity:0; } to { opacity:1; } }
 
-  /* ── Card ── */
+  /* ── Card — transparent, content only ── */
   .vc-card {
-    background: #fff;
-    border-radius: 20px;
-    padding: 36px 28px 28px;
-    width: 100%;
-    max-width: 340px;
-    min-height: 500px;
-    margin: 16px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    box-shadow: 0 32px 80px rgba(0,0,0,0.25);
-    font-family: 'DM Mono', monospace;
-    animation: vcSlideUp 0.22s ease forwards;
+    width: 100%;
+    max-width: 360px;
+    padding: 0 32px;
     box-sizing: border-box;
-  }
-  @keyframes vcSlideUp {
-    from { transform: translateY(20px); opacity:0; }
-    to   { transform: translateY(0);    opacity:1; }
+    font-family: 'DM Mono', monospace;
   }
 
   /* ── Avatar ── */
   .vc-avatar-wrap {
     position: relative;
-    width: 96px;
-    height: 96px;
-    margin-bottom: 16px;
+    width: 144px;
+    height: 144px;
     flex-shrink: 0;
   }
   .vc-avatar-ring {
     position: absolute;
-    inset: -4px;
+    inset: -10px;
     border-radius: 50%;
-    background: #E5E7EB;
-  }
-  .vc-avatar-ring.listening {
-    background: conic-gradient(#ef4444, #fca5a5, #ef4444);
-    animation: vcSpin 1.0s linear infinite;
-  }
-  .vc-avatar-ring.thinking {
-    background: conic-gradient(#f59e0b, #fcd34d, #f59e0b);
-    animation: vcSpin 1.4s linear infinite;
+    border: 2px solid rgba(107,92,231,0.35);
+    transition: border-color 0.4s;
   }
   .vc-avatar-ring.speaking {
-    background: conic-gradient(#22c55e, #86efac, #22c55e);
-    animation: vcSpin 1.4s linear infinite;
+    border-color: #6B5CE7;
+    animation: ring-pulse 1.2s ease-in-out infinite;
   }
-  @keyframes vcSpin { to { transform: rotate(360deg); } }
-
+  .vc-avatar-ring.thinking {
+    border-color: #8B7FF0;
+    animation: ring-slow-pulse 2s ease-in-out infinite;
+  }
+  .vc-avatar-ring.listening {
+    border-color: rgba(239,68,68,0.55);
+  }
   .vc-avatar-initials {
     position: absolute;
     inset: 4px;
     border-radius: 50%;
-    background: #EEF2FF;
-    border: 3px solid #fff;
+    background: linear-gradient(135deg, #2D2458 0%, #1A1040 100%);
+    border: 4px solid rgba(255,255,255,0.10);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: Georgia, serif;
-    font-size: 26px;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 38px;
     font-style: italic;
-    color: #6366F1;
+    color: rgba(255,255,255,0.80);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.55);
     user-select: none;
   }
 
   /* ── Name & status ── */
   .vc-name {
-    font-size: 18px;
-    font-style: italic;
-    font-family: Georgia, serif;
-    color: #111827;
+    font-size: 22px;
+    font-weight: 600;
+    color: #FFFFFF;
+    margin-top: 24px;
     margin-bottom: 4px;
+    letter-spacing: -0.01em;
     text-align: center;
+    font-family: 'DM Mono', monospace;
   }
   .vc-status {
-    font-size: 11px;
-    color: #9CA3AF;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    margin-bottom: 20px;
-    min-height: 16px;
+    font-size: 12px;
+    color: rgba(155,152,176,0.9);
+    letter-spacing: 0.04em;
+    min-height: 18px;
     text-align: center;
+    margin-bottom: 20px;
+    font-family: 'DM Mono', monospace;
   }
-  .vc-status.recording { color: #ef4444; animation: vcBlink 0.9s ease-in-out infinite; }
-  @keyframes vcBlink { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+  .vc-status.recording       { color: rgba(255,255,255,0.65); animation: vcBlink 0.9s ease-in-out infinite; }
+  .vc-status.thinking-status { color: #8B7FF0; }
+  .vc-status.speaking-status { color: #8B7FF0; }
 
   /* ── Transcript ── */
   .vc-transcript {
+    background: rgba(255,255,255,0.07);
+    border-radius: 16px;
+    padding: 14px 18px;
     width: 100%;
-    flex: 1;
-    min-height: 80px;
-    max-height: 140px;
-    overflow-y: auto;
-    background: #F9FAFB;
-    border-radius: 10px;
-    padding: 12px 14px;
     box-sizing: border-box;
-    margin-bottom: 24px;
+    margin-bottom: 28px;
+    min-height: 64px;
+    max-height: 96px;
+    overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 8px;
   }
   .vc-transcript-empty {
     font-size: 12px;
-    color: #D1D5DB;
+    color: rgba(255,255,255,0.25);
     text-align: center;
     font-style: italic;
     margin: auto;
   }
-  .vc-tx-user { font-size:12px; color:#6366F1; text-align:right; line-height:1.5; }
-  .vc-tx-vint { font-size:12px; color:#1F2937; text-align:left; line-height:1.6; font-family:Georgia,serif; }
+  .vc-tx-user { font-size:12px; color:#8B7FF0; text-align:right; line-height:1.5; }
+  .vc-tx-vint { font-size:13px; color:rgba(255,255,255,0.80); text-align:left; line-height:1.6; font-family:Georgia,serif; }
+
+  /* ── Controls row ── */
+  .vc-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 32px;
+  }
 
   /* ── Mic button ── */
   .vc-mic-btn {
-    width: 72px;
-    height: 72px;
+    width: 64px;
+    height: 64px;
     border-radius: 50%;
-    background: #fff;
-    border: 2px solid #E5E7EB;
+    background: rgba(255,255,255,0.10);
+    border: 1.5px solid rgba(255,255,255,0.18);
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: border-color 0.15s, box-shadow 0.15s, background 0.15s, transform 0.1s;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    margin-bottom: 8px;
+    transition: background 0.15s, transform 0.1s;
     flex-shrink: 0;
     -webkit-tap-highlight-color: transparent;
     user-select: none;
     touch-action: none;
   }
-  .vc-mic-btn:hover:not(:disabled) {
-    border-color: #6366F1;
-    box-shadow: 0 4px 16px rgba(99,102,241,0.2);
-  }
+  .vc-mic-btn:hover:not(:disabled) { background: rgba(255,255,255,0.18); }
+  .vc-mic-btn:active:not(:disabled) { transform: scale(0.90); }
   .vc-mic-btn.recording {
-    background: #fef2f2;
-    border-color: #ef4444;
-    box-shadow: 0 0 0 10px rgba(239,68,68,0.1);
-    transform: scale(1.06);
+    background: rgba(107,92,231,0.30);
+    border-color: #6B5CE7;
   }
-  .vc-mic-btn:disabled { opacity:0.35; cursor:not-allowed; }
-  .vc-mic-icon { width:28px; height:28px; pointer-events:none; }
+  .vc-mic-btn:disabled { opacity: 0.32; cursor: not-allowed; }
+  .vc-mic-icon { width: 26px; height: 26px; pointer-events: none; }
 
-  /* ── Hint text under mic ── */
+  /* ── Hint text ── */
   .vc-mic-hint {
     font-size: 10px;
-    color: #D1D5DB;
-    letter-spacing: 0.1em;
+    color: rgba(155,152,176,0.70);
+    letter-spacing: 0.10em;
     text-transform: uppercase;
-    margin-bottom: 16px;
+    margin-top: 16px;
     text-align: center;
+    font-family: 'DM Mono', monospace;
   }
-  .vc-mic-hint.recording { color: #ef4444; }
+  .vc-mic-hint.recording { color: rgba(239,68,68,0.85); }
 
   /* ── Error ── */
   .vc-error {
     font-size: 11px;
-    color: #ef4444;
-    margin-bottom: 8px;
+    color: #EF4444;
+    margin-top: 10px;
     text-align: center;
-    font-family: 'DM Mono', monospace;
     max-width: 280px;
     word-break: break-word;
+    font-family: 'DM Mono', monospace;
   }
 
-  /* ── End call ── */
+  /* ── End call button ── */
   .vc-end-btn {
-    background: none;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: #EF4444;
     border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
-    font-family: 'DM Mono', monospace;
-    font-size: 11px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: #EF4444;
-    padding: 6px 14px;
-    border-radius: 6px;
-    transition: background 0.15s;
+    transition: background 0.15s, transform 0.1s;
+    box-shadow: 0 4px 20px rgba(239,68,68,0.38);
     flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
   }
-  .vc-end-btn:hover { background: #FEF2F2; }
+  .vc-end-btn:hover { background: #DC2626; }
+  .vc-end-btn:active { transform: scale(0.90); }
 `;
 
 const MicIcon = ({ recording }) => (
   <svg className="vc-mic-icon" viewBox="0 0 24 24" fill="none"
-    stroke={recording ? '#ef4444' : '#6366F1'} strokeWidth="2"
+    stroke={recording ? '#ef4444' : 'rgba(255,255,255,0.90)'} strokeWidth="2"
     strokeLinecap="round" strokeLinejoin="round">
     <rect x="9" y="2" width="6" height="12" rx="3"/>
     <path d="M19 10a7 7 0 0 1-14 0"/>
@@ -479,7 +487,7 @@ export default function VintCall({ messages = [], onNewExchange }) {
             </div>
 
             <div className="vc-name">Vint Cerf</div>
-            <div className={`vc-status${phase === 'recording' ? ' recording' : ''}`}>
+            <div className={`vc-status${phase === 'recording' ? ' recording' : phase === 'thinking' ? ' thinking-status' : phase === 'speaking' ? ' speaking-status' : ''}`}>
               {statusLabel}
             </div>
 
@@ -494,19 +502,30 @@ export default function VintCall({ messages = [], onNewExchange }) {
               }
             </div>
 
-            {/* Mic button — push to talk */}
-            <button
-              className={`vc-mic-btn${phase === 'recording' ? ' recording' : ''}`}
-              onMouseDown={startRecording}
-              onMouseUp={stopRecording}
-              onMouseLeave={phase === 'recording' ? stopRecording : undefined}
-              onTouchStart={startRecording}
-              onTouchEnd={stopRecording}
-              disabled={phase === 'thinking' || phase === 'speaking'}
-              title={hintLabel}
-            >
-              <MicIcon recording={phase === 'recording'} />
-            </button>
+            {/* Controls — mic + end call side by side */}
+            <div className="vc-controls">
+              <button
+                className={`vc-mic-btn${phase === 'recording' ? ' recording' : ''}`}
+                onMouseDown={startRecording}
+                onMouseUp={stopRecording}
+                onMouseLeave={phase === 'recording' ? stopRecording : undefined}
+                onTouchStart={startRecording}
+                onTouchEnd={stopRecording}
+                disabled={phase === 'thinking' || phase === 'speaking'}
+                title={hintLabel}
+              >
+                <MicIcon recording={phase === 'recording'} />
+              </button>
+
+              <button className="vc-end-btn" onClick={handleClose}>
+                {/* Phone hang-up icon */}
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+                  stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07C6.88 17.2 4.8 15.12 3.07 12.72A19.73 19.73 0 0 1 0 4.05 2 2 0 0 1 2 1.87h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L6 9.78a16 16 0 0 0 4.68 3.53z"/>
+                  <line x1="1" y1="1" x2="23" y2="23"/>
+                </svg>
+              </button>
+            </div>
 
             <div className={`vc-mic-hint${phase === 'recording' ? ' recording' : ''}`}>
               {hintLabel}
@@ -514,7 +533,6 @@ export default function VintCall({ messages = [], onNewExchange }) {
 
             {error && <div className="vc-error">{error}</div>}
 
-            <button className="vc-end-btn" onClick={handleClose}>End call</button>
           </div>
         </div>,
         document.body

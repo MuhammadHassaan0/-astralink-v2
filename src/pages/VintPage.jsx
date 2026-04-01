@@ -9,78 +9,69 @@ const GATE_STYLES = `
 
   .vp-gate {
     min-height: 100vh;
-    background: #FFFFFF;
+    background: #F8F7FF;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
     font-family: 'Inter', sans-serif;
   }
-
   .vp-gate-inner {
+    background: #FFFFFF;
+    border-radius: 24px;
+    box-shadow: 0 20px 60px rgba(107,92,231,0.12), 0 4px 16px rgba(0,0,0,0.06);
+    padding: 40px;
+    width: 100%;
+    max-width: 360px;
+    margin: 16px;
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0;
-    width: 100%;
-    max-width: 320px;
-    padding: 0 24px;
-    box-sizing: border-box;
   }
-
   .vp-gate-brand {
-    font-family: 'Inter', sans-serif;
     font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.3em;
-    color: #6366F1;
+    color: #6B5CE7;
     text-transform: uppercase;
-    margin-bottom: 40px;
+    margin-bottom: 28px;
   }
-
   .vp-gate-input {
     width: 100%;
-    border: none;
-    border-bottom: 1.5px solid #6366F1;
-    background: transparent;
-    padding: 8px 0;
-    font-family: Georgia, 'Times New Roman', serif;
+    border: 1.5px solid #E8E4F8;
+    border-radius: 14px;
+    background: #F8F7FF;
+    padding: 14px 18px;
+    font-family: 'Inter', sans-serif;
     font-size: 15px;
-    color: #1A1A1A;
+    color: #1A1626;
     outline: none;
-    text-align: center;
     box-sizing: border-box;
+    text-align: center;
+    transition: border-color 0.15s, box-shadow 0.15s;
   }
-
-  .vp-gate-input::placeholder {
-    color: #9CA3AF;
-    font-style: italic;
-  }
-
+  .vp-gate-input::placeholder { color: #9B98B0; }
   .vp-gate-input:focus {
-    border-bottom-color: #4F46E5;
+    border-color: #6B5CE7;
+    box-shadow: 0 0 0 3px rgba(107,92,231,0.10);
   }
-
   .vp-gate-btn {
-    margin-top: 20px;
-    font-family: 'Inter', sans-serif;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.2em;
-    color: #C49A2A;
-    text-transform: uppercase;
-    background: none;
+    margin-top: 14px;
+    width: 100%;
+    background: #6B5CE7;
+    color: #FFFFFF;
     border: none;
-    cursor: pointer;
-    padding: 0;
-    transition: color 0.15s ease;
-  }
-
-  .vp-gate-btn:hover { color: #1A1A1A; }
-
-  .vp-gate-error {
-    margin-top: 12px;
+    border-radius: 14px;
+    padding: 14px 24px;
     font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .vp-gate-btn:hover { background: #4A3DB5; }
+  .vp-gate-error {
+    margin-top: 10px;
     font-size: 11px;
     color: #EF4444;
     text-align: center;
@@ -90,36 +81,35 @@ const GATE_STYLES = `
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
 
-  @keyframes vintFadeIn {
-    from { opacity: 0; }
-    to   { opacity: 1; }
+  @keyframes vintFadeIn  { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes vintFadeUp  {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
-
-  @keyframes thinkPulse {
-    0%, 100% { opacity: 0.2; }
+  @keyframes thinkPulse  {
+    0%, 100% { opacity: 0.25; }
     50%       { opacity: 1; }
   }
 
+  /* ── Root ── */
   .vp-root {
     min-height: 100vh;
-    background: #FFFFFF;
+    background: #F8F7FF;
     display: flex;
     flex-direction: column;
     align-items: center;
     font-family: 'Inter', sans-serif;
   }
-
   .vp-inner {
     width: 100%;
     max-width: 680px;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
-    padding: 0 24px;
     box-sizing: border-box;
   }
 
-  /* ── Header ── */
+  /* ── Hero / Header ── */
   .vp-header {
     position: fixed;
     top: 0;
@@ -127,58 +117,70 @@ const STYLES = `
     transform: translateX(-50%);
     width: 100%;
     max-width: 680px;
-    padding: 24px 24px 0 24px;
     background: #FFFFFF;
+    border-bottom: 1px solid #E8E4F8;
     box-sizing: border-box;
     z-index: 100;
-    animation: vintFadeIn 0.6s ease forwards;
+    padding: 20px 24px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    animation: vintFadeIn 0.5s ease forwards;
   }
-
   .vp-brand {
-    font-family: 'Inter', sans-serif;
     font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.25em;
-    color: #6366F1;
+    color: #6B5CE7;
     text-transform: uppercase;
+    margin-bottom: 12px;
     line-height: 1;
   }
-
-  .vp-name {
+  .vp-avatar-hero {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #EDE9FD 0%, #D8D0FC 100%);
+    border: 3px solid #6B5CE7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     font-family: Georgia, 'Times New Roman', serif;
-    font-size: 36px;
-    font-weight: normal;
-    color: #1A1A1A;
-    margin-top: 4px;
-    line-height: 1.1;
-  }
-
-  .vp-subtitle {
-    font-family: 'Inter', sans-serif;
-    font-size: 13px;
-    font-weight: 400;
-    color: #999999;
+    font-size: 20px;
     font-style: italic;
-    margin-top: 2px;
+    color: #6B5CE7;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 6px #EDE9FD, 0 6px 24px rgba(107,92,231,0.18);
+  }
+  .vp-name {
+    font-size: 22px;
+    font-weight: 600;
+    color: #1A1626;
+    letter-spacing: -0.02em;
+    margin-top: 10px;
+    margin-bottom: 2px;
+    line-height: 1.2;
+  }
+  .vp-subtitle {
+    font-size: 12px;
+    font-weight: 400;
+    color: #6B6580;
+    font-style: italic;
+    margin-bottom: 10px;
     line-height: 1.4;
   }
-
-  .vp-rule {
-    width: 100%;
-    height: 1px;
-    background: #E5E7EB;
-    border: none;
-    margin-top: 16px;
-    margin-bottom: 0;
+  .vp-header-call {
+    margin-bottom: 8px;
   }
-
-  .vp-disclaimer {
-    font-family: 'Inter', sans-serif;
-    font-size: 11px;
-    font-weight: 400;
-    color: #9CA3AF;
-    font-style: italic;
-    padding: 8px 0 16px 0;
+  .vp-badge {
+    font-size: 10px;
+    color: #9B98B0;
+    background: #EDE9FD;
+    border-radius: 9999px;
+    padding: 3px 12px;
+    display: inline-block;
+    line-height: 1.6;
   }
 
   /* ── Chat area ── */
@@ -186,10 +188,13 @@ const STYLES = `
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 20px;
-    padding-bottom: 120px;
+    gap: 10px;
+    padding: 16px 16px 140px;
     overflow-y: auto;
+    background: #F8F7FF;
   }
+  .vp-chat::-webkit-scrollbar { display: none; }
+  .vp-chat { scrollbar-width: none; }
 
   /* ── Empty state ── */
   .vp-empty {
@@ -200,83 +205,97 @@ const STYLES = `
     justify-content: center;
     text-align: center;
     padding: 48px 0;
+    gap: 8px;
   }
-
+  .vp-empty-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: #EDE9FD;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: Georgia, serif;
+    font-size: 14px;
+    font-style: italic;
+    color: #6B5CE7;
+    margin-bottom: 4px;
+  }
   .vp-empty-heading {
-    font-family: Georgia, 'Times New Roman', serif;
-    font-size: 20px;
-    font-weight: normal;
-    color: #1A1A1A;
-  }
-
-  .vp-empty-sub {
-    font-family: 'Inter', sans-serif;
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 400;
-    color: #9CA3AF;
-    margin-top: 6px;
+    color: #9B98B0;
+    font-style: italic;
   }
 
   /* ── Messages ── */
   .vp-msg {
     display: flex;
     flex-direction: column;
-    animation: vintFadeIn 0.25s ease forwards;
+    animation: vintFadeUp 0.25s ease forwards;
     opacity: 0;
   }
-
   .vp-msg.user {
     align-items: flex-end;
-    max-width: 80%;
     align-self: flex-end;
+    max-width: 75%;
   }
-
   .vp-msg.assistant {
     align-items: flex-start;
-    max-width: 90%;
     align-self: flex-start;
+    max-width: 78%;
   }
-
-  .vp-msg-label {
-    font-family: 'Inter', sans-serif;
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.2em;
-    color: #6366F1;
-    text-transform: uppercase;
-    margin-bottom: 5px;
+  .vp-msg-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
   }
-
-  .vp-msg-text.user {
-    font-family: 'Inter', sans-serif;
+  .vp-msg-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #EDE9FD;
+    border: 2px solid #E8E4F8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: Georgia, serif;
+    font-size: 9px;
+    font-style: italic;
+    color: #6B5CE7;
+    flex-shrink: 0;
+    user-select: none;
+  }
+  .vp-msg-bubble {
+    padding: 10px 16px;
     font-size: 14px;
-    font-weight: 400;
-    color: #1A1A1A;
-    text-align: right;
-    line-height: 1.6;
+    line-height: 1.65;
     word-break: break-word;
-    white-space: pre-wrap;
   }
-
-  .vp-msg-text.assistant {
-    font-family: Georgia, 'Times New Roman', serif;
-    font-size: 15px;
-    font-weight: normal;
-    color: #1A1A1A;
-    line-height: 1.9;
-    border-left: 2px solid #6366F1;
-    padding-left: 16px;
-    word-break: break-word;
-    white-space: pre-wrap;
+  .vp-msg-bubble.user {
+    background: #6B5CE7;
+    color: #FFFFFF;
+    border-radius: 20px 20px 4px 20px;
+    box-shadow: 0 2px 8px rgba(107,92,231,0.22);
   }
-
+  .vp-msg-bubble.assistant {
+    background: #FFFFFF;
+    color: #1A1626;
+    border-radius: 20px 20px 20px 4px;
+    border: 1px solid #E8E4F8;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    line-height: 1.75;
+  }
   .vp-thinking {
-    font-family: Georgia, 'Times New Roman', serif;
-    font-size: 15px;
-    color: #A5B4FC;
-    border-left: 2px solid #6366F1;
-    padding-left: 16px;
-    animation: thinkPulse 1.6s ease-in-out infinite;
+    background: #FFFFFF;
+    color: #9B98B0;
+    border: 1px solid #E8E4F8;
+    border-radius: 20px 20px 20px 4px;
+    padding: 10px 18px;
+    font-size: 20px;
+    letter-spacing: 3px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    animation: thinkPulse 1.4s ease-in-out infinite;
   }
 
   /* ── Input area ── */
@@ -287,78 +306,70 @@ const STYLES = `
     transform: translateX(-50%);
     width: 100%;
     max-width: 680px;
-    padding: 16px 24px 24px 24px;
     background: #FFFFFF;
-    border-top: 1px solid #E5E7EB;
+    border-top: 1px solid #E8E4F8;
+    padding: 12px 16px 20px;
     box-sizing: border-box;
     z-index: 100;
   }
-
   .vp-input-row {
     display: flex;
     align-items: flex-end;
-    gap: 16px;
+    gap: 10px;
+    background: #F8F7FF;
+    border: 1.5px solid #E8E4F8;
+    border-radius: 20px;
+    padding: 10px 10px 10px 18px;
+    box-shadow: 0 1px 4px rgba(107,92,231,0.06);
+    transition: border-color 0.15s, box-shadow 0.15s;
   }
-
+  .vp-input-row:focus-within {
+    border-color: #6B5CE7;
+    box-shadow: 0 0 0 3px rgba(107,92,231,0.08);
+  }
   .vp-input {
     flex: 1;
-    border: none;
-    border-bottom: 1.5px solid #6366F1;
     background: transparent;
-    padding: 8px 0;
-    font-family: Georgia, 'Times New Roman', serif;
-    font-size: 15px;
-    color: #1A1A1A;
+    border: none;
     outline: none;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    color: #1A1626;
     resize: none;
     line-height: 1.5;
-    max-height: 100px;
+    max-height: 120px;
     overflow-y: auto;
-    transition: border-bottom-color 0.15s ease;
+    padding: 0;
   }
-
-  .vp-input::placeholder {
-    font-family: Georgia, 'Times New Roman', serif;
-    color: #9CA3AF;
-    font-style: italic;
-  }
-
-  .vp-input:focus {
-    border-bottom-color: #4F46E5;
-  }
-
+  .vp-input::placeholder { color: #9B98B0; }
   .vp-send {
-    font-family: 'Inter', sans-serif;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.2em;
-    color: #6366F1;
-    text-transform: uppercase;
-    background: none;
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    background: #6B5CE7;
     border: none;
     cursor: pointer;
-    padding: 0 0 2px 0;
-    transition: color 0.15s ease;
-    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     flex-shrink: 0;
+    transition: background 0.15s, transform 0.1s;
+    color: #fff;
   }
-
-  .vp-send:hover:not(:disabled) { color: #4F46E5; }
-  .vp-send:disabled { opacity: 0.35; cursor: default; }
-
+  .vp-send:hover:not(:disabled) { background: #4A3DB5; }
+  .vp-send:active:not(:disabled) { transform: scale(0.90); }
+  .vp-send:disabled { opacity: 0.38; cursor: default; }
   .vp-footer {
-    font-family: 'Inter', sans-serif;
     font-size: 10px;
     color: #D1D5DB;
     text-align: center;
-    padding-top: 10px;
-    padding-bottom: 0;
+    padding-top: 8px;
     letter-spacing: 0.02em;
   }
 `;
 
 /* Header height offset so chat doesn't hide under fixed header */
-const HEADER_HEIGHT = 148;
+const HEADER_HEIGHT = 278;
 
 const GATE_KEY = 'vint_access';
 const GATE_PASS = 'vint2026';
@@ -404,20 +415,28 @@ function Message({ msg, index }) {
       className={`vp-msg ${isUser ? 'user' : 'assistant'}`}
       style={{ animationDelay: `${Math.min(index * 0.03, 0.12)}s` }}
     >
-      <div className="vp-msg-label">{isUser ? 'You' : 'Vint Cerf'}</div>
-      {!isUser && msg.content === '' ? (
-        <div className="vp-thinking">…</div>
+      {isUser ? (
+        <div className="vp-msg-bubble user">
+          {msg.content}
+        </div>
       ) : (
-        <div className={`vp-msg-text ${isUser ? 'user' : 'assistant'}`}>
-          {isUser
-            ? msg.content
-            : msg.content.split('\n\n').map((para, pi) => (
-                <p key={pi} style={{ margin: 0, marginBottom: pi < msg.content.split('\n\n').length - 1 ? '12px' : 0 }}>
-                  {para.split('\n').map((line, li, arr) => (
-                    <span key={li}>{line}{li < arr.length - 1 && <br />}</span>
-                  ))}
-                </p>
-              ))}
+        <div className="vp-msg-row">
+          <div className="vp-msg-avatar">VC</div>
+          <div>
+            {msg.content === '' ? (
+              <div className="vp-thinking">…</div>
+            ) : (
+              <div className="vp-msg-bubble assistant">
+                {msg.content.split('\n\n').map((para, pi) => (
+                  <p key={pi} style={{ margin: 0, marginBottom: pi < msg.content.split('\n\n').length - 1 ? '12px' : 0 }}>
+                    {para.split('\n').map((line, li, arr) => (
+                      <span key={li}>{line}{li < arr.length - 1 && <br />}</span>
+                    ))}
+                  </p>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -536,15 +555,25 @@ export default function VintPage() {
     <div className="vp-root">
       <div className="vp-inner">
 
-        {/* Fixed header */}
+        {/* Fixed hero header */}
         <div className="vp-header">
           <div className="vp-brand">Astralink</div>
+          <div className="vp-avatar-hero">VC</div>
           <div className="vp-name">Vint Cerf</div>
           <div className="vp-subtitle">An attempt to preserve how he thinks.</div>
-          <hr className="vp-rule" />
-          <div className="vp-disclaimer">
-            Private experimental prototype — not for public release
+          <div className="vp-header-call">
+            <VintCall
+              messages={messages}
+              onNewExchange={(userText, vintText) =>
+                setMessages(prev => [
+                  ...prev,
+                  { role: 'user', content: userText },
+                  { role: 'assistant', content: vintText },
+                ])
+              }
+            />
           </div>
+          <div className="vp-badge">Private experimental prototype — not for public release</div>
         </div>
 
         {/* Spacer for fixed header */}
@@ -554,7 +583,8 @@ export default function VintPage() {
         <div className="vp-chat">
           {messages.length === 0 ? (
             <div className="vp-empty">
-              <div className="vp-empty-heading">Begin.</div>
+              <div className="vp-empty-icon">VC</div>
+              <div className="vp-empty-heading">Ask something.</div>
             </div>
           ) : (
             messages.map((msg, i) => <Message key={i} msg={msg} index={i} />)
@@ -583,20 +613,13 @@ export default function VintPage() {
               onClick={sendMessage}
               disabled={!input.trim() || streaming}
             >
-              {streaming ? 'Sending…' : 'Send'}
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2.5"
+                strokeLinecap="round" strokeLinejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"/>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
             </button>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'center', paddingBottom: 4 }}>
-            <VintCall
-              messages={messages}
-              onNewExchange={(userText, vintText) =>
-                setMessages(prev => [
-                  ...prev,
-                  { role: 'user', content: userText },
-                  { role: 'assistant', content: vintText },
-                ])
-              }
-            />
           </div>
           <div className="vp-footer">AstraLink — astralink.life</div>
         </div>
