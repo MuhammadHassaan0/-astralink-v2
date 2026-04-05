@@ -684,15 +684,22 @@ app.post('/vint-voice', async (req, res) => {
     const responseText = completion.choices[0]?.message?.content || '';
     console.log('[vint-voice] Groq responseText:', responseText);
 
-    // 2. Call F5-TTS on Colab via ngrok
-    const colabUrl = (process.env.COLAB_TTS_URL || '').replace(/\/+$/, '');
-    if (!colabUrl) throw new Error('COLAB_TTS_URL not set');
+    // 2. Call Mistral Voxtral TTS API
+    const mistralKey = (process.env.MISTRAL_API_KEY || '').trim();
+    if (!mistralKey) throw new Error('MISTRAL_API_KEY not set');
 
-    const ttsUrl = `${colabUrl}/tts?text=${encodeURIComponent(responseText)}`;
-    console.log('[vint-voice] Calling TTS at:', ttsUrl);
-
-    const ttsRes = await fetch(ttsUrl, {
-      headers: { 'ngrok-skip-browser-warning': 'true' },
+    console.log('[vint-voice] Calling Mistral Voxtral TTS...');
+    const ttsRes = await fetch('https://api.mistral.ai/v1/audio/speech', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${mistralKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'voxtral-tts-24-11',
+        voice: 'en-us-1',
+        input: responseText,
+      }),
     });
 
     if (!ttsRes.ok) {
