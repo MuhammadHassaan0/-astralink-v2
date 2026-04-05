@@ -699,6 +699,7 @@ app.post('/vint-voice', async (req, res) => {
         model: 'voxtral-mini-tts-2603',
         voice: '3c051444-ca47-47e5-b07c-b402f440335b',
         input: responseText,
+        response_format: 'mp3',
       }),
     });
 
@@ -707,7 +708,7 @@ app.post('/vint-voice', async (req, res) => {
       throw new Error(`TTS failed: ${errText}`);
     }
 
-    res.setHeader('Content-Type', 'audio/wav');
+    res.setHeader('Content-Type', 'audio/mpeg');
     res.setHeader('X-Vint-Text', encodeURIComponent(responseText));
     res.setHeader('Access-Control-Expose-Headers', 'X-Vint-Text');
 
