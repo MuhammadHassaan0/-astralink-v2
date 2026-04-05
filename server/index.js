@@ -696,7 +696,7 @@ app.post('/vint-voice', async (req, res) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'voxtral-tts-24-11',
+        model: 'mistral-tts-24-11',
         voice: 'en-us-1',
         input: responseText,
       }),
