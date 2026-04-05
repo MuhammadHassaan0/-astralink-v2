@@ -708,12 +708,13 @@ app.post('/vint-voice', async (req, res) => {
       throw new Error(`TTS failed: ${errText}`);
     }
 
-    res.setHeader('Content-Type', 'audio/mpeg');
-    res.setHeader('X-Vint-Text', encodeURIComponent(responseText));
-    res.setHeader('Access-Control-Expose-Headers', 'X-Vint-Text');
-
     const audioBuffer = await ttsRes.arrayBuffer();
-    res.end(Buffer.from(audioBuffer));
+    console.log('[vint-voice] Audio buffer size:', audioBuffer.byteLength);
+
+    res.set('Content-Type', 'audio/mpeg');
+    res.set('X-Vint-Text', encodeURIComponent(responseText));
+    res.set('Access-Control-Expose-Headers', 'X-Vint-Text');
+    res.send(Buffer.from(audioBuffer));
     console.log('[vint-voice] Done — audio sent successfully');
   } catch (e) {
     console.error('[vint-voice] CAUGHT ERROR:', e.message, e.stack);
