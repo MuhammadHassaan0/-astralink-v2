@@ -371,11 +371,12 @@ export default function VintCall({ messages = [], onNewExchange }) {
       console.log('[VintCall] X-Vint-Text:', vintText);
       setLastVint(vintText);
 
-      const audioBlob = await voiceRes.blob();
-      console.log('[VintCall] Audio blob size:', audioBlob.size);
+      const audioData = await voiceRes.arrayBuffer();
+      console.log('[VintCall] Audio data size:', audioData.byteLength);
 
-      if (audioBlob.size === 0) throw new Error('Empty audio — check TTS server');
+      if (audioData.byteLength === 0) throw new Error('Empty audio — check TTS server');
 
+      const audioBlob = new Blob([audioData], { type: 'audio/mpeg' });
       const url = URL.createObjectURL(audioBlob);
       const audio = new Audio(url);
       audioRef.current = audio;
