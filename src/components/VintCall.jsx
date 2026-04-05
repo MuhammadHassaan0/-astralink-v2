@@ -378,19 +378,16 @@ export default function VintCall({ messages = [], onNewExchange }) {
 
       setPhase('speaking');
 
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-      const source = audioContext.createBufferSource();
-      source.buffer = audioBuffer;
-      source.connect(audioContext.destination);
-      source.start(0);
-
-      source.onended = () => {
+      const blob = new Blob([arrayBuffer], { type: 'audio/mpeg' });
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audio.onended = () => {
         console.log('[VintCall] Playback ended');
-        audioContext.close();
+        URL.revokeObjectURL(url);
         setPhase('idle');
         if (vintText && onNewExchange) onNewExchange(text, vintText);
       };
+      audio.play();
 
     } catch (e) {
       console.error('[VintCall] handleBlob caught:', e);
