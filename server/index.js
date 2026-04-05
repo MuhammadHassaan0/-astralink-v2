@@ -708,8 +708,10 @@ app.post('/vint-voice', async (req, res) => {
       throw new Error(`TTS failed: ${errText}`);
     }
 
+    console.log('[vint-voice] Mistral response Content-Type:', ttsRes.headers.get('content-type'));
+
     const audioBuffer = await ttsRes.arrayBuffer();
-    console.log('[vint-voice] Audio buffer size:', audioBuffer.byteLength);
+    console.log('[vint-voice] Audio buffer size:', audioBuffer.byteLength, 'bytes');
 
     res.set('Content-Type', 'audio/mpeg');
     res.set('X-Vint-Text', encodeURIComponent(responseText));
