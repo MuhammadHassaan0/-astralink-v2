@@ -697,7 +697,7 @@ app.post('/vint-voice', async (req, res) => {
       },
       body: JSON.stringify({
         model: 'voxtral-mini-tts-2603',
-        voice: 'f959fb19-7aec-4ad1-a470-e850610290ab',
+        voice: '3c051444-ca47-47e5-b07c-b402f440335b',
         input: responseText,
       }),
     });
