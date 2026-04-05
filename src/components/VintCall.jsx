@@ -371,37 +371,26 @@ export default function VintCall({ messages = [], onNewExchange }) {
       console.log('[VintCall] X-Vint-Text:', vintText);
       setLastVint(vintText);
 
-      const audioData = await voiceRes.arrayBuffer();
-      console.log('[VintCall] Audio data size:', audioData.byteLength);
+      const arrayBuffer = await voiceRes.arrayBuffer();
+      console.log('[VintCall] Audio data size:', arrayBuffer.byteLength);
 
-      if (audioData.byteLength === 0) throw new Error('Empty audio — check TTS server');
+      if (arrayBuffer.byteLength === 0) throw new Error('Empty audio — check TTS server');
 
-      const audioBlob = new Blob([audioData], { type: 'audio/mpeg' });
-      const url = URL.createObjectURL(audioBlob);
-      const audio = new Audio(url);
-      audioRef.current = audio;
       setPhase('speaking');
 
-      audio.onended = () => {
-        console.log('[VintCall] Playback ended');
-        URL.revokeObjectURL(url);
-        audioRef.current = null;
-        setPhase('idle');
-        if (vintText && onNewExchange) onNewExchange(text, vintText);
-      };
-      audio.onerror = (e) => {
-        console.error('[VintCall] Playback error:', e);
-        URL.revokeObjectURL(url);
-        audioRef.current = null;
-        setPhase('idle');
-        if (vintText && onNewExchange) onNewExchange(text, vintText);
-      };
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      const source = audioContext.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(audioContext.destination);
+      source.start(0);
 
-      audio.play().catch((e) => {
-        console.error('[VintCall] play() rejected:', e);
-        setError(`Playback blocked: ${e.message}`);
+      source.onended = () => {
+        console.log('[VintCall] Playback ended');
+        audioContext.close();
         setPhase('idle');
-      });
+        if (vintText && onNewExchange) onNewExchange(text, vintText);
+      };
 
     } catch (e) {
       console.error('[VintCall] handleBlob caught:', e);
