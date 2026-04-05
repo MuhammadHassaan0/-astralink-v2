@@ -710,13 +710,20 @@ app.post('/vint-voice', async (req, res) => {
 
     console.log('[vint-voice] Mistral response Content-Type:', ttsRes.headers.get('content-type'));
 
-    const audioBuffer = await ttsRes.arrayBuffer();
+    const json = await ttsRes.json();
+    console.log('[vint-voice] Mistral JSON keys:', Object.keys(json));
+
+    // Extract audio data from JSON response
+    const audioB64 = json.audio || json.data || json.audio_data || json.content;
+    if (!audioB64) throw new Error(`No audio field found in Mistral response. Keys: ${Object.keys(json).join(', ')}`);
+
+    const audioBuffer = Buffer.from(audioB64, 'base64');
     console.log('[vint-voice] Audio buffer size:', audioBuffer.byteLength, 'bytes');
 
     res.set('Content-Type', 'audio/mpeg');
     res.set('X-Vint-Text', encodeURIComponent(responseText));
     res.set('Access-Control-Expose-Headers', 'X-Vint-Text');
-    res.send(Buffer.from(audioBuffer));
+    res.send(audioBuffer);
     console.log('[vint-voice] Done — audio sent successfully');
   } catch (e) {
     console.error('[vint-voice] CAUGHT ERROR:', e.message, e.stack);
