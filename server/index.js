@@ -689,23 +689,32 @@ app.post('/vint-voice', async (req, res) => {
     if (!mistralKey) throw new Error('MISTRAL_API_KEY not set');
 
     console.log('[vint-voice] Calling Mistral Voxtral TTS...');
-    const ttsRes = await fetch('https://api.mistral.ai/v1/audio/speech', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${mistralKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'voxtral-mini-tts-2603',
-        voice: '3c051444-ca47-47e5-b07c-b402f440335b',
-        input: responseText,
-        response_format: 'mp3',
-      }),
+    const ttsBody = JSON.stringify({
+      model: 'voxtral-mini-tts-2603',
+      voice: '3c051444-ca47-47e5-b07c-b402f440335b',
+      input: responseText,
+      response_format: 'mp3',
     });
 
-    if (!ttsRes.ok) {
+    let ttsRes;
+    const MAX_ATTEMPTS = 3;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      ttsRes = await fetch('https://api.mistral.ai/v1/audio/speech', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${mistralKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: ttsBody,
+      });
+      if (ttsRes.ok) break;
       const errText = await ttsRes.text();
-      throw new Error(`TTS failed: ${errText}`);
+      console.warn(`[vint-voice] TTS attempt ${attempt}/${MAX_ATTEMPTS} failed (${ttsRes.status}):`, errText);
+      if (ttsRes.status !== 500 || attempt === MAX_ATTEMPTS) {
+        throw new Error(`TTS failed after ${attempt} attempt(s): ${errText}`);
+      }
+      console.log(`[vint-voice] Retrying in 1500ms...`);
+      await new Promise(r => setTimeout(r, 1500));
     }
 
     console.log('[vint-voice] Mistral response Content-Type:', ttsRes.headers.get('content-type'));
