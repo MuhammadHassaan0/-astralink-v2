@@ -795,6 +795,44 @@ app.post('/woz-chat', async (req, res) => {
   }
 });
 
+// ── Mamdani proxy ─────────────────────────────────────────────────────────────
+// Forwards to the Python FastAPI RAG backend.
+// Set MAMDANI_API_URL in Railway env vars when the Python backend is deployed.
+app.post('/mamdani-chat', async (req, res) => {
+  const mamdaniUrl = (process.env.MAMDANI_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
+  try {
+    const upstream = await fetch(`${mamdaniUrl}/mamdani/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body),
+    });
+
+    if (!upstream.ok) {
+      const err = await upstream.text();
+      return res.status(upstream.status).json({ error: err });
+    }
+
+    // Forward SSE stream directly to client
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    const reader = upstream.body.getReader();
+    const pump = async () => {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) { res.end(); break; }
+        res.write(value);
+      }
+    };
+    await pump();
+  } catch (e) {
+    console.error('[mamdani-chat] proxy error:', e.message);
+    if (!res.headersSent) res.status(502).json({ error: `Mamdani backend unreachable: ${e.message}` });
+    else res.end();
+  }
+});
+
 const PORT = process.env.PORT || 3001;
 initDB().then(() => {
   app.listen(PORT, () => console.log(`AstraLink backend running on port ${PORT}`));
