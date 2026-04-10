@@ -48,8 +48,16 @@ if not GROQ_API_KEY:
     raise RuntimeError("GROQ_API_KEY not set in environment or .env")
 
 groq_client  = Groq(api_key=GROQ_API_KEY)
-qdrant       = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
 PERSONA_TEXT = PERSONA_FILE.read_text()
+
+# Lazy Qdrant client — instantiated on first use, not at import time
+_qdrant: QdrantClient | None = None
+
+def get_qdrant() -> QdrantClient:
+    global _qdrant
+    if _qdrant is None:
+        _qdrant = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
+    return _qdrant
 
 # ── FastAPI app ───────────────────────────────────────────────────────────────
 app = FastAPI(title="Mamdani Digital Twin", version="0.1.0")
@@ -233,14 +241,19 @@ async def mamdani_chat(req: ChatRequest):
 
 @app.get("/healthz")
 def healthz():
-    # Qdrant
+    """
+    Lightweight health check — returns 200 immediately so Railway startup
+    succeeds without waiting on Qdrant. Qdrant status is checked lazily.
+    """
+    qdrant_status = "not_checked"
+    chunk_count   = -1
     try:
-        info   = qdrant.get_collection(COLLECTION_NAME)
+        q = get_qdrant()
+        info          = q.get_collection(COLLECTION_NAME)
         qdrant_status = str(info.status).lower()
-        chunk_count   = qdrant.count(COLLECTION_NAME).count
-    except Exception as e:
-        qdrant_status = f"red ({e})"
-        chunk_count   = 0
+        chunk_count   = q.count(COLLECTION_NAME).count
+    except Exception:
+        pass  # Don't fail the healthcheck on Qdrant issues
 
     return {
         "status":  "ok",
