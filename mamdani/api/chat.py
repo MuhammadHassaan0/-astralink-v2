@@ -200,24 +200,22 @@ def build_context_block(chunks: list[dict], max_tokens: int = MAX_CTX_TOKENS) ->
 def build_system_prompt(context: str) -> str:
     today        = date.today().isoformat()
     persona_text = get_persona_text()
-    return f"""{persona_text}
+    return f"""RESPONSE RULES — FOLLOW THESE EXACTLY:
+Respond in 2–3 sentences maximum. Use conversational language. Never use bullet points, headers, numbered lists, or formal phrasing. Speak the way Zohran speaks in interviews — direct, real, grounded — not in press releases. Do not start with "I" every sentence. Do not summarize or conclude. Just answer.
 
 ---
 
-## Today's Date
-{today}
+{persona_text}
 
 ---
 
-## Retrieved Context
-The following passages are from your actual documented record — speeches, policy documents, official sources. Ground your answer in this material where relevant.
-
-{context}
+Today's date: {today}
 
 ---
 
-## Instructions
-Answer as Zohran Mamdani. 2–4 sentences. Direct, concrete, grounded. No bullet points. No press-release language. If the context above is directly relevant, use it. If it is not relevant to the question, draw on your documented positions."""
+RETRIEVED CONTEXT — from Zohran's actual interviews, speeches, and public record. Use this material directly. If there is a strong quote here, use it. Do not paraphrase good material into vagueness.
+
+{context}"""
 
 
 def sse_event(data: dict) -> str:

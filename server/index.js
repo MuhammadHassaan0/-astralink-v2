@@ -812,10 +812,12 @@ app.post('/mamdani-chat', async (req, res) => {
       return res.status(upstream.status).json({ error: err });
     }
 
-    // Forward SSE stream directly to client
+    // Forward SSE stream directly to client — flush immediately so Railway/nginx don't buffer
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders(); // send headers to client NOW before any data arrives
 
     const reader = upstream.body.getReader();
     const pump = async () => {
@@ -823,6 +825,8 @@ app.post('/mamdani-chat', async (req, res) => {
         const { done, value } = await reader.read();
         if (done) { res.end(); break; }
         res.write(value);
+        // flush each chunk immediately — prevents Express/nginx buffering
+        if (typeof res.flush === 'function') res.flush();
       }
     };
     await pump();
