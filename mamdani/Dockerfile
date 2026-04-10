@@ -28,6 +28,7 @@ COPY . .
 # Pre-download FastEmbed model so it's baked into image
 RUN python -c "from fastembed import TextEmbedding; TextEmbedding(model_name='BAAI/bge-small-en-v1.5')"
 
+ENV PORT=8000
 EXPOSE 8000
 
-CMD ["uvicorn", "api.chat:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD sh -c 'uvicorn api.chat:app --host 0.0.0.0 --port ${PORT:-8000}'
