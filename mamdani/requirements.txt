@@ -1,4 +1,5 @@
 fastapi
+firecrawl-py
 uvicorn
 qdrant-client
 fastembed
