@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+qdrant-client
+fastembed
+crawl4ai
+rank-bm25
+python-dotenv
+sse-starlette
+llama-index-core
+unstructured
+httpx
+groq
