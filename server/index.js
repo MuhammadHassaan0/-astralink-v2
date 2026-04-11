@@ -837,6 +837,30 @@ app.post('/mamdani-chat', async (req, res) => {
   }
 });
 
+// ── TTS text cleaner ──────────────────────────────────────────────────────────
+// Strips/replaces characters that cause TTS to stumble: dollar signs, markdown
+// symbols, stray punctuation, etc.
+function cleanForTTS(text) {
+  return text
+    // dollar amounts: $1.5 trillion → 1.5 trillion dollars
+    .replace(/\$(\d[\d,.]*)\s*(trillion|billion|million|thousand)/gi,
+      (_, num, unit) => `${num} ${unit} dollars`)
+    // plain dollar + number: $50 → 50 dollars
+    .replace(/\$(\d[\d,.]*)/g, (_, num) => `${num} dollars`)
+    // stray dollar sign
+    .replace(/\$/g, 'dollars ')
+    // percent
+    .replace(/(\d)\s*%/g, '$1 percent')
+    // markdown bold / italic
+    .replace(/\*\*?([^*\n]+)\*\*?/g, '$1')
+    .replace(/_([^_\n]+)_/g, '$1')
+    // strip symbols TTS stumbles on
+    .replace(/[#^~`|\\{}[\]<>@]/g, ' ')
+    // collapse whitespace
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 // ── Mamdani voice endpoints ───────────────────────────────────────────────────
 
 app.post('/mamdani-transcribe', uploadMem.single('audio'), async (req, res) => {
@@ -890,7 +914,7 @@ app.post('/mamdani-voice', async (req, res) => {
 
     // Helper: call Mistral TTS for one sentence, return Buffer or null
     const callTTS = async (sentence) => {
-      const input = sentence.trim();
+      const input = cleanForTTS(sentence.trim());
       if (!input) return null;
       console.log(`[mamdani-voice] TTS → "${input.slice(0, 60)}"`);
       for (let attempt = 1; attempt <= 3; attempt++) {
@@ -1041,7 +1065,7 @@ app.post('/mamdani-realtime-voice', uploadMem.single('audio'), async (req, res) 
 
     if (!transcript) throw new Error('Empty transcription — no speech detected');
 
-    // ── 2. RAG via SSE + parallel sentence-level TTS ─────────────────────────
+    // ── 2. Collect full RAG response via SSE ──────────────────────────────────
     const messages = [{ role: 'user', content: transcript }];
     const chatRes = await fetch(`${mamdaniUrl}/mamdani/chat`, {
       method: 'POST',
@@ -1050,9 +1074,44 @@ app.post('/mamdani-realtime-voice', uploadMem.single('audio'), async (req, res) 
     });
     if (!chatRes.ok) throw new Error(`Mamdani chat ${chatRes.status}: ${await chatRes.text()}`);
 
-    const callTTS = async (sentence) => {
-      const input = sentence.trim();
+    let sseBuf = '', fullText = '';
+    const sseReader  = chatRes.body.getReader();
+    const sseDecoder = new TextDecoder();
+    while (true) {
+      const { done, value } = await sseReader.read();
+      if (done) break;
+      sseBuf += sseDecoder.decode(value, { stream: true });
+      const lines = sseBuf.split('\n');
+      sseBuf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const evt = JSON.parse(line.slice(6).trim());
+          if (evt.type === 'token' && evt.content) fullText += evt.content;
+        } catch {}
+      }
+    }
+    if (!fullText.trim()) throw new Error('Empty response from Mamdani backend');
+
+    // ── 3. Split into sentences ───────────────────────────────────────────────
+    // Strictly sequential: one TTS call at a time in order — no parallel dispatch
+    const sentences = [];
+    let sentRemain = fullText;
+    let sm;
+    // Min 10 chars to avoid dropping short-but-complete sentences
+    while ((sm = sentRemain.match(/^(.{10,}?[.!?]+)\s*/s)) !== null) {
+      sentences.push(sm[1]);
+      sentRemain = sentRemain.slice(sm[0].length);
+    }
+    if (sentRemain.trim()) sentences.push(sentRemain.trim());
+
+    console.log(`[mamdani-realtime] SSE done — ${sentences.length} sentences — transcript: "${transcript.slice(0, 40)}"`);
+
+    // ── 4. TTS helper (sequential use) ───────────────────────────────────────
+    const callTTSSeq = async (sentence) => {
+      const input = cleanForTTS(sentence);
       if (!input) return null;
+      console.log(`[mamdani-realtime] TTS → "${input.slice(0, 60)}"`);
       for (let attempt = 1; attempt <= 3; attempt++) {
         const r = await fetch('https://api.mistral.ai/v1/audio/speech', {
           method: 'POST',
@@ -1068,7 +1127,9 @@ app.post('/mamdani-realtime-voice', uploadMem.single('audio'), async (req, res) 
           const json = await r.json();
           const b64 = json.audio || json.data || json.audio_data || json.content;
           if (!b64) return null;
-          return Buffer.from(b64, 'base64');
+          const buf = Buffer.from(b64, 'base64');
+          console.log(`[mamdani-realtime] TTS done — ${buf.byteLength}B`);
+          return buf;
         }
         const errText = await r.text();
         console.warn(`[mamdani-realtime] TTS attempt ${attempt}/3 failed (${r.status}):`, errText.slice(0, 80));
@@ -1078,42 +1139,7 @@ app.post('/mamdani-realtime-voice', uploadMem.single('audio'), async (req, res) 
       return null;
     };
 
-    let sseBuf = '', sentBuf = '', fullText = '';
-    const ttsJobs = [];
-    const flushSentences = () => {
-      let m;
-      while ((m = sentBuf.match(/^(.{15,}?[.!?]+)\s+/s)) !== null) {
-        ttsJobs.push(callTTS(m[1]));
-        sentBuf = sentBuf.slice(m[0].length);
-      }
-    };
-
-    const sseReader  = chatRes.body.getReader();
-    const sseDecoder = new TextDecoder();
-    while (true) {
-      const { done, value } = await sseReader.read();
-      if (done) break;
-      sseBuf += sseDecoder.decode(value, { stream: true });
-      const lines = sseBuf.split('\n');
-      sseBuf = lines.pop();
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue;
-        try {
-          const evt = JSON.parse(line.slice(6).trim());
-          if (evt.type === 'token' && evt.content) {
-            fullText += evt.content;
-            sentBuf  += evt.content;
-            flushSentences();
-          }
-        } catch {}
-      }
-    }
-    if (sentBuf.trim()) ttsJobs.push(callTTS(sentBuf.trim()));
-    if (!fullText.trim()) throw new Error('Empty response from Mamdani backend');
-
-    console.log(`[mamdani-realtime] SSE done — ${ttsJobs.length} TTS jobs — transcript: "${transcript.slice(0, 40)}"`);
-
-    // ── 3. Stream headers + audio ─────────────────────────────────────────────
+    // ── 5. Stream headers + audio (sequential TTS, write immediately per sentence)
     res.set('Content-Type', 'audio/mpeg');
     res.set('X-Transcript-Text', encodeURIComponent(transcript));
     res.set('X-Mamdani-Text',    encodeURIComponent(fullText));
@@ -1121,8 +1147,8 @@ app.post('/mamdani-realtime-voice', uploadMem.single('audio'), async (req, res) 
     res.set('X-Accel-Buffering', 'no');
     res.flushHeaders();
 
-    for (const job of ttsJobs) {
-      const buf = await job;
+    for (const sentence of sentences) {
+      const buf = await callTTSSeq(sentence); // strictly sequential
       if (buf && buf.byteLength > 0) {
         res.write(buf);
         if (typeof res.flush === 'function') res.flush();
