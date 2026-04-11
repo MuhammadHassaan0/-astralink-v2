@@ -237,10 +237,10 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose }) {
       }
     };
 
-    // ── Play audio response with interrupt detection ──────────────────────
-    // Strategy: buffer the ENTIRE response first, then attempt MediaSource
-    // from the buffer. On any SourceBuffer error, immediately fall back to
-    // a blob URL — both paths use the same in-memory data so no re-read needed.
+    // ── Play audio response ───────────────────────────────────────────────
+    // The server now sends one concatenated MP3 blob — no MediaSource needed.
+    // We buffer the full response, create a single blob URL, and play it.
+    // This eliminates all inter-sentence gaps that MediaSource chunk appending caused.
     const playAudio = (response) => new Promise(async (resolve) => {
       const MIME = 'audio/mpeg';
 
@@ -272,113 +272,46 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose }) {
         if (url) try { URL.revokeObjectURL(url); } catch {}
       };
 
-      // ── Step 1: Buffer entire response body ─────────────────────────────
+      // Buffer entire response (server sends one complete MP3)
       let allData;
       try {
         const reader = response.body.getReader();
-        const rawChunks = [];
+        const chunks = [];
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-          rawChunks.push(value);
+          chunks.push(value);
         }
-        const totalLen = rawChunks.reduce((s, c) => s + c.length, 0);
+        const totalLen = chunks.reduce((s, c) => s + c.length, 0);
         allData = new Uint8Array(totalLen);
         let off = 0;
-        for (const c of rawChunks) { allData.set(c, off); off += c.length; }
+        for (const c of chunks) { allData.set(c, off); off += c.length; }
+        console.log(`[MamdaniRTV] Buffered ${allData.length}B audio`);
       } catch (readErr) {
         console.error('[MamdaniRTV] Failed to buffer response:', readErr);
         done_(); return;
       }
 
-      if (!allData.length) { done_(); return; }
+      if (!allData.length) { console.warn('[MamdaniRTV] Empty audio response'); done_(); return; }
 
-      // ── Step 2: Try MediaSource from buffer ─────────────────────────────
-      const canStream =
-        typeof window !== 'undefined' &&
-        window.MediaSource &&
-        typeof MediaSource.isTypeSupported === 'function' &&
-        MediaSource.isTypeSupported(MIME);
-
-      if (canStream) {
-        let msUrl = null;
-        try {
-          const ms = new MediaSource();
-          msUrl = URL.createObjectURL(ms);
-          const el = new Audio(msUrl);
-          playingEl = el;
-
-          el.onended = () => { cleanup(msUrl); done_(); };
-          el.onerror = (ev) => {
-            console.warn('[MamdaniRTV] Audio element error during MS playback:', ev);
-            cleanup(msUrl); done_();
-          };
-          startInterruptCheck(el);
-
-          await new Promise((res, rej) => {
-            ms.addEventListener('sourceopen', res, { once: true });
-            ms.addEventListener('error',      rej,  { once: true });
-          });
-
-          const sb = ms.addSourceBuffer(MIME);
-
-          // Surface SourceBuffer errors into a rejected promise
-          let sbReject = null;
-          sb.addEventListener('error', (ev) => {
-            console.warn('[MamdaniRTV] SourceBuffer error:', ev);
-            if (sbReject) sbReject(new Error('SourceBuffer error'));
-          });
-
-          el.play().catch(() => {});
-
-          // Append buffered data in 128 KB chunks to avoid quota exceeded
-          const CHUNK_SIZE = 128 * 1024;
-          for (let offset = 0; offset < allData.length; offset += CHUNK_SIZE) {
-            if (!playingEl) { if (ms.readyState === 'open') ms.endOfStream(); return; }
-            const slice = allData.slice(offset, offset + CHUNK_SIZE);
-            // Wait for any pending update, with error surface
-            await new Promise((res, rej) => {
-              sbReject = rej;
-              if (!sb.updating) { sbReject = null; res(); return; }
-              sb.addEventListener('updateend', () => { sbReject = null; res(); }, { once: true });
-            });
-            sb.appendBuffer(slice);
-            await new Promise((res, rej) => {
-              sbReject = rej;
-              sb.addEventListener('updateend', () => { sbReject = null; res(); }, { once: true });
-            });
-          }
-
-          // Final updateend before endOfStream
-          await new Promise((res, rej) => {
-            sbReject = rej;
-            if (!sb.updating) { sbReject = null; res(); return; }
-            sb.addEventListener('updateend', () => { sbReject = null; res(); }, { once: true });
-          });
-          if (ms.readyState === 'open') ms.endOfStream();
-          return; // let el.onended fire done_()
-        } catch (msErr) {
-          console.warn('[MamdaniRTV] MediaSource path failed, using blob fallback:', msErr.message);
-          clearInterval(interruptInt);
-          interruptInt = null;
-          playingEl = null;
-          if (msUrl) try { URL.revokeObjectURL(msUrl); } catch {}
-          resolved = false; // reset so blob path can resolve
-        }
-      }
-
-      // ── Step 3: Blob fallback from the same buffered data ───────────────
+      // Play as single blob URL — no MediaSource, no gaps
       try {
         const blob = new Blob([allData], { type: MIME });
         const url  = URL.createObjectURL(blob);
         const el   = new Audio(url);
         playingEl = el;
         el.onended = () => { cleanup(url); done_(); };
-        el.onerror = () => { cleanup(url); done_(); };
+        el.onerror = (ev) => {
+          console.error('[MamdaniRTV] Audio playback error:', ev);
+          cleanup(url); done_();
+        };
         startInterruptCheck(el);
-        el.play().catch(() => { cleanup(url); done_(); });
-      } catch (blobErr) {
-        console.error('[MamdaniRTV] Blob fallback failed:', blobErr);
+        el.play().catch((err) => {
+          console.error('[MamdaniRTV] el.play() rejected:', err);
+          cleanup(url); done_();
+        });
+      } catch (err) {
+        console.error('[MamdaniRTV] Blob playback setup failed:', err);
         done_();
       }
     });

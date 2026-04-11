@@ -1146,23 +1146,16 @@ app.post('/mamdani-realtime-voice', uploadMem.single('audio'), async (req, res) 
     if (sentRemain.trim()) sentences.push(sentRemain.trim());
     console.log(`${TAG} STEP 3 — ${sentences.length} sentences:`, sentences.map((s, i) => `[${i}] "${s.slice(0,40)}"`).join(', '));
 
-    // ── STEP 4 — Send headers ────────────────────────────────────────────────
-    console.log(`${TAG} STEP 4 — sending response headers`);
-    res.set('Content-Type', 'audio/mpeg');
-    res.set('X-Transcript-Text', encodeURIComponent(transcript));
-    res.set('X-Mamdani-Text',    encodeURIComponent(fullText));
-    res.set('Access-Control-Expose-Headers', 'X-Transcript-Text, X-Mamdani-Text');
-    res.set('X-Accel-Buffering', 'no');
-    res.flushHeaders();
-    console.log(`${TAG} STEP 4 — headers flushed`);
-
-    // ── STEP 5 — Sequential TTS → stream ─────────────────────────────────────
-    let audioBytesSent = 0;
+    // ── STEP 4 — Sequential TTS, collect all buffers ─────────────────────────
+    // Each sentence is called one at a time. All MP3 buffers are accumulated
+    // in an array and then concatenated into a single buffer before sending.
+    // This eliminates MediaSource gaps between sentence chunks on the client.
+    const audioBuffers = [];
     for (let i = 0; i < sentences.length; i++) {
       const sentence = sentences[i];
       const input    = cleanForTTS(sentence);
-      if (!input) { console.log(`${TAG} STEP 5 [${i}] — skipped (empty after clean)`); continue; }
-      console.log(`${TAG} STEP 5 [${i}/${sentences.length}] TTS → "${input.slice(0, 70)}"`);
+      if (!input) { console.log(`${TAG} STEP 4 [${i}] — skipped (empty after clean)`); continue; }
+      console.log(`${TAG} STEP 4 [${i}/${sentences.length}] TTS → "${input.slice(0, 70)}"`);
 
       let buf = null;
       for (let attempt = 1; attempt <= 3; attempt++) {
@@ -1179,7 +1172,7 @@ app.post('/mamdani-realtime-voice', uploadMem.single('audio'), async (req, res) 
             }),
           });
         } catch (fetchErr) {
-          console.error(`${TAG} STEP 5 [${i}] attempt ${attempt} fetch threw: ${fetchErr.message}`);
+          console.error(`${TAG} STEP 4 [${i}] attempt ${attempt} fetch threw: ${fetchErr.message}`);
           if (attempt === 3) break;
           await new Promise(x => setTimeout(x, 1500));
           continue;
@@ -1188,37 +1181,46 @@ app.post('/mamdani-realtime-voice', uploadMem.single('audio'), async (req, res) 
         if (ttsRes.ok) {
           let json;
           try { json = await ttsRes.json(); } catch (parseErr) {
-            console.error(`${TAG} STEP 5 [${i}] attempt ${attempt} JSON parse failed: ${parseErr.message}`);
+            console.error(`${TAG} STEP 4 [${i}] attempt ${attempt} JSON parse failed: ${parseErr.message}`);
             break;
           }
           const b64 = json.audio || json.data || json.audio_data || json.content;
           if (!b64) {
-            console.error(`${TAG} STEP 5 [${i}] attempt ${attempt} — no base64 field in response. Keys: ${Object.keys(json).join(',')}`);
+            console.error(`${TAG} STEP 4 [${i}] attempt ${attempt} — no base64 field. Keys: ${Object.keys(json).join(',')}`);
             break;
           }
           buf = Buffer.from(b64, 'base64');
-          console.log(`${TAG} STEP 5 [${i}] TTS OK — ${buf.byteLength}B`);
+          console.log(`${TAG} STEP 4 [${i}] TTS OK — ${buf.byteLength}B`);
           break;
         } else {
           const errText = await ttsRes.text();
-          console.error(`${TAG} STEP 5 [${i}] attempt ${attempt} TTS ${ttsRes.status}: ${errText.slice(0, 200)}`);
+          console.error(`${TAG} STEP 4 [${i}] attempt ${attempt} TTS ${ttsRes.status}: ${errText.slice(0, 200)}`);
           if (ttsRes.status !== 500 || attempt === 3) break;
           await new Promise(x => setTimeout(x, 1500));
         }
       }
 
       if (buf && buf.byteLength > 0) {
-        res.write(buf);
-        if (typeof res.flush === 'function') res.flush();
-        audioBytesSent += buf.byteLength;
-        console.log(`${TAG} STEP 5 [${i}] — wrote ${buf.byteLength}B, total sent=${audioBytesSent}B`);
+        audioBuffers.push(buf);
+        console.log(`${TAG} STEP 4 [${i}] — buffered ${buf.byteLength}B`);
       } else {
-        console.warn(`${TAG} STEP 5 [${i}] — no audio produced for sentence, continuing`);
+        console.warn(`${TAG} STEP 4 [${i}] — no audio produced, sentence skipped`);
       }
     }
 
-    res.end();
-    console.log(`${TAG} ━━━ DONE — totalAudio=${audioBytesSent}B sentences=${sentences.length} ━━━`);
+    if (audioBuffers.length === 0) throw new Error('TTS produced no audio for any sentence');
+
+    // ── STEP 5 — Concatenate all MP3s into one buffer and send ───────────────
+    const combined = Buffer.concat(audioBuffers);
+    console.log(`${TAG} STEP 5 — concatenated ${audioBuffers.length} buffers → ${combined.byteLength}B total`);
+
+    res.set('Content-Type', 'audio/mpeg');
+    res.set('Content-Length', combined.byteLength);
+    res.set('X-Transcript-Text', encodeURIComponent(transcript));
+    res.set('X-Mamdani-Text',    encodeURIComponent(fullText));
+    res.set('Access-Control-Expose-Headers', 'X-Transcript-Text, X-Mamdani-Text');
+    res.end(combined);
+    console.log(`${TAG} ━━━ DONE — ${combined.byteLength}B sent, ${sentences.length} sentences ━━━`);
 
   } catch (e) {
     // Full stack to Railway logs so we can see the exact line
