@@ -26,7 +26,23 @@ app.use(express.json());
 
 // Serve static HTML pages from /public (one level up from /server).
 // extensions: ['html'] lets /politicians resolve to /politicians.html
-app.use(express.static(path.join(__dirname, '..', 'public'), { extensions: ['html'] }));
+const PUBLIC_DIR = path.join(__dirname, '..', 'public');
+console.log('[static] __dirname:', __dirname);
+console.log('[static] resolved public path:', PUBLIC_DIR);
+console.log('[static] public dir exists:', fs.existsSync(PUBLIC_DIR));
+console.log('[static] public dir contents:', fs.existsSync(PUBLIC_DIR) ? fs.readdirSync(PUBLIC_DIR).join(', ') : 'N/A');
+app.use(express.static(PUBLIC_DIR, { extensions: ['html'] }));
+
+// Debug route — remove after confirming deployment
+app.get('/test', (req, res) => {
+  res.send(
+    'server is alive' +
+    ' | __dirname: ' + __dirname +
+    ' | public path: ' + PUBLIC_DIR +
+    ' | public exists: ' + fs.existsSync(PUBLIC_DIR) +
+    ' | public contents: ' + (fs.existsSync(PUBLIC_DIR) ? fs.readdirSync(PUBLIC_DIR).join(', ') : 'N/A')
+  );
+});
 
 function authMiddleware(req, res, next) {
   const token = req.headers.authorization?.split(' ')[1];
