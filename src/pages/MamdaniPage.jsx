@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { flushSync } from 'react-dom';
-import MamdaniCall from '../components/MamdaniCall';
+import MamdaniRealtimeVoice from '../components/MamdaniRealtimeVoice';
 import mamdaniImage from '../assets/mamdani.jpg';
 
 const API = 'https://astralink-v2-production.up.railway.app';
@@ -198,10 +198,26 @@ const STYLES = `
     animation: mpPulse 2.4s ease-in-out infinite;
     flex-shrink: 0;
   }
-  .mp-header .mc-trigger {
-    margin-left: 10px;
+  /* ── Header voice button ── */
+  .mp-voice-btn {
+    margin-left: 8px;
     flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #1a2e22;
+    border: 1.5px solid #2ecc71;
+    color: #2ecc71;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
   }
+  .mp-voice-btn:hover  { background: #1f3828; }
+  .mp-voice-btn:active { transform: scale(0.92); }
 
   /* ── Chat area ── */
   .mp-chat {
@@ -528,13 +544,24 @@ const MicIcon = ({ size = 16 }) => (
   </svg>
 );
 
+const VoiceIcon = ({ size = 16 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/>
+    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+    <line x1="12" y1="19" x2="12" y2="22"/>
+    <line x1="8"  y1="22" x2="16" y2="22"/>
+  </svg>
+);
+
 export default function MamdaniPage() {
-  const [unlocked,  setUnlocked]  = useState(() => sessionStorage.getItem(GATE_KEY) === '1');
-  const [messages,  setMessages]  = useState([]);
-  const [input,     setInput]     = useState('');
-  const [streaming, setStreaming] = useState(false);
+  const [unlocked,   setUnlocked]  = useState(() => sessionStorage.getItem(GATE_KEY) === '1');
+  const [messages,   setMessages]  = useState([]);
+  const [input,      setInput]     = useState('');
+  const [streaming,  setStreaming] = useState(false);
+  const [showVoice,  setShowVoice] = useState(false);
   // 'idle' | 'recording' | 'transcribing'
-  const [micPhase,  setMicPhase]  = useState('idle');
+  const [micPhase,   setMicPhase]  = useState('idle');
 
   const bottomRef    = useRef(null);
   const inputRef     = useRef(null);
@@ -741,8 +768,19 @@ export default function MamdaniPage() {
             <p>Mayor of New York City</p>
           </div>
           <div className="mp-status-dot" />
-          <MamdaniCall
-            messages={messages}
+          <button
+            className="mp-voice-btn"
+            onClick={() => setShowVoice(true)}
+            aria-label="Open voice mode"
+            title="Voice mode"
+          >
+            <VoiceIcon size={15} />
+          </button>
+        </div>
+
+        {/* GPT-style realtime voice overlay */}
+        {showVoice && (
+          <MamdaniRealtimeVoice
             onNewExchange={(userText, assistantText) => {
               setMessages(prev => [
                 ...prev,
@@ -750,8 +788,9 @@ export default function MamdaniPage() {
                 { role: 'assistant', content: assistantText },
               ]);
             }}
+            onClose={() => setShowVoice(false)}
           />
-        </div>
+        )}
 
         {/* Spacer */}
         <div style={{ height: HEADER_HEIGHT }} />

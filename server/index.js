@@ -988,6 +988,155 @@ app.post('/mamdani-voice', async (req, res) => {
   }
 });
 
+// ── Mamdani Realtime Voice ────────────────────────────────────────────────────
+// Receives audio blob → transcribe (Mistral Voxtral / Groq fallback)
+// → RAG → sentence-level TTS → stream audio/mpeg with X-Transcript-Text header
+app.post('/mamdani-realtime-voice', uploadMem.single('audio'), async (req, res) => {
+  try {
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({ error: 'No audio file received' });
+    }
+
+    const mamdaniUrl = (process.env.MAMDANI_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
+    const mistralKey = (process.env.MISTRAL_API_KEY || '').trim();
+    if (!mistralKey) throw new Error('MISTRAL_API_KEY not set');
+
+    console.log('[mamdani-realtime] HIT — size:', req.file.size, 'type:', req.file.mimetype);
+
+    // ── 1. Transcribe: Mistral Voxtral → fallback Groq Whisper ───────────────
+    let transcript = '';
+    const tmpPath = path.join(os.tmpdir(), `mrv_${Date.now()}.webm`);
+    fs.writeFileSync(tmpPath, req.file.buffer);
+    try {
+      const txForm = new FormData();
+      txForm.append(
+        'file',
+        new File([req.file.buffer], 'audio.webm', { type: req.file.mimetype || 'audio/webm' })
+      );
+      txForm.append('model', 'voxtral-mini-transcribe-realtime-2602');
+
+      const txRes = await fetch('https://api.mistral.ai/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${mistralKey}` },
+        body: txForm,
+      });
+
+      if (txRes.ok) {
+        const data = await txRes.json();
+        transcript = (data.text || '').trim();
+        console.log('[mamdani-realtime] Mistral transcript:', transcript.slice(0, 80));
+      } else {
+        const errTxt = await txRes.text();
+        console.warn('[mamdani-realtime] Mistral STT failed, falling back to Groq:', txRes.status, errTxt.slice(0, 120));
+        const groqTx = await groq.audio.transcriptions.create({
+          file: fs.createReadStream(tmpPath),
+          model: 'whisper-large-v3-turbo',
+        });
+        transcript = (groqTx.text || '').trim();
+        console.log('[mamdani-realtime] Groq fallback transcript:', transcript.slice(0, 80));
+      }
+    } finally {
+      try { fs.unlinkSync(tmpPath); } catch {}
+    }
+
+    if (!transcript) throw new Error('Empty transcription — no speech detected');
+
+    // ── 2. RAG via SSE + parallel sentence-level TTS ─────────────────────────
+    const messages = [{ role: 'user', content: transcript }];
+    const chatRes = await fetch(`${mamdaniUrl}/mamdani/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages }),
+    });
+    if (!chatRes.ok) throw new Error(`Mamdani chat ${chatRes.status}: ${await chatRes.text()}`);
+
+    const callTTS = async (sentence) => {
+      const input = sentence.trim();
+      if (!input) return null;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        const r = await fetch('https://api.mistral.ai/v1/audio/speech', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${mistralKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'voxtral-mini-tts-2603',
+            voice: '223fc743-8d1e-4624-a4d8-37436ba59f33',
+            input,
+            response_format: 'mp3',
+          }),
+        });
+        if (r.ok) {
+          const json = await r.json();
+          const b64 = json.audio || json.data || json.audio_data || json.content;
+          if (!b64) return null;
+          return Buffer.from(b64, 'base64');
+        }
+        const errText = await r.text();
+        console.warn(`[mamdani-realtime] TTS attempt ${attempt}/3 failed (${r.status}):`, errText.slice(0, 80));
+        if (r.status !== 500 || attempt === 3) return null;
+        await new Promise(x => setTimeout(x, 1500));
+      }
+      return null;
+    };
+
+    let sseBuf = '', sentBuf = '', fullText = '';
+    const ttsJobs = [];
+    const flushSentences = () => {
+      let m;
+      while ((m = sentBuf.match(/^(.{15,}?[.!?]+)\s+/s)) !== null) {
+        ttsJobs.push(callTTS(m[1]));
+        sentBuf = sentBuf.slice(m[0].length);
+      }
+    };
+
+    const sseReader  = chatRes.body.getReader();
+    const sseDecoder = new TextDecoder();
+    while (true) {
+      const { done, value } = await sseReader.read();
+      if (done) break;
+      sseBuf += sseDecoder.decode(value, { stream: true });
+      const lines = sseBuf.split('\n');
+      sseBuf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const evt = JSON.parse(line.slice(6).trim());
+          if (evt.type === 'token' && evt.content) {
+            fullText += evt.content;
+            sentBuf  += evt.content;
+            flushSentences();
+          }
+        } catch {}
+      }
+    }
+    if (sentBuf.trim()) ttsJobs.push(callTTS(sentBuf.trim()));
+    if (!fullText.trim()) throw new Error('Empty response from Mamdani backend');
+
+    console.log(`[mamdani-realtime] SSE done — ${ttsJobs.length} TTS jobs — transcript: "${transcript.slice(0, 40)}"`);
+
+    // ── 3. Stream headers + audio ─────────────────────────────────────────────
+    res.set('Content-Type', 'audio/mpeg');
+    res.set('X-Transcript-Text', encodeURIComponent(transcript));
+    res.set('X-Mamdani-Text',    encodeURIComponent(fullText));
+    res.set('Access-Control-Expose-Headers', 'X-Transcript-Text, X-Mamdani-Text');
+    res.set('X-Accel-Buffering', 'no');
+    res.flushHeaders();
+
+    for (const job of ttsJobs) {
+      const buf = await job;
+      if (buf && buf.byteLength > 0) {
+        res.write(buf);
+        if (typeof res.flush === 'function') res.flush();
+      }
+    }
+    res.end();
+    console.log('[mamdani-realtime] Done');
+  } catch (e) {
+    console.error('[mamdani-realtime] ERROR:', e.message, e.stack);
+    if (!res.headersSent) res.status(500).json({ error: e.message });
+    else res.end();
+  }
+});
+
 const PORT = process.env.PORT || 3001;
 initDB().then(() => {
   app.listen(PORT, () => console.log(`AstraLink backend running on port ${PORT}`));
