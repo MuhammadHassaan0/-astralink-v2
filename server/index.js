@@ -24,6 +24,10 @@ const uploadMem = multer({ storage: multer.memoryStorage() });
 app.use(cors());
 app.use(express.json());
 
+// Serve static HTML pages from /public (one level up from /server).
+// extensions: ['html'] lets /politicians resolve to /politicians.html
+app.use(express.static(path.join(__dirname, '..', 'public'), { extensions: ['html'] }));
+
 function authMiddleware(req, res, next) {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'No token' });
