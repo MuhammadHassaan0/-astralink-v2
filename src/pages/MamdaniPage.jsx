@@ -562,6 +562,8 @@ export default function MamdaniPage() {
   const [showVoice,  setShowVoice] = useState(false);
   // 'idle' | 'recording' | 'transcribing'
   const [micPhase,   setMicPhase]  = useState('idle');
+  // AudioContext created during the user-gesture click — unlocks audio playback
+  const audioCtxRef = useRef(null);
 
   const bottomRef    = useRef(null);
   const inputRef     = useRef(null);
@@ -770,7 +772,21 @@ export default function MamdaniPage() {
           <div className="mp-status-dot" />
           <button
             className="mp-voice-btn"
-            onClick={() => setShowVoice(true)}
+            onClick={() => {
+              // Create AudioContext during the user gesture — this is the ONLY moment
+              // browsers allow it without autoplay restrictions. All subsequent
+              // programmatic audio (TTS playback) is unlocked because it runs on
+              // this same context.
+              try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                ctx.resume().catch(() => {});
+                audioCtxRef.current = ctx;
+              } catch (e) {
+                console.warn('[MamdaniPage] AudioContext creation failed:', e.message);
+                audioCtxRef.current = null;
+              }
+              setShowVoice(true);
+            }}
             aria-label="Open voice mode"
             title="Voice mode"
           >
@@ -781,6 +797,7 @@ export default function MamdaniPage() {
         {/* GPT-style realtime voice overlay */}
         {showVoice && (
           <MamdaniRealtimeVoice
+            audioCtx={audioCtxRef.current}
             onNewExchange={(userText, assistantText) => {
               setMessages(prev => [
                 ...prev,
@@ -788,7 +805,15 @@ export default function MamdaniPage() {
                 { role: 'assistant', content: assistantText },
               ]);
             }}
-            onClose={() => setShowVoice(false)}
+            onClose={() => {
+              setShowVoice(false);
+              // Close the context when the overlay exits; a fresh one is created
+              // next time the user clicks the button (another gesture).
+              if (audioCtxRef.current) {
+                audioCtxRef.current.close().catch(() => {});
+                audioCtxRef.current = null;
+              }
+            }}
           />
         )}
 
