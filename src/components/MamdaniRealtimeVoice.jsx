@@ -238,81 +238,105 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose }) {
     };
 
     // ── Play audio response ───────────────────────────────────────────────
-    // Architecture: server sends SSE stream of base64-encoded WAV chunks,
-    // one per sentence. We decode each with Web Audio API decodeAudioData and
-    // schedule them with AudioBufferSourceNode.start(time) at sample-accurate
-    // consecutive times — zero gaps between sentences, streaming delivery.
+    // Server sends SSE stream of base64-encoded MP3 chunks (one per sentence).
+    // We queue HTML Audio elements and chain them: el[0].onended → el[1].play()
+    // → el[2].play() etc. First chunk plays immediately on arrival.
+    // Small ~50ms gaps between sentences are acceptable and far better than
+    // the Web Audio decodeAudioData failures that produced no audio at all.
     const playAudio = (response) => new Promise(async (resolve) => {
 
       // Guard: resolve exactly once
       let resolved = false;
       const done_ = () => { if (!resolved) { resolved = true; resolve(); } };
 
-      // Track all scheduled sources so we can stop them on interrupt
-      const activeSources = [];
-      let interrupted  = false;
-      let serverDone   = false;
-      let activeCount  = 0;
-      let nextStartTime = 0; // AudioContext clock cursor; 0 = unset
+      let interrupted = false;
+      let serverDone  = false;
 
-      // Stop every scheduled source and resolve immediately
-      const stopAll = () => {
-        if (interrupted) return;
-        interrupted = true;
+      // Queue of {el, url} waiting to play after the current one ends
+      const queue   = [];
+      // URLs to revoke on cleanup
+      const allUrls = [];
+      // The element currently playing (or about to play)
+      let current   = null;
+
+      const cleanup = () => {
         clearInterval(interruptInt);
         interruptInt = null;
-        for (const src of activeSources) { try { src.stop(0); } catch {} }
-        activeSources.length = 0;
-        done_();
+        if (current) { try { current.pause(); } catch {} current = null; }
+        for (const { el } of queue) { try { el.pause(); } catch {} }
+        queue.length = 0;
+        for (const url of allUrls) { try { URL.revokeObjectURL(url); } catch {} }
+        allUrls.length = 0;
       };
 
-      // Resolve when both stream and playback are complete
-      const checkAllDone = () => {
-        if (serverDone && activeCount === 0 && !interrupted) done_();
-      };
-
-      // Mic RMS interrupt poller (reuses the outer analyser from initMic)
+      // Interrupt poller — mic RMS while speaking
       interruptInt = setInterval(() => {
         if (!analyser || phaseLocal !== 'speaking') return;
         const td = new Uint8Array(analyser.fftSize);
         analyser.getByteTimeDomainData(td);
         if (calcRMS(td) > INTERRUPT_THRESHOLD) {
-          console.log('[MamdaniRTV] Interrupted by user speech');
-          stopAll();
+          console.log('[MamdaniRTV] Interrupted');
+          interrupted = true;
+          cleanup();
+          done_();
         }
       }, 80);
 
-      // Schedule one decoded AudioBuffer at the next available time slot.
-      // Using AudioContext clock gives sample-accurate, gap-free sequencing.
-      const scheduleBuffer = (audioBuffer) => {
-        if (interrupted || !audioCtx) return;
-        const now = audioCtx.currentTime;
-        if (nextStartTime === 0) nextStartTime = now + 0.06; // 60ms startup buffer
-        const startAt = Math.max(nextStartTime, now + 0.005);
-        nextStartTime = startAt + audioBuffer.duration;
-
-        const src = audioCtx.createBufferSource();
-        src.buffer = audioBuffer;
-        src.connect(audioCtx.destination);
-        src.start(startAt);
-        activeCount++;
-        activeSources.push(src);
-
-        src.onended = () => {
-          const idx = activeSources.indexOf(src);
-          if (idx >= 0) activeSources.splice(idx, 1);
-          activeCount--;
-          checkAllDone();
+      // Play the next element in the queue, or resolve if nothing left
+      const playNext = () => {
+        if (interrupted) return;
+        if (queue.length === 0) {
+          // Nothing queued yet — if server is done too, we're finished
+          current = null;
+          if (serverDone) { console.log('[MamdaniRTV] All chunks played'); cleanup(); done_(); }
+          // Otherwise wait — next enqueue() will call playNext()
+          return;
+        }
+        const { el, url, idx } = queue.shift();
+        current = el;
+        console.log(`[MamdaniRTV] Playing chunk ${idx}`);
+        el.onended = () => {
+          console.log(`[MamdaniRTV] Chunk ${idx} ended`);
+          try { URL.revokeObjectURL(url); } catch {}
+          current = null;
+          playNext();
         };
-        console.log(`[MamdaniRTV] Scheduled ${audioBuffer.duration.toFixed(2)}s at t=${startAt.toFixed(3)}`);
+        el.onerror = (ev) => {
+          console.error(`[MamdaniRTV] Chunk ${idx} playback error`, ev);
+          try { URL.revokeObjectURL(url); } catch {}
+          current = null;
+          playNext(); // skip broken chunk, continue
+        };
+        el.play().catch(err => {
+          console.error(`[MamdaniRTV] Chunk ${idx} play() rejected:`, err.message);
+          current = null;
+          playNext();
+        });
       };
 
-      // Resume AudioContext if browser suspended it (autoplay policy)
-      if (audioCtx && audioCtx.state === 'suspended') {
-        try { await audioCtx.resume(); } catch {}
-      }
+      // Add a decoded base64 MP3 to the queue; start playing if idle
+      let chunkIdx = 0;
+      const enqueue = (b64) => {
+        if (interrupted) return;
+        console.log(`[MamdaniRTV] Decoding chunk ${chunkIdx} (${b64.length} base64 chars)`);
+        try {
+          const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+          const blob  = new Blob([bytes], { type: 'audio/mpeg' });
+          const url   = URL.createObjectURL(blob);
+          const el    = new Audio(url);
+          el.preload  = 'auto';
+          allUrls.push(url);
+          const idx = chunkIdx++;
+          queue.push({ el, url, idx });
+          console.log(`[MamdaniRTV] Enqueued chunk ${idx}, queue length=${queue.length}, current=${!!current}`);
+          if (!current) playNext(); // idle — start immediately
+        } catch (err) {
+          console.error(`[MamdaniRTV] enqueue failed for chunk ${chunkIdx}:`, err.message);
+          chunkIdx++;
+        }
+      };
 
-      // Parse SSE stream: each event is base64-encoded WAV for one sentence
+      // Parse SSE stream
       const reader = response.body.getReader();
       const dec    = new TextDecoder();
       let sseBuf   = '';
@@ -320,46 +344,37 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose }) {
       try {
         while (true) {
           const { done: streamDone, value } = await reader.read();
-          if (streamDone) break;
+          if (streamDone) { console.log('[MamdaniRTV] Stream body done'); break; }
           if (interrupted) { try { reader.cancel(); } catch {} break; }
 
           sseBuf += dec.decode(value, { stream: true });
           const lines = sseBuf.split('\n');
-          sseBuf = lines.pop(); // keep the incomplete trailing line
+          sseBuf = lines.pop();
 
           for (const line of lines) {
             if (!line.startsWith('data: ')) continue;
             const data = line.slice(6).trim();
             if (!data) continue;
-
             if (data === '[DONE]') {
+              console.log('[MamdaniRTV] Received [DONE] from server');
               serverDone = true;
-              checkAllDone();
+              // If nothing is playing and queue is empty, we're done
+              if (!current && queue.length === 0) { cleanup(); done_(); }
               continue;
             }
-
             if (interrupted) break;
-
-            // Decode base64 WAV → AudioBuffer → schedule
-            try {
-              const bytes = Uint8Array.from(atob(data), c => c.charCodeAt(0));
-              // decodeAudioData takes ownership of the buffer — slice to own copy
-              const ab      = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
-              const decoded = await audioCtx.decodeAudioData(ab);
-              scheduleBuffer(decoded);
-            } catch (decErr) {
-              console.error('[MamdaniRTV] decodeAudioData failed:', decErr.message);
-            }
+            enqueue(data);
           }
         }
       } catch (streamErr) {
         console.error('[MamdaniRTV] SSE stream error:', streamErr.message);
       }
 
-      // Handle stream ending without [DONE] (connection dropped etc.)
-      if (!serverDone) { serverDone = true; checkAllDone(); }
-      // If nothing was scheduled at all (e.g. all TTS failed), resolve now
-      if (activeCount === 0 && !interrupted) done_();
+      // Stream ended without [DONE]
+      if (!serverDone) {
+        serverDone = true;
+        if (!current && queue.length === 0) { cleanup(); done_(); }
+      }
     });
 
     // ── Submit recorded blob ──────────────────────────────────────────────
