@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { flushSync } from 'react-dom';
 import MamdaniCall from '../components/MamdaniCall';
+import mamdaniImage from '../assets/mamdani.jpg';
 
 const API = 'https://astralink-v2-production.up.railway.app';
 
@@ -33,16 +34,17 @@ const GATE_STYLES = `
     width: 68px;
     height: 68px;
     border-radius: 50%;
-    background: rgba(46,204,113,0.10);
     border: 2px solid #2ecc71;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 20px;
-    font-weight: 600;
-    color: #2ecc71;
-    letter-spacing: 1px;
+    overflow: hidden;
     margin-bottom: 20px;
+    flex-shrink: 0;
+  }
+  .mp-gate-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+    display: block;
   }
   .mp-gate-name {
     font-size: 19px;
@@ -155,15 +157,16 @@ const STYLES = `
     width: 44px;
     height: 44px;
     border-radius: 50%;
-    background: rgba(46,204,113,0.10);
     border: 1.5px solid #2ecc71;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 13px;
-    font-weight: 600;
-    color: #2ecc71;
+    overflow: hidden;
     flex-shrink: 0;
+  }
+  .mp-header-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+    display: block;
   }
   .mp-header-text h1 {
     font-size: 15px;
@@ -221,15 +224,17 @@ const STYLES = `
     width: 56px;
     height: 56px;
     border-radius: 50%;
-    background: rgba(46,204,113,0.10);
     border: 1.5px solid #2ecc71;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 17px;
-    font-weight: 600;
-    color: #2ecc71;
+    overflow: hidden;
     margin-bottom: 4px;
+    flex-shrink: 0;
+  }
+  .mp-empty-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top;
+    display: block;
   }
   .mp-empty-heading {
     font-size: 16px;
@@ -423,7 +428,7 @@ function PasswordGate({ onUnlock }) {
   return (
     <div className="mp-gate">
       <div className="mp-gate-inner">
-        <div className="mp-gate-avatar">ZM</div>
+        <div className="mp-gate-avatar"><img src={mamdaniImage} alt="Zohran Mamdani" /></div>
         <div className="mp-gate-name">Talk to Zohran Mamdani</div>
         <div className="mp-gate-subtitle">Mayor of New York City · Digital Twin</div>
         <input
@@ -600,7 +605,7 @@ export default function MamdaniPage() {
 
         {/* Fixed header */}
         <div className="mp-header">
-          <div className="mp-header-avatar">ZM</div>
+          <div className="mp-header-avatar"><img src={mamdaniImage} alt="Zohran Mamdani" /></div>
           <div className="mp-header-text">
             <h1>Zohran Mamdani</h1>
             <p>Mayor of New York City</p>
@@ -625,7 +630,7 @@ export default function MamdaniPage() {
         <div className="mp-chat">
           {messages.length === 0 ? (
             <div className="mp-empty">
-              <div className="mp-empty-avatar">ZM</div>
+              <div className="mp-empty-avatar"><img src={mamdaniImage} alt="Zohran Mamdani" /></div>
               <p className="mp-empty-heading">Ask me anything</p>
               <p className="mp-empty-sub">I'm Zohran Mamdani, Mayor of New York City. Ask me about housing, transit, childcare, or anything on your mind.</p>
               <div className="mp-suggestions">

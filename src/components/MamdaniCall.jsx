@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import mamdaniImage from '../assets/mamdani.jpg';
 
 const API = 'https://astralink-v2-production.up.railway.app';
 
@@ -110,22 +111,16 @@ const CALL_STYLES = `
   .mc-avatar-ring.listening {
     border-color: rgba(239,68,68,0.55);
   }
-  .mc-avatar-initials {
+  .mc-avatar-img {
     position: absolute;
     inset: 4px;
+    width: calc(100% - 8px);
+    height: calc(100% - 8px);
     border-radius: 50%;
-    background: linear-gradient(135deg, #0d2818 0%, #071510 100%);
-    border: 4px solid rgba(46,204,113,0.18);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: 'Inter', sans-serif;
-    font-size: 32px;
-    font-weight: 700;
-    letter-spacing: 1px;
-    color: #2ecc71;
+    object-fit: cover;
+    object-position: top;
+    border: 4px solid rgba(255,255,255,0.15);
     box-shadow: 0 8px 40px rgba(0,0,0,0.55);
-    user-select: none;
   }
 
   /* ── Name & status ── */
@@ -473,7 +468,7 @@ export default function MamdaniCall({ messages = [], onNewExchange }) {
             {/* Avatar */}
             <div className="mc-avatar-wrap">
               <div className={`mc-avatar-ring ${phase === 'recording' ? 'listening' : phase}`} />
-              <div className="mc-avatar-initials">ZM</div>
+              <img src={mamdaniImage} alt="Zohran Mamdani" className="mc-avatar-img" />
             </div>
 
             <div className="mc-name">Zohran Mamdani</div>
