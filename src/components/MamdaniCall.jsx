@@ -4,6 +4,93 @@ import mamdaniImage from '../assets/mamdani.jpg';
 
 const API = 'https://astralink-v2-production.up.railway.app';
 
+// ── Streaming audio playback ──────────────────────────────────────────────────
+// Plays a streaming audio/mpeg response chunk-by-chunk using MediaSource (Chrome/Edge)
+// or falls back to buffering all chunks then playing (Firefox/Safari).
+// Returns a cleanup function (call to stop early).
+async function playStreamingAudio(response, audioRef, onEnded) {
+  const MIME = 'audio/mpeg';
+  const canStream =
+    typeof window !== 'undefined' &&
+    window.MediaSource &&
+    typeof MediaSource.isTypeSupported === 'function' &&
+    MediaSource.isTypeSupported(MIME);
+
+  if (canStream) {
+    // ── MediaSource path: audio starts playing as first chunk arrives ──────────
+    const ms  = new MediaSource();
+    const url = URL.createObjectURL(ms);
+    const el  = new Audio(url);
+    audioRef.current = el;
+
+    el.onended = () => {
+      URL.revokeObjectURL(url);
+      audioRef.current = null;
+      onEnded();
+    };
+
+    try {
+      // Wait for MediaSource to open
+      await new Promise((resolve, reject) => {
+        ms.addEventListener('sourceopen', resolve, { once: true });
+        ms.addEventListener('error',      reject,  { once: true });
+      });
+
+      const sb = ms.addSourceBuffer(MIME);
+
+      // Start playback immediately — HTMLMediaElement buffers as data arrives
+      el.play().catch(() => {});
+
+      const reader = response.body.getReader();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        // Wait for previous append to finish before adding next chunk
+        if (sb.updating) {
+          await new Promise(r => sb.addEventListener('updateend', r, { once: true }));
+        }
+        sb.appendBuffer(value);
+        await new Promise(r => sb.addEventListener('updateend', r, { once: true }));
+      }
+
+      // Signal end of stream
+      if (sb.updating) {
+        await new Promise(r => sb.addEventListener('updateend', r, { once: true }));
+      }
+      ms.endOfStream();
+      return; // success — onEnded fires via el.onended when playback finishes
+
+    } catch (err) {
+      console.warn('[MamdaniCall] MediaSource streaming failed, falling back:', err.message);
+      URL.revokeObjectURL(url);
+      audioRef.current = null;
+      // Fall through to buffer-all approach below
+    }
+  }
+
+  // ── Fallback path: collect all chunks then play ───────────────────────────
+  // Still benefits from server-side pipelined TTS (response arrives faster).
+  const reader = response.body.getReader();
+  const chunks = [];
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+  }
+  const blob = new Blob(chunks, { type: MIME });
+  if (!blob.size) throw new Error('Empty audio — check TTS server');
+
+  const url = URL.createObjectURL(blob);
+  const el  = new Audio(url);
+  audioRef.current = el;
+  el.onended = () => {
+    URL.revokeObjectURL(url);
+    audioRef.current = null;
+    onEnded();
+  };
+  el.play();
+}
+
 const CALL_STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,400;0,500;1,400&display=swap');
 
@@ -362,29 +449,22 @@ export default function MamdaniCall({ messages = [], onNewExchange }) {
         throw new Error(`Voice failed ${voiceRes.status}: ${errBody}`);
       }
 
+      // Text arrives in the header as soon as the server sends its first byte
+      // (after SSE collection). Sentence TTS jobs ran in parallel, so chunks
+      // follow rapidly — first chunk usually within ~200ms of headers.
       const mamdaniText = decodeURIComponent(voiceRes.headers.get('X-Mamdani-Text') || '');
       console.log('[MamdaniCall] X-Mamdani-Text:', mamdaniText);
       setLastMamdani(mamdaniText);
-
-      const arrayBuffer = await voiceRes.arrayBuffer();
-      console.log('[MamdaniCall] Audio data size:', arrayBuffer.byteLength);
-
-      if (arrayBuffer.byteLength === 0) throw new Error('Empty audio — check TTS server');
-
       setPhase('speaking');
 
-      const audioBlob = new Blob([arrayBuffer], { type: 'audio/mpeg' });
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audioEl = new Audio(audioUrl);
-      audioRef.current = audioEl;
-      audioEl.onended = () => {
+      // Stream audio chunks to the player as they arrive.
+      // MediaSource path (Chrome/Edge): playback starts with first chunk.
+      // Fallback path (Firefox/Safari): buffers all chunks then plays.
+      await playStreamingAudio(voiceRes, audioRef, () => {
         console.log('[MamdaniCall] Playback ended');
-        URL.revokeObjectURL(audioUrl);
-        audioRef.current = null;
         setPhase('idle');
         if (mamdaniText && onNewExchange) onNewExchange(text, mamdaniText);
-      };
-      audioEl.play();
+      });
 
     } catch (e) {
       console.error('[MamdaniCall] handleBlob caught:', e);

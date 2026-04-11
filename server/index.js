@@ -871,103 +871,116 @@ app.post('/mamdani-voice', async (req, res) => {
   try {
     const { text, history = [] } = req.body;
     const mamdaniUrl = (process.env.MAMDANI_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
+    const mistralKey = (process.env.MISTRAL_API_KEY || '').trim();
+    if (!mistralKey) throw new Error('MISTRAL_API_KEY not set');
 
-    console.log('[mamdani-voice] HIT — incoming text:', text);
-    console.log('[mamdani-voice] history length:', history.length);
+    console.log('[mamdani-voice] HIT — text:', text?.slice(0, 80));
 
-    // 1. Call Mamdani RAG backend (SSE stream) and collect full response text
-    const messages = [
-      ...history.slice(-16),
-      { role: 'user', content: text },
-    ];
+    const messages = [...history.slice(-16), { role: 'user', content: text }];
 
-    console.log('[mamdani-voice] Calling Mamdani RAG backend...');
+    // ── 1. Stream RAG SSE; dispatch one TTS call per sentence immediately ──────
+    // TTS jobs run in parallel with continued SSE streaming, so by the time
+    // the last token arrives the first sentence's audio is usually ready.
     const chatRes = await fetch(`${mamdaniUrl}/mamdani/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ messages }),
     });
+    if (!chatRes.ok) throw new Error(`Mamdani chat ${chatRes.status}: ${await chatRes.text()}`);
 
-    if (!chatRes.ok) {
-      const errText = await chatRes.text();
-      throw new Error(`Mamdani chat failed ${chatRes.status}: ${errText}`);
-    }
+    // Helper: call Mistral TTS for one sentence, return Buffer or null
+    const callTTS = async (sentence) => {
+      const input = sentence.trim();
+      if (!input) return null;
+      console.log(`[mamdani-voice] TTS → "${input.slice(0, 60)}"`);
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        const r = await fetch('https://api.mistral.ai/v1/audio/speech', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${mistralKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'voxtral-mini-tts-2603',
+            voice: '223fc743-8d1e-4624-a4d8-37436ba59f33',
+            input,
+            response_format: 'mp3',
+          }),
+        });
+        if (r.ok) {
+          const json = await r.json();
+          const b64  = json.audio || json.data || json.audio_data || json.content;
+          if (!b64) return null;
+          const buf = Buffer.from(b64, 'base64');
+          console.log(`[mamdani-voice] TTS done — ${buf.byteLength}B for "${input.slice(0, 40)}"`);
+          return buf;
+        }
+        const errText = await r.text();
+        console.warn(`[mamdani-voice] TTS attempt ${attempt}/3 failed (${r.status}):`, errText);
+        if (r.status !== 500 || attempt === 3) return null;
+        await new Promise(x => setTimeout(x, 1500));
+      }
+      return null;
+    };
 
-    // Collect SSE token events into a single string
-    let responseText = '';
-    const reader = chatRes.body.getReader();
-    const decoder = new TextDecoder();
-    let buf = '';
+    // Sentence splitter: extract complete sentences (≥15 chars ending in [.!?])
+    // followed by whitespace — remaining text stays in sentBuf for next token.
+    let sseBuf = '', sentBuf = '', fullText = '';
+    const ttsJobs = []; // ordered Promise<Buffer|null>
+
+    const flushSentences = () => {
+      let m;
+      // Non-greedy: always take the shortest sentence ≥15 chars so we dispatch ASAP
+      while ((m = sentBuf.match(/^(.{15,}?[.!?]+)\s+/s)) !== null) {
+        ttsJobs.push(callTTS(m[1]));
+        sentBuf = sentBuf.slice(m[0].length);
+      }
+    };
+
+    const sseReader  = chatRes.body.getReader();
+    const sseDecoder = new TextDecoder();
 
     while (true) {
-      const { done, value } = await reader.read();
+      const { done, value } = await sseReader.read();
       if (done) break;
-      buf += decoder.decode(value, { stream: true });
-      const lines = buf.split('\n');
-      buf = lines.pop();
+      sseBuf += sseDecoder.decode(value, { stream: true });
+      const lines = sseBuf.split('\n');
+      sseBuf = lines.pop();
       for (const line of lines) {
         if (!line.startsWith('data: ')) continue;
-        const raw = line.slice(6).trim();
-        if (!raw) continue;
         try {
-          const evt = JSON.parse(raw);
-          if (evt.type === 'token' && evt.content) responseText += evt.content;
+          const evt = JSON.parse(line.slice(6).trim());
+          if (evt.type === 'token' && evt.content) {
+            fullText += evt.content;
+            sentBuf  += evt.content;
+            flushSentences();
+          }
         } catch {}
       }
     }
+    // Flush any trailing text as the final sentence
+    if (sentBuf.trim()) ttsJobs.push(callTTS(sentBuf.trim()));
 
-    console.log('[mamdani-voice] Collected response:', responseText);
-    if (!responseText.trim()) throw new Error('Empty response from Mamdani backend');
+    console.log(`[mamdani-voice] SSE done — ${fullText.length} chars, ${ttsJobs.length} TTS jobs queued`);
+    if (!fullText.trim()) throw new Error('Empty response from Mamdani backend');
 
-    // 2. Call Mistral Voxtral TTS
-    const mistralKey = (process.env.MISTRAL_API_KEY || '').trim();
-    if (!mistralKey) throw new Error('MISTRAL_API_KEY not set');
+    // ── 2. Send headers now that we have the full text ────────────────────────
+    res.set('Content-Type', 'audio/mpeg');
+    res.set('X-Mamdani-Text', encodeURIComponent(fullText));
+    res.set('Access-Control-Expose-Headers', 'X-Mamdani-Text');
+    res.set('X-Accel-Buffering', 'no');   // prevent nginx/Railway from buffering
+    res.flushHeaders();                    // push headers to client immediately
 
-    console.log('[mamdani-voice] Calling Mistral Voxtral TTS...');
-    const ttsBody = JSON.stringify({
-      model: 'voxtral-mini-tts-2603',
-      voice: '223fc743-8d1e-4624-a4d8-37436ba59f33',
-      input: responseText,
-      response_format: 'mp3',
-    });
-
-    let ttsRes;
-    const MAX_ATTEMPTS = 3;
-    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      ttsRes = await fetch('https://api.mistral.ai/v1/audio/speech', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${mistralKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: ttsBody,
-      });
-      if (ttsRes.ok) break;
-      const errText = await ttsRes.text();
-      console.warn(`[mamdani-voice] TTS attempt ${attempt}/${MAX_ATTEMPTS} failed (${ttsRes.status}):`, errText);
-      if (ttsRes.status !== 500 || attempt === MAX_ATTEMPTS) {
-        throw new Error(`TTS failed after ${attempt} attempt(s): ${errText}`);
+    // ── 3. Await each TTS job in order and stream audio chunks ────────────────
+    // Earlier jobs are likely already resolved (they ran in parallel with SSE),
+    // so the first write happens almost instantly after headers are sent.
+    for (const job of ttsJobs) {
+      const buf = await job;
+      if (buf && buf.byteLength > 0) {
+        res.write(buf);
+        if (typeof res.flush === 'function') res.flush();
       }
-      console.log(`[mamdani-voice] Retrying in 1500ms...`);
-      await new Promise(r => setTimeout(r, 1500));
     }
 
-    console.log('[mamdani-voice] Mistral response Content-Type:', ttsRes.headers.get('content-type'));
-
-    const json = await ttsRes.json();
-    console.log('[mamdani-voice] Mistral JSON keys:', Object.keys(json));
-
-    const audioB64 = json.audio || json.data || json.audio_data || json.content;
-    if (!audioB64) throw new Error(`No audio field found in Mistral response. Keys: ${Object.keys(json).join(', ')}`);
-
-    const audioBuffer = Buffer.from(audioB64, 'base64');
-    console.log('[mamdani-voice] Audio buffer size:', audioBuffer.byteLength, 'bytes');
-
-    res.set('Content-Type', 'audio/mpeg');
-    res.set('X-Mamdani-Text', encodeURIComponent(responseText));
-    res.set('Access-Control-Expose-Headers', 'X-Mamdani-Text');
-    res.send(audioBuffer);
-    console.log('[mamdani-voice] Done — audio sent successfully');
+    res.end();
+    console.log('[mamdani-voice] All audio streamed successfully');
   } catch (e) {
     console.error('[mamdani-voice] CAUGHT ERROR:', e.message, e.stack);
     if (!res.headersSent) res.status(500).json({ error: e.message });
