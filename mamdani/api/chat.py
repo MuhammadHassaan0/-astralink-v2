@@ -7,9 +7,12 @@ Endpoints:
   GET  /healthz        — lightweight liveness check (always 200)
 """
 
+import asyncio
+import concurrent.futures
 import json
 import logging
 import os
+import random
 import sys
 from datetime import date
 from pathlib import Path
@@ -206,6 +209,37 @@ def intent_classify(query: str) -> str:
     return "simple" if len(query.split()) <= 8 else "complex"
 
 
+# ── Follow-up question bank (programmatic — model was ignoring prompt) ────────
+FOLLOWUP_BY_TYPE: dict[str, list[str]] = {
+    "recent_event":    [
+        "What neighborhood are you in?",
+        "Is this something your community has been pushing for?",
+    ],
+    "policy_issue":    [
+        "What neighborhood are you in?",
+        "Has this been an issue where you live?",
+        "Are you dealing with this personally?",
+    ],
+    "persona_general": [
+        "What brought you to this question?",
+        "Where are you coming from on this?",
+    ],
+    "smalltalk":       [
+        "What's on your mind?",
+        "What neighborhood are you in?",
+    ],
+    "general":         [
+        "What neighborhood are you in?",
+        "What's the biggest issue where you live right now?",
+        "Is this something you're seeing in your community?",
+    ],
+}
+
+def pick_followup(query_type: str) -> str:
+    opts = FOLLOWUP_BY_TYPE.get(query_type, FOLLOWUP_BY_TYPE["general"])
+    return random.choice(opts)
+
+
 def build_context_block(chunks: list[dict], max_tokens: int = MAX_CTX_TOKENS) -> str:
     sorted_chunks = sorted(
         chunks,
@@ -252,10 +286,6 @@ Do not start every sentence with "I". Do not summarize or conclude. Just answer.
 TONE MIRRORING: Match the user's energy. If they write casually and short, respond casually and short. If they write formally, be slightly more formal. If they seem frustrated, briefly acknowledge it before answering.
 
 NATURAL SPEECH: About 1 in 4 responses, start with a natural opener like "Look,", "Mm,", "You know what —", or redirect mid-thought. Not every response — just occasionally.
-
-FOLLOW-UP QUESTION: About 1 in 5 responses, end with a brief conversational question specific to the user's situation or neighborhood. Not generic. Example: "What neighborhood are you in?" or "Have you seen this where you live?" Do not do this every time.
-
-RESPONSE CHUNKING: When you naturally pause between thoughts, insert the delimiter || between them. This simulates sending separate messages. Use it once or twice per response at natural sentence breaks, never mid-sentence.
 
 ---
 
@@ -347,22 +377,60 @@ async def mamdani_chat(req: ChatRequest):
         if debug_info:
             yield sse_event({"type": "debug", "data": debug_info})
 
-        try:
-            groq = get_groq()
-            stream = groq.chat.completions.create(
-                model=LLM_MODEL,
-                messages=groq_messages,
-                stream=True,
-                max_tokens=max_tokens,
-                temperature=0.75,
-            )
-            for chunk in stream:
-                token = chunk.choices[0].delta.content or ""
-                if token:
-                    yield sse_event({"type": "token", "content": token})
-        except Exception as e:
-            log.error("Groq stream error: %s", e)
-            yield sse_event({"type": "error", "message": str(e)})
+        # ── Run the synchronous Groq stream in a thread so it doesn't block
+        # the asyncio event loop. Tokens are passed back via a thread-safe queue
+        # so uvicorn can flush each one to the client immediately.
+        loop  = asyncio.get_event_loop()
+        queue: asyncio.Queue = asyncio.Queue()
+
+        def run_groq_sync():
+            try:
+                groq_client_inst = get_groq()
+                stream = groq_client_inst.chat.completions.create(
+                    model=LLM_MODEL,
+                    messages=groq_messages,
+                    stream=True,
+                    max_tokens=max_tokens,
+                    temperature=0.75,
+                )
+                for chunk in stream:
+                    token = chunk.choices[0].delta.content or ""
+                    if token:
+                        loop.call_soon_threadsafe(queue.put_nowait, ("token", token))
+            except Exception as exc:
+                loop.call_soon_threadsafe(queue.put_nowait, ("error", str(exc)))
+            finally:
+                loop.call_soon_threadsafe(queue.put_nowait, ("done", None))
+
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        loop.run_in_executor(executor, run_groq_sync)
+
+        full_response = ""
+        error_occurred = False
+
+        while True:
+            kind, payload = await queue.get()
+            if kind == "token":
+                full_response += payload
+                yield sse_event({"type": "token", "content": payload})
+                await asyncio.sleep(0)   # yield control → uvicorn flushes immediately
+            elif kind == "error":
+                log.error("Groq stream error: %s", payload)
+                yield sse_event({"type": "error", "message": payload})
+                error_occurred = True
+                break
+            elif kind == "done":
+                break
+
+        # ── Programmatic follow-up question (20% chance, if no ? already) ────
+        if not error_occurred and not full_response.strip().endswith("?"):
+            if random.random() < 0.20:
+                followup = pick_followup(query_type)
+                log.info("Appending follow-up question: %r", followup)
+                yield sse_event({"type": "pause", "ms": 700})
+                await asyncio.sleep(0)
+                yield sse_event({"type": "token", "content": " " + followup})
+                await asyncio.sleep(0)
 
         yield sse_event({"type": "done"})
 

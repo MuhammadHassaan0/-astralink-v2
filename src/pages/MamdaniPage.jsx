@@ -321,6 +321,16 @@ const STYLES = `
   .mp-typing span:nth-child(2) { animation-delay: 0.2s; }
   .mp-typing span:nth-child(3) { animation-delay: 0.4s; }
 
+  /* ── Disabled / streaming state ── */
+  .mp-input:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .mp-input-row.mp-disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
   /* ── Input area ── */
   .mp-input-area {
     position: fixed;
@@ -508,12 +518,12 @@ export default function MamdaniPage() {
     const userMsg = { role: 'user', content };
     const history = [...messages, userMsg];
 
-    // Show typing indicator immediately (content: '' triggers dots)
+    // Show typing indicator immediately — content: '' renders the dots
     setMessages([...history, { role: 'assistant', content: '' }]);
     setInput('');
     setStreaming(true);
 
-    // ── Thinking delay: 800–2000ms based on question length ──────────────────
+    // ── Simulated thinking delay (800–2000ms based on question length) ────────
     const thinkMs = 800 + Math.min(content.length * 12, 1200);
     await new Promise(r => setTimeout(r, thinkMs));
 
@@ -528,41 +538,14 @@ export default function MamdaniPage() {
 
       const reader  = res.body.getReader();
       const decoder = new TextDecoder();
-      let sseBuffer  = '';   // raw SSE line buffer
-      let tokenBuf   = '';   // pending token chars (for || detection)
-
-      // Flush tokenBuf to the last message, handling || pause
-      const flushTokenBuf = async () => {
-        while (tokenBuf.length > 0) {
-          const delimIdx = tokenBuf.indexOf('||');
-          if (delimIdx === -1) {
-            // No delimiter — safe to display unless ends with '|' (partial)
-            if (tokenBuf.endsWith('|')) {
-              // Hold the trailing '|' in case next token completes '||'
-              const safe = tokenBuf.slice(0, -1);
-              if (safe) flushSync(() => appendToLast(safe));
-              tokenBuf = '|';
-            } else {
-              flushSync(() => appendToLast(tokenBuf));
-              tokenBuf = '';
-            }
-            break;
-          } else {
-            // Found '||' — display up to it, pause, continue
-            const before = tokenBuf.slice(0, delimIdx);
-            tokenBuf = tokenBuf.slice(delimIdx + 2);
-            if (before) flushSync(() => appendToLast(before));
-            await new Promise(r => setTimeout(r, 600)); // 600ms chunk pause
-          }
-        }
-      };
+      let buf = '';
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        sseBuffer += decoder.decode(value, { stream: true });
-        const lines = sseBuffer.split('\n');
-        sseBuffer = lines.pop();
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split('\n');
+        buf = lines.pop();
 
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue;
@@ -571,15 +554,12 @@ export default function MamdaniPage() {
           try {
             const evt = JSON.parse(raw);
             if (evt.type === 'token' && evt.content) {
-              tokenBuf += evt.content;
-              await flushTokenBuf();
+              // Each token arrives individually — render immediately via flushSync
+              flushSync(() => appendToLast(evt.content));
+            } else if (evt.type === 'pause') {
+              // Backend-driven pause (e.g. before a follow-up question)
+              await new Promise(r => setTimeout(r, evt.ms || 700));
             } else if (evt.type === 'done') {
-              // Flush any remaining buffer (strip stray '|')
-              if (tokenBuf) {
-                const final = tokenBuf.replace(/\|+$/, '');
-                if (final) flushSync(() => appendToLast(final));
-                tokenBuf = '';
-              }
               setStreaming(false);
               inputRef.current?.focus();
             }
@@ -649,12 +629,12 @@ export default function MamdaniPage() {
 
         {/* Input */}
         <div className="mp-input-area">
-          <div className="mp-input-row">
+          <div className={`mp-input-row${streaming ? ' mp-disabled' : ''}`}>
             <textarea
               ref={inputRef}
               className="mp-input"
               rows={1}
-              placeholder="Ask the Mayor…"
+              placeholder={streaming ? 'Waiting for response…' : 'Ask the Mayor…'}
               value={input}
               onChange={e => {
                 setInput(e.target.value);
@@ -663,12 +643,14 @@ export default function MamdaniPage() {
               }}
               onKeyDown={handleKeyDown}
               disabled={streaming}
+              style={streaming ? { opacity: 0.45, cursor: 'not-allowed' } : {}}
             />
             <button
               className="mp-send"
               onClick={() => sendMessage()}
               disabled={streaming || !input.trim()}
               aria-label="Send"
+              style={streaming ? { opacity: 0.3, pointerEvents: 'none' } : {}}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M2 21l21-9L2 3v7l15 2-15 2z"/>
