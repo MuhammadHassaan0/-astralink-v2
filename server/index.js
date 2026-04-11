@@ -929,10 +929,8 @@ app.post('/mamdani-voice', async (req, res) => {
           }),
         });
         if (r.ok) {
-          const json = await r.json();
-          const b64  = json.audio || json.data || json.audio_data || json.content;
-          if (!b64) return null;
-          const buf = Buffer.from(b64, 'base64');
+          const arrayBuf = await r.arrayBuffer();
+          const buf = Buffer.from(arrayBuf);
           console.log(`[mamdani-voice] TTS done — ${buf.byteLength}B for "${input.slice(0, 40)}"`);
           return buf;
         }
@@ -1192,17 +1190,8 @@ app.post('/mamdani-realtime-voice', uploadMem.single('audio'), async (req, res) 
         }
 
         if (ttsRes.ok) {
-          let json;
-          try { json = await ttsRes.json(); } catch (parseErr) {
-            console.error(`${TAG} STEP 5 [${i}] attempt ${attempt} JSON parse failed: ${parseErr.message}`);
-            break;
-          }
-          const b64 = json.audio || json.data || json.audio_data || json.content;
-          if (!b64) {
-            console.error(`${TAG} STEP 5 [${i}] attempt ${attempt} — no base64 field. Keys: ${Object.keys(json).join(',')}`);
-            break;
-          }
-          buf = Buffer.from(b64, 'base64');
+          const arrayBuf = await ttsRes.arrayBuffer();
+          buf = Buffer.from(arrayBuf);
           console.log(`${TAG} STEP 5 [${i}] TTS OK — ${buf.byteLength}B WAV`);
           break;
         } else {
