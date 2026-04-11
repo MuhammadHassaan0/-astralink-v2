@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { flushSync } from 'react-dom';
+import MamdaniCall from '../components/MamdaniCall';
 
 const API = 'https://astralink-v2-production.up.railway.app';
 
@@ -184,6 +185,10 @@ const STYLES = `
     margin-left: auto;
     box-shadow: 0 0 6px #2ecc71;
     animation: mpPulse 2.4s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+  .mp-header .mc-trigger {
+    margin-left: 12px;
     flex-shrink: 0;
   }
 
@@ -601,6 +606,16 @@ export default function MamdaniPage() {
             <p>Mayor of New York City</p>
           </div>
           <div className="mp-status-dot" />
+          <MamdaniCall
+            messages={messages}
+            onNewExchange={(userText, assistantText) => {
+              setMessages(prev => [
+                ...prev,
+                { role: 'user', content: userText },
+                { role: 'assistant', content: assistantText },
+              ]);
+            }}
+          />
         </div>
 
         {/* Spacer */}

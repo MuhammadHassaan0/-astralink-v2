@@ -837,6 +837,144 @@ app.post('/mamdani-chat', async (req, res) => {
   }
 });
 
+// ── Mamdani voice endpoints ───────────────────────────────────────────────────
+
+app.post('/mamdani-transcribe', uploadMem.single('audio'), async (req, res) => {
+  console.log('[mamdani-transcribe] HIT — file size:', req.file?.size, 'mimetype:', req.file?.mimetype);
+  if (!req.file || !req.file.buffer) {
+    return res.status(400).json({ error: 'No audio file received' });
+  }
+
+  const ext = (req.file.mimetype || 'audio/webm').includes('ogg') ? 'ogg' : 'webm';
+  const tmpPath = path.join(os.tmpdir(), `mamdani-audio-${Date.now()}.${ext}`);
+
+  try {
+    fs.writeFileSync(tmpPath, req.file.buffer);
+    console.log('[mamdani-transcribe] Wrote temp file:', tmpPath);
+
+    const transcription = await groq.audio.transcriptions.create({
+      file: fs.createReadStream(tmpPath),
+      model: 'whisper-large-v3-turbo',
+    });
+
+    console.log('[mamdani-transcribe] Success — text:', transcription.text);
+    res.json({ text: transcription.text });
+  } catch (e) {
+    console.error('[mamdani-transcribe] ERROR:', e.message, e.stack);
+    res.status(500).json({ error: e.message });
+  } finally {
+    try { fs.unlinkSync(tmpPath); } catch {}
+  }
+});
+
+app.post('/mamdani-voice', async (req, res) => {
+  try {
+    const { text, history = [] } = req.body;
+    const mamdaniUrl = (process.env.MAMDANI_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
+
+    console.log('[mamdani-voice] HIT — incoming text:', text);
+    console.log('[mamdani-voice] history length:', history.length);
+
+    // 1. Call Mamdani RAG backend (SSE stream) and collect full response text
+    const messages = [
+      ...history.slice(-16),
+      { role: 'user', content: text },
+    ];
+
+    console.log('[mamdani-voice] Calling Mamdani RAG backend...');
+    const chatRes = await fetch(`${mamdaniUrl}/mamdani/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages }),
+    });
+
+    if (!chatRes.ok) {
+      const errText = await chatRes.text();
+      throw new Error(`Mamdani chat failed ${chatRes.status}: ${errText}`);
+    }
+
+    // Collect SSE token events into a single string
+    let responseText = '';
+    const reader = chatRes.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const raw = line.slice(6).trim();
+        if (!raw) continue;
+        try {
+          const evt = JSON.parse(raw);
+          if (evt.type === 'token' && evt.content) responseText += evt.content;
+        } catch {}
+      }
+    }
+
+    console.log('[mamdani-voice] Collected response:', responseText);
+    if (!responseText.trim()) throw new Error('Empty response from Mamdani backend');
+
+    // 2. Call Mistral Voxtral TTS
+    const mistralKey = (process.env.MISTRAL_API_KEY || '').trim();
+    if (!mistralKey) throw new Error('MISTRAL_API_KEY not set');
+
+    console.log('[mamdani-voice] Calling Mistral Voxtral TTS...');
+    const ttsBody = JSON.stringify({
+      model: 'voxtral-mini-tts-2603',
+      voice: '00568b09-785b-49a0-8a34-aadcaad7906f',
+      input: responseText,
+      response_format: 'mp3',
+    });
+
+    let ttsRes;
+    const MAX_ATTEMPTS = 3;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      ttsRes = await fetch('https://api.mistral.ai/v1/audio/speech', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${mistralKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: ttsBody,
+      });
+      if (ttsRes.ok) break;
+      const errText = await ttsRes.text();
+      console.warn(`[mamdani-voice] TTS attempt ${attempt}/${MAX_ATTEMPTS} failed (${ttsRes.status}):`, errText);
+      if (ttsRes.status !== 500 || attempt === MAX_ATTEMPTS) {
+        throw new Error(`TTS failed after ${attempt} attempt(s): ${errText}`);
+      }
+      console.log(`[mamdani-voice] Retrying in 1500ms...`);
+      await new Promise(r => setTimeout(r, 1500));
+    }
+
+    console.log('[mamdani-voice] Mistral response Content-Type:', ttsRes.headers.get('content-type'));
+
+    const json = await ttsRes.json();
+    console.log('[mamdani-voice] Mistral JSON keys:', Object.keys(json));
+
+    const audioB64 = json.audio || json.data || json.audio_data || json.content;
+    if (!audioB64) throw new Error(`No audio field found in Mistral response. Keys: ${Object.keys(json).join(', ')}`);
+
+    const audioBuffer = Buffer.from(audioB64, 'base64');
+    console.log('[mamdani-voice] Audio buffer size:', audioBuffer.byteLength, 'bytes');
+
+    res.set('Content-Type', 'audio/mpeg');
+    res.set('X-Mamdani-Text', encodeURIComponent(responseText));
+    res.set('Access-Control-Expose-Headers', 'X-Mamdani-Text');
+    res.send(audioBuffer);
+    console.log('[mamdani-voice] Done — audio sent successfully');
+  } catch (e) {
+    console.error('[mamdani-voice] CAUGHT ERROR:', e.message, e.stack);
+    if (!res.headersSent) res.status(500).json({ error: e.message });
+    else res.end();
+  }
+});
+
 const PORT = process.env.PORT || 3001;
 initDB().then(() => {
   app.listen(PORT, () => console.log(`AstraLink backend running on port ${PORT}`));
