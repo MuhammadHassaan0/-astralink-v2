@@ -63,6 +63,13 @@ STRIP_CONTAINS = [
     "lock (🔒)",
     "https:// means",
     "secure .gov websites use https",
+    "sign in to add to my list",
+    "show lessread more",
+    "show more replies",
+    "hide replies",
+    "free with ads",
+    "video has closed captions",
+    "(end video clip)",
 ]
 
 
@@ -105,6 +112,19 @@ def clean_markdown(raw_text: str) -> str:
 
         # Drop bare nav link lines
         if is_nav_link_line(stripped):
+            continue
+
+        # Drop markdown images/icons and table boilerplate
+        if stripped.startswith("![") or stripped.startswith("|"):
+            continue
+
+        # Drop mostly-symbol lines (common in noisy transcript dumps)
+        alpha_chars = sum(ch.isalpha() for ch in stripped)
+        if alpha_chars < 3:
+            continue
+
+        # Drop "UI-only" short lines from video/comment pages
+        if len(stripped.split()) <= 5 and any(tok in lower for tok in ("reply", "like", "dislike", "share", "search")):
             continue
 
         # Drop lines that are pure markdown horizontal rules or headers with no text
@@ -165,8 +185,8 @@ def split_paragraphs(text: str) -> list[str]:
 
 
 def chunk_document(raw_text: str,
-                   target_min: int = 150,
-                   target_max: int = 250) -> list[str]:
+                   target_min: int = 90,
+                   target_max: int = 160) -> list[str]:
     """
     Chunk raw_text into pieces of target_min–target_max words.
     Split at paragraph boundaries first, then sentence boundaries.
@@ -231,6 +251,45 @@ def chunk_document(raw_text: str,
     return [c for c in chunks if len(c.split()) >= 20]  # drop tiny fragments
 
 
+def noise_score(text: str) -> float:
+    """
+    Estimate how noisy a chunk is.
+    Higher score = more likely UI/nav/comment garbage.
+    """
+    words = text.split()
+    if not words:
+        return 1.0
+
+    lowered = text.lower()
+    alpha = sum(ch.isalpha() for ch in text)
+    total = max(len(text), 1)
+    non_alpha_ratio = 1 - (alpha / total)
+
+    ui_hits = sum(
+        1 for p in (
+            "reply", "like", "dislike", "show more", "show less", "sign in",
+            "cookie", "all rights reserved", "nyc is a trademark",
+        ) if p in lowered
+    )
+    short_lines = [ln for ln in text.splitlines() if ln.strip() and len(ln.split()) <= 4]
+    short_line_ratio = len(short_lines) / max(len(text.splitlines()), 1)
+
+    return (non_alpha_ratio * 0.9) + (ui_hits * 0.2) + (short_line_ratio * 0.8)
+
+
+def is_low_signal_chunk(chunk_text: str, source_url: str) -> bool:
+    # Very noisy text should be dropped.
+    if noise_score(chunk_text) >= 0.95:
+        return True
+
+    # Chunks with too few sentences are often broad nav dumps.
+    sentence_count = len(split_sentences(chunk_text))
+    if len(chunk_text.split()) > 70 and sentence_count < 2:
+        return True
+
+    return False
+
+
 def build_chunks(doc: dict) -> list[dict]:
     url         = doc["url"]
     source_type = doc.get("source_type", "general")
@@ -248,8 +307,17 @@ def build_chunks(doc: dict) -> list[dict]:
     doc_id      = re.sub(r'[^a-z0-9]', '_', url.lower())[:80]
     text_chunks = chunk_document(raw_text)
     result = []
+    seen = set()
 
     for chunk_text in text_chunks:
+        if is_low_signal_chunk(chunk_text, url):
+            continue
+
+        normalized = re.sub(r"\s+", " ", chunk_text).strip().lower()
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+
         result.append({
             "chunk_id":      str(uuid.uuid4()),
             "doc_id":        doc_id,

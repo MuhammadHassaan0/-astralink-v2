@@ -11,8 +11,10 @@ import asyncio
 import json
 import os
 import sys
+import re
 from datetime import date
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 from dotenv import load_dotenv
 
@@ -34,6 +36,10 @@ INTERVIEW_URLS = [
     "https://nyeditorialboard.substack.com/p/zohran-mamdani-interview-transcript",
     "https://www.thecity.nyc/2026/01/08/mayor-mamdani-interview-city-hall-faqnyc-podcast/",
 ]
+
+BLOCKED_HOSTS = {
+    "news.google.com",
+}
 
 # ── Firecrawl agent prompt ────────────────────────────────────────────────────
 AGENT_PROMPT = (
@@ -67,6 +73,63 @@ def load_existing() -> tuple[list[dict], set[str]]:
 def save(records: list[dict]):
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     OUTPUT_FILE.write_text(json.dumps(records, indent=2, ensure_ascii=False))
+
+
+def extract_youtube_video_id(url: str) -> str | None:
+    parsed = urlparse(url)
+    host = (parsed.netloc or "").lower()
+
+    if "youtu.be" in host:
+        return parsed.path.strip("/") or None
+
+    if "youtube.com" in host:
+        video_id = parse_qs(parsed.query).get("v", [None])[0]
+        if video_id:
+            return video_id
+        match = re.match(r"^/(shorts|embed)/([^/?#]+)", parsed.path or "")
+        if match:
+            return match.group(2)
+
+    return None
+
+
+def fetch_youtube_transcript(url: str) -> dict | None:
+    """Return record-shaped transcript payload for a YouTube URL."""
+    video_id = extract_youtube_video_id(url)
+    if not video_id:
+        return None
+
+    try:
+        from youtube_transcript_api import YouTubeTranscriptApi
+        from youtube_transcript_api._errors import NoTranscriptFound, TranscriptsDisabled
+    except Exception as e:
+        print(f"    Transcript API unavailable — {e}")
+        return None
+
+    try:
+        ytt = YouTubeTranscriptApi()
+        fetched = ytt.fetch(video_id, languages=["en"])
+        snippets = [sn.text.strip() for sn in fetched.snippets if sn.text and sn.text.strip()]
+        text = "\n".join(snippets).strip()
+        if len(text) < 300:
+            return None
+
+        return {
+            "url":            url,
+            "raw_text":       text,
+            "source_type":    "interview",
+            "title":          f"YouTube transcript ({video_id})",
+            "is_404":         False,
+            "scraped_at":     date.today().isoformat(),
+            "speaker":        "Mamdani",
+            "priority_score": 3,
+            "transcript_api": "youtube-transcript-api",
+        }
+    except (NoTranscriptFound, TranscriptsDisabled) as e:
+        print(f"    Transcript unavailable — {e}")
+    except Exception as e:
+        print(f"    Transcript ERROR — {e}")
+    return None
 
 
 # ── Section 1: Crawl4AI direct scraper ───────────────────────────────────────
@@ -132,6 +195,15 @@ def firecrawl_scrape_urls(urls: list[str], already_done: set[str]) -> list[dict]
             print(f"  [Firecrawl scrape] SKIP (already done): {url}")
             continue
         print(f"  [Firecrawl scrape] {url}")
+        host = (urlparse(url).netloc or "").lower()
+        if "youtube.com" in host or "youtu.be" in host:
+            yt_record = fetch_youtube_transcript(url)
+            if yt_record:
+                print(f"    OK — {len(yt_record['raw_text']):,} chars | YouTube transcript")
+                results.append(yt_record)
+            else:
+                print("    SKIP — YouTube transcript unavailable")
+            continue
         try:
             resp  = fc.scrape_url(url, formats=["markdown"], only_main_content=True)
             md    = getattr(resp, "markdown", None) or ""
@@ -191,6 +263,10 @@ def firecrawl_agent_scrape(already_done: set[str]) -> list[dict]:
             print(f"    → {len(hits)} results")
             for hit in hits:
                 url = getattr(hit, "url", None) or (hit.get("url") if isinstance(hit, dict) else None)
+                host = (urlparse(url).netloc or "").lower() if url else ""
+                if host in BLOCKED_HOSTS:
+                    print(f"    SKIP host={host} (low-signal source)")
+                    continue
                 if url and url not in already_done and url not in found_urls:
                     found_urls.append(url)
         except Exception as e:
@@ -201,6 +277,15 @@ def firecrawl_agent_scrape(already_done: set[str]) -> list[dict]:
     records = []
     for url in found_urls:
         print(f"  [Firecrawl scrape] {url[:80]}")
+        host = (urlparse(url).netloc or "").lower()
+        if "youtube.com" in host or "youtu.be" in host:
+            yt_record = fetch_youtube_transcript(url)
+            if yt_record:
+                print(f"    OK — {len(yt_record['raw_text']):,} chars | YouTube transcript")
+                records.append(yt_record)
+            else:
+                print("    SKIP — YouTube transcript unavailable")
+            continue
         try:
             resp  = fc.scrape_url(url, formats=["markdown"], only_main_content=True)
             md    = getattr(resp, "markdown", None) or ""

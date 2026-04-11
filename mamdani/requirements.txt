@@ -10,3 +10,4 @@ sse-starlette
 llama-index-core
 unstructured
 httpx
+youtube-transcript-api
