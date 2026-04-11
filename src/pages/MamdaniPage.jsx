@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { flushSync } from 'react-dom';
 import MamdaniCall from '../components/MamdaniCall';
 import mamdaniImage from '../assets/mamdani.jpg';
@@ -116,6 +116,19 @@ const STYLES = `
     0%, 60%, 100% { transform: translateY(0); opacity: 0.3; }
     30%            { transform: translateY(-4px); opacity: 1; }
   }
+  @keyframes mpListenRing {
+    0%   { box-shadow: 0 0 0 0px  rgba(46,204,113,0.55); }
+    70%  { box-shadow: 0 0 0 10px rgba(46,204,113,0);    }
+    100% { box-shadow: 0 0 0 0px  rgba(46,204,113,0);    }
+  }
+  @keyframes mpSpeakBounce {
+    0%, 100% { transform: scaleY(0.3); }
+    50%       { transform: scaleY(1);   }
+  }
+  @keyframes mpVoiceBtnPulse {
+    0%, 100% { box-shadow: 0 0 0 0px  rgba(46,204,113,0.5); }
+    60%      { box-shadow: 0 0 0 6px  rgba(46,204,113,0);   }
+  }
 
   .mp-root {
     min-height: 100dvh;
@@ -191,9 +204,103 @@ const STYLES = `
     flex-shrink: 0;
   }
   .mp-header .mc-trigger {
-    margin-left: 12px;
+    margin-left: 6px;
     flex-shrink: 0;
   }
+
+  /* ── Voice mode button (header) ── */
+  .mp-voice-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: transparent;
+    border: 1.5px solid #2a2a2a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+    flex-shrink: 0;
+    color: #555;
+    margin-left: 6px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mp-voice-btn:hover:not(.active) { border-color: #444; color: #888; }
+  .mp-voice-btn.active {
+    background: rgba(46,204,113,0.15);
+    border-color: #2ecc71;
+    color: #2ecc71;
+    animation: mpVoiceBtnPulse 2s ease-out infinite;
+  }
+
+  /* ── Voice status bar (above text input) ── */
+  .mp-voice-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: rgba(46,204,113,0.06);
+    border: 1px solid rgba(46,204,113,0.18);
+    border-radius: 12px;
+    margin-bottom: 8px;
+    font-family: 'Inter', sans-serif;
+    animation: mpFadeIn 0.2s ease forwards;
+  }
+  .mp-voice-orb {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: rgba(46,204,113,0.12);
+    border: 1.5px solid #2ecc71;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .mp-voice-orb.listening { animation: mpListenRing 1.5s ease-out infinite; }
+  .mp-voice-orb.speaking  { animation: mpListenRing 2.8s ease-out infinite; }
+  .mp-voice-waves {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 12px;
+  }
+  .mp-voice-waves span {
+    width: 3px;
+    border-radius: 2px;
+    background: #2ecc71;
+    transform-origin: bottom;
+    animation: mpSpeakBounce 0.7s ease-in-out infinite;
+  }
+  .mp-voice-waves span:nth-child(1) { height: 8px;  animation-delay: 0s;    }
+  .mp-voice-waves span:nth-child(2) { height: 12px; animation-delay: 0.12s; }
+  .mp-voice-waves span:nth-child(3) { height: 10px; animation-delay: 0.24s; }
+  .mp-voice-waves span:nth-child(4) { height: 12px; animation-delay: 0.08s; }
+  .mp-voice-waves span:nth-child(5) { height: 6px;  animation-delay: 0.16s; }
+  .mp-voice-label {
+    flex: 1;
+    font-size: 12px;
+    color: rgba(255,255,255,0.55);
+    letter-spacing: 0.02em;
+  }
+  .mp-voice-error-txt {
+    flex: 1;
+    font-size: 11px;
+    color: #e74c3c;
+  }
+  .mp-voice-stop {
+    font-size: 11px;
+    color: #555;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    padding: 3px 8px;
+    border-radius: 6px;
+    transition: color 0.15s;
+    flex-shrink: 0;
+  }
+  .mp-voice-stop:hover { color: #e74c3c; }
 
   /* ── Chat area ── */
   .mp-chat {
@@ -478,15 +585,46 @@ function Message({ msg, index }) {
   );
 }
 
+// ── Mic SVG icon ────────────────────────────────────────────────────────────
+const MicIcon = ({ size = 16, color = 'currentColor' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+    stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="9" y="2" width="6" height="12" rx="3"/>
+    <path d="M19 10a7 7 0 0 1-14 0"/>
+    <line x1="12" y1="19" x2="12" y2="22"/>
+    <line x1="8" y1="22" x2="16" y2="22"/>
+  </svg>
+);
+
 export default function MamdaniPage() {
   const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem(GATE_KEY) === '1');
   const [messages, setMessages] = useState([]);
   const [input, setInput]       = useState('');
   const [streaming, setStreaming] = useState(false);
+
+  // ── Voice mode state ──────────────────────────────────────────────────────
+  const [voiceMode,  setVoiceMode]  = useState(false);
+  // 'idle' | 'listening' | 'processing' | 'speaking' | 'error'
+  const [voicePhase, setVoicePhase] = useState('idle');
+  const [voiceError, setVoiceError] = useState('');
+
   const bottomRef = useRef(null);
   const inputRef  = useRef(null);
 
-  // Inject styles — always before any conditional return
+  // Voice refs — stable across renders, safe to use in async callbacks
+  const recognitionRef    = useRef(null);
+  const voiceAudioRef     = useRef(null);
+  const voiceModeRef      = useRef(false);   // mirrors voiceMode for use in closures
+  const voicePhaseRef     = useRef('idle');  // mirrors voicePhase for use in closures
+  const intentionalStop   = useRef(false);   // true when WE stop recognition before processing
+  const messagesRef       = useRef([]);      // always-fresh copy of messages
+
+  // Keep refs in sync
+  useEffect(() => { voiceModeRef.current  = voiceMode;  }, [voiceMode]);
+  useEffect(() => { voicePhaseRef.current = voicePhase; }, [voicePhase]);
+  useEffect(() => { messagesRef.current   = messages;   }, [messages]);
+
+  // Inject styles
   useEffect(() => {
     const gateEl = document.createElement('style');
     gateEl.id = 'mp-gate-styles';
@@ -504,12 +642,211 @@ export default function MamdaniPage() {
     };
   }, []);
 
+  // Scroll to bottom on new messages
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Cleanup voice resources on unmount
+  useEffect(() => {
+    return () => {
+      voiceModeRef.current = false;
+      if (recognitionRef.current) {
+        try { recognitionRef.current.abort(); } catch {}
+        recognitionRef.current = null;
+      }
+      if (voiceAudioRef.current) {
+        voiceAudioRef.current.pause();
+        voiceAudioRef.current = null;
+      }
+    };
+  }, []);
+
+  // ── Voice: start recognition session ─────────────────────────────────────
+  const startRecognition = useCallback(() => {
+    if (!voiceModeRef.current) return;
+
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;
+
+    const rec = new SR();
+    rec.continuous      = true;
+    rec.interimResults  = false;
+    rec.language        = 'en-US';
+    recognitionRef.current = rec;
+
+    rec.onresult = (event) => {
+      // Take the last final result
+      const last = event.results.length - 1;
+      if (!event.results[last].isFinal) return;
+      const transcript = event.results[last][0].transcript.trim();
+      if (!transcript) return;
+      console.log('[VoiceMode] Detected:', transcript);
+      handleVoiceResult(transcript);
+    };
+
+    rec.onerror = (e) => {
+      console.warn('[VoiceMode] Recognition error:', e.error);
+      if (e.error === 'aborted' || e.error === 'no-speech') return;
+      if (e.error === 'not-allowed') {
+        setVoiceError('Microphone access denied.');
+        setVoiceMode(false);
+        setVoicePhase('idle');
+        voiceModeRef.current = false;
+        return;
+      }
+      // Restart on transient errors
+      if (voiceModeRef.current && voicePhaseRef.current === 'listening') {
+        setTimeout(startRecognition, 800);
+      }
+    };
+
+    rec.onend = () => {
+      // If we stopped intentionally (to process speech) — do nothing, handleVoiceResult takes over
+      if (intentionalStop.current) {
+        intentionalStop.current = false;
+        return;
+      }
+      // Otherwise auto-restart if voice mode is still active and we're in listening phase
+      if (voiceModeRef.current && voicePhaseRef.current === 'listening') {
+        console.log('[VoiceMode] Recognition ended unexpectedly — restarting');
+        setTimeout(startRecognition, 200);
+      }
+    };
+
+    rec.start();
+    setVoicePhase('listening');
+    setVoiceError('');
+    console.log('[VoiceMode] Recognition started');
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Voice: process detected speech ───────────────────────────────────────
+  const handleVoiceResult = useCallback(async (transcript) => {
+    if (!voiceModeRef.current) return;
+
+    // Stop recognition while we process
+    intentionalStop.current = true;
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch {}
+      recognitionRef.current = null;
+    }
+
+    setVoicePhase('processing');
+
+    // Add user + empty assistant bubble to chat
+    const currentMessages = messagesRef.current;
+    const userMsg = { role: 'user', content: transcript };
+    setMessages(prev => [...prev, userMsg, { role: 'assistant', content: '' }]);
+
+    try {
+      console.log('[VoiceMode] Calling /mamdani-voice...');
+      const res = await fetch(`${API}/mamdani-voice`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: transcript, history: currentMessages }),
+      });
+
+      if (!res.ok) {
+        const errBody = await res.text();
+        throw new Error(`Voice endpoint error ${res.status}: ${errBody}`);
+      }
+
+      const mamdaniText = decodeURIComponent(res.headers.get('X-Mamdani-Text') || '');
+      console.log('[VoiceMode] Got text:', mamdaniText);
+
+      // Fill in assistant bubble with the text
+      setMessages(prev => {
+        const updated = [...prev];
+        updated[updated.length - 1] = { role: 'assistant', content: mamdaniText };
+        return updated;
+      });
+
+      const arrayBuffer = await res.arrayBuffer();
+      if (arrayBuffer.byteLength === 0) throw new Error('Empty audio response');
+
+      // Play the audio
+      setVoicePhase('speaking');
+      const audioBlob = new Blob([arrayBuffer], { type: 'audio/mpeg' });
+      const audioUrl  = URL.createObjectURL(audioBlob);
+      const audioEl   = new Audio(audioUrl);
+      voiceAudioRef.current = audioEl;
+
+      audioEl.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+        voiceAudioRef.current = null;
+        console.log('[VoiceMode] Audio ended');
+        if (voiceModeRef.current) {
+          // Resume listening automatically
+          startRecognition();
+        } else {
+          setVoicePhase('idle');
+        }
+      };
+
+      audioEl.onerror = () => {
+        URL.revokeObjectURL(audioUrl);
+        voiceAudioRef.current = null;
+        if (voiceModeRef.current) startRecognition();
+        else setVoicePhase('idle');
+      };
+
+      await audioEl.play();
+
+    } catch (e) {
+      console.error('[VoiceMode] handleVoiceResult error:', e);
+      setVoiceError(e.message);
+      setMessages(prev => {
+        const updated = [...prev];
+        if (updated.length && updated[updated.length - 1].content === '') {
+          updated[updated.length - 1] = { role: 'assistant', content: 'Something went wrong. Please try again.' };
+        }
+        return updated;
+      });
+      // Resume listening after a short pause even on error
+      if (voiceModeRef.current) {
+        setTimeout(startRecognition, 1500);
+      } else {
+        setVoicePhase('idle');
+      }
+    }
+  }, [startRecognition]);
+
+  // ── Voice: toggle on/off ──────────────────────────────────────────────────
+  const toggleVoiceMode = useCallback(() => {
+    if (voiceModeRef.current) {
+      // Turn off
+      voiceModeRef.current = false;
+      setVoiceMode(false);
+      setVoicePhase('idle');
+      setVoiceError('');
+
+      if (recognitionRef.current) {
+        intentionalStop.current = true;
+        try { recognitionRef.current.abort(); } catch {}
+        recognitionRef.current = null;
+      }
+      if (voiceAudioRef.current) {
+        voiceAudioRef.current.pause();
+        try { URL.revokeObjectURL(voiceAudioRef.current.src); } catch {}
+        voiceAudioRef.current = null;
+      }
+    } else {
+      // Turn on — check browser support first
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) {
+        setVoiceError('Voice mode requires Chrome or Edge.');
+        return;
+      }
+      voiceModeRef.current = true;
+      setVoiceMode(true);
+      setVoiceError('');
+      startRecognition();
+    }
+  }, [startRecognition]);
+
   if (!unlocked) return <PasswordGate onUnlock={() => setUnlocked(true)} />;
 
+  // ── Text chat ─────────────────────────────────────────────────────────────
   const appendToLast = (extra) => {
     setMessages(prev => {
       const updated = [...prev];
@@ -528,12 +865,10 @@ export default function MamdaniPage() {
     const userMsg = { role: 'user', content };
     const history = [...messages, userMsg];
 
-    // Show typing indicator immediately — content: '' renders the dots
     setMessages([...history, { role: 'assistant', content: '' }]);
     setInput('');
     setStreaming(true);
 
-    // ── Simulated thinking delay (800–2000ms based on question length) ────────
     const thinkMs = 800 + Math.min(content.length * 12, 1200);
     await new Promise(r => setTimeout(r, thinkMs));
 
@@ -564,10 +899,8 @@ export default function MamdaniPage() {
           try {
             const evt = JSON.parse(raw);
             if (evt.type === 'token' && evt.content) {
-              // Each token arrives individually — render immediately via flushSync
               flushSync(() => appendToLast(evt.content));
             } else if (evt.type === 'pause') {
-              // Backend-driven pause (e.g. before a follow-up question)
               await new Promise(r => setTimeout(r, evt.ms || 700));
             } else if (evt.type === 'done') {
               setStreaming(false);
@@ -599,6 +932,32 @@ export default function MamdaniPage() {
     }
   };
 
+  // ── Voice bar content ─────────────────────────────────────────────────────
+  const VoiceOrb = () => {
+    if (voicePhase === 'speaking') {
+      return (
+        <div className="mp-voice-orb speaking">
+          <div className="mp-voice-waves">
+            <span/><span/><span/><span/><span/>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className={`mp-voice-orb${voicePhase === 'listening' ? ' listening' : ''}`}>
+        <MicIcon size={13} color="#2ecc71" />
+      </div>
+    );
+  };
+
+  const voiceLabel = {
+    listening:  'Listening…',
+    processing: 'Thinking…',
+    speaking:   'Speaking…',
+    idle:       'Voice mode on',
+    error:      '',
+  }[voiceError ? 'error' : voicePhase];
+
   return (
     <div className="mp-root">
       <div className="mp-inner">
@@ -611,6 +970,18 @@ export default function MamdaniPage() {
             <p>Mayor of New York City</p>
           </div>
           <div className="mp-status-dot" />
+
+          {/* Continuous voice mode toggle */}
+          <button
+            className={`mp-voice-btn${voiceMode ? ' active' : ''}`}
+            onClick={toggleVoiceMode}
+            title={voiceMode ? 'Turn off voice mode' : 'Turn on voice mode'}
+            aria-label="Toggle voice mode"
+          >
+            <MicIcon size={15} />
+          </button>
+
+          {/* Push-to-talk call modal */}
           <MamdaniCall
             messages={messages}
             onNewExchange={(userText, assistantText) => {
@@ -647,14 +1018,40 @@ export default function MamdaniPage() {
           <div ref={bottomRef} />
         </div>
 
-        {/* Input */}
+        {/* Input area */}
         <div className="mp-input-area">
+
+          {/* Voice status bar — visible when voice mode is on */}
+          {voiceMode && (
+            <div className="mp-voice-bar">
+              <VoiceOrb />
+              {voiceError
+                ? <span className="mp-voice-error-txt">{voiceError}</span>
+                : <span className="mp-voice-label">{voiceLabel}</span>
+              }
+              <button className="mp-voice-stop" onClick={toggleVoiceMode}>Stop</button>
+            </div>
+          )}
+          {/* Also show browser-support error even when voice mode isn't on yet */}
+          {!voiceMode && voiceError && (
+            <div className="mp-voice-bar">
+              <span className="mp-voice-error-txt">{voiceError}</span>
+            </div>
+          )}
+
           <div className={`mp-input-row${streaming ? ' mp-disabled' : ''}`}>
             <textarea
               ref={inputRef}
               className="mp-input"
               rows={1}
-              placeholder={streaming ? 'Waiting for response…' : 'Ask the Mayor…'}
+              placeholder={
+                voiceMode
+                  ? voicePhase === 'listening'  ? 'Listening — or type here…'
+                  : voicePhase === 'processing' ? 'Thinking…'
+                  : voicePhase === 'speaking'   ? 'Speaking…'
+                  : 'Ask the Mayor…'
+                  : streaming ? 'Waiting for response…' : 'Ask the Mayor…'
+              }
               value={input}
               onChange={e => {
                 setInput(e.target.value);
