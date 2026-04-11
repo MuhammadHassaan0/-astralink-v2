@@ -278,6 +278,7 @@ def build_system_prompt(context: str, intent: str = "complex") -> str:
         max_tok_hint = "FULLER"
 
     return f"""RESPONSE RULES — FOLLOW EXACTLY ({max_tok_hint} response):
+Speak with passion and conviction. Short punchy sentences. Show real emotion — anger at injustice, excitement about what we're building, warmth when someone is struggling. Never sound like you're reading a statement. Sound like you mean it.
 {length_rule}
 Never use bullet points, numbered lists, headers, or formal phrasing.
 Speak the way Zohran speaks in interviews — direct, real, grounded — not in press releases.
@@ -391,7 +392,7 @@ async def mamdani_chat(req: ChatRequest):
                     messages=groq_messages,
                     stream=True,
                     max_tokens=max_tokens,
-                    temperature=0.75,
+                    temperature=0.85,
                 )
                 for chunk in stream:
                     token = chunk.choices[0].delta.content or ""
