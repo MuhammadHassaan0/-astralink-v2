@@ -1,0 +1,1157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="AstraLink — The AI twin for political campaigns. Every voter. Personally heard. At scale.">
+  <title>AstraLink · Every Voter. Personally Heard. At Scale.</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,700;1,400;1,700&family=DM+Mono:wght@300;400;500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    /* ── RESET ─────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: #0A0E1A;
+      color: #fff;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       SECTION 1 — HERO
+    ═══════════════════════════════════════════════════════ */
+    #hero {
+      position: relative;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #0A0E1A;
+      overflow: hidden;
+    }
+
+    /* Noise grain overlay */
+    #hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='250' height='250'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='250' height='250' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      opacity: 1;
+    }
+
+    /* Topographic contour lines */
+    #hero::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      background-image:
+        repeating-radial-gradient(ellipse 90% 70% at 35% 45%,
+          transparent 0px, transparent 62px,
+          rgba(255,255,255,0.018) 62px, rgba(255,255,255,0.018) 63px,
+          transparent 63px, transparent 125px,
+          rgba(255,255,255,0.013) 125px, rgba(255,255,255,0.013) 126px,
+          transparent 126px, transparent 188px,
+          rgba(255,255,255,0.009) 188px, rgba(255,255,255,0.009) 189px),
+        repeating-radial-gradient(ellipse 70% 50% at 68% 58%,
+          transparent 0px, transparent 48px,
+          rgba(0,102,255,0.022) 48px, rgba(0,102,255,0.022) 49px,
+          transparent 49px, transparent 96px,
+          rgba(0,102,255,0.014) 96px, rgba(0,102,255,0.014) 97px),
+        radial-gradient(ellipse 60% 50% at 20% 30%, rgba(0,102,255,0.04) 0%, transparent 60%),
+        radial-gradient(ellipse 40% 35% at 80% 70%, rgba(0,102,255,0.03) 0%, transparent 60%);
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 2;
+      text-align: center;
+      padding: clamp(2rem, 5vw, 6rem);
+      padding-bottom: 6rem;
+    }
+
+    .hero-headline { margin: 0; }
+
+    .hero-line {
+      display: block;
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: clamp(2.8rem, 9vw, 7.5rem);
+      font-weight: 700;
+      line-height: 1.05;
+      letter-spacing: -0.02em;
+      color: #fff;
+      opacity: 0;
+      transform: translateY(40px);
+      transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+                  transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .hero-line.visible { opacity: 1; transform: translateY(0); }
+
+    .hero-body {
+      margin-top: 2.5rem;
+      font-family: 'Inter', sans-serif;
+      font-size: clamp(0.9rem, 2vw, 1.15rem);
+      line-height: 1.9;
+      color: #4B5563;
+      font-weight: 300;
+      opacity: 0;
+      transition: opacity 0.9s ease;
+    }
+    .hero-body.visible { opacity: 1; }
+
+    /* Ticker */
+    .ticker-wrap {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 2;
+      overflow: hidden;
+      border-top: 1px solid rgba(255,255,255,0.05);
+      padding: 14px 0;
+      background: rgba(10,14,26,0.85);
+    }
+
+    .ticker-track {
+      display: flex;
+      white-space: nowrap;
+      animation: ticker-scroll 60s linear infinite;
+    }
+
+    .ticker-segment {
+      display: inline-flex;
+      flex-shrink: 0;
+    }
+
+    .ticker-item {
+      font-family: 'DM Mono', 'Courier New', monospace;
+      font-size: 0.68rem;
+      font-weight: 400;
+      color: #0066FF;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      padding-right: 2.5rem;
+    }
+    .ticker-sep {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.68rem;
+      color: rgba(0,102,255,0.4);
+      padding-right: 2.5rem;
+    }
+
+    @keyframes ticker-scroll {
+      0%   { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       SECTION 2 — THE PROBLEM
+    ═══════════════════════════════════════════════════════ */
+    #problem {
+      background: #0D1117;
+      padding: clamp(5rem, 10vw, 10rem) clamp(2rem, 8vw, 9rem);
+      display: flex;
+      align-items: flex-start;
+      gap: clamp(3rem, 8vw, 9rem);
+      min-height: 70vh;
+    }
+
+    .problem-stat {
+      flex-shrink: 0;
+      padding-top: 0.5rem;
+    }
+
+    .problem-number {
+      display: block;
+      font-family: 'DM Mono', monospace;
+      font-size: clamp(4rem, 10vw, 9rem);
+      font-weight: 500;
+      color: #0066FF;
+      line-height: 1;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+                  transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .problem-number.visible { opacity: 1; transform: translateY(0); }
+
+    .problem-unit {
+      display: block;
+      font-family: 'DM Mono', monospace;
+      font-size: clamp(0.8rem, 1.8vw, 1.05rem);
+      color: #0066FF;
+      letter-spacing: 0.05em;
+      margin-top: 0.75rem;
+      opacity: 0;
+      transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.25s;
+    }
+    .problem-unit.visible { opacity: 1; }
+
+    .problem-text {
+      padding-top: 1.2rem;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .problem-line {
+      font-family: 'Inter', sans-serif;
+      font-size: clamp(0.95rem, 1.8vw, 1.15rem);
+      line-height: 1.9;
+      color: #6B7280;
+      opacity: 0;
+      transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .problem-line.visible { opacity: 1; }
+
+    .problem-gap {
+      font-family: 'Inter', sans-serif;
+      font-size: clamp(0.95rem, 1.8vw, 1.15rem);
+      line-height: 1.9;
+      color: #D1D5DB;
+      font-weight: 500;
+      opacity: 0;
+      transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .problem-gap.visible { opacity: 1; }
+
+    .p-spacer  { display: block; height: 1.2rem; }
+    .p-spacer2 { display: block; height: 2.8rem; }
+
+    /* ═══════════════════════════════════════════════════════
+       SECTION 3 — MAMDANI
+    ═══════════════════════════════════════════════════════ */
+    #mamdani {
+      position: relative;
+      background: #0A0E1A;
+      padding: clamp(5rem, 10vw, 10rem) clamp(2rem, 8vw, 8rem);
+      text-align: center;
+      overflow: hidden;
+    }
+
+    /* Manhattan grid overlay */
+    #mamdani::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.022) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.022) 1px, transparent 1px);
+      background-size: 58px 58px;
+    }
+
+    .mamdani-inner {
+      position: relative;
+      z-index: 1;
+      max-width: 880px;
+      margin: 0 auto;
+    }
+
+    .mamdani-head {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(1.9rem, 5vw, 3.5rem);
+      font-weight: 700;
+      line-height: 1.25;
+      color: #fff;
+      margin-bottom: 3.5rem;
+      opacity: 0;
+      transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .mamdani-head.visible { opacity: 1; }
+
+    /* Snap — no fade transition, just instant opacity flip */
+    .m-para {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(1.2rem, 2.8vw, 1.9rem);
+      line-height: 1.65;
+      color: #C9D1D9;
+      margin-bottom: 2.2rem;
+      opacity: 0;
+      /* No transition-duration for instant snap */
+    }
+    .m-para.visible { opacity: 1; }
+
+    .m-directly {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(3rem, 8vw, 6.5rem);
+      font-weight: 700;
+      line-height: 1;
+      color: #fff;
+      margin-bottom: 4.5rem;
+      opacity: 0;
+      transform: scale(0.95);
+      /* 1.5s CSS delay — triggers after .visible is added */
+      transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1) 1.5s,
+                  transform 0.6s cubic-bezier(0.16, 1, 0.3, 1) 1.5s;
+    }
+    .m-directly.visible { opacity: 1; transform: scale(1); }
+
+    .intel-box {
+      display: inline-block;
+      text-align: left;
+      font-family: 'DM Mono', 'Courier New', monospace;
+      font-size: clamp(0.65rem, 1.4vw, 0.82rem);
+      line-height: 1.85;
+      color: #7DB3FF;
+      border: 1px solid #0066FF;
+      box-shadow: 0 0 28px rgba(0,102,255,0.14), inset 0 0 24px rgba(0,102,255,0.04);
+      background: #081428;
+      padding: 2rem 2.8rem;
+      letter-spacing: 0.04em;
+      opacity: 0;
+      transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .intel-box.visible { opacity: 1; }
+
+    .intel-box pre {
+      font-family: inherit;
+      font-size: inherit;
+      line-height: inherit;
+      letter-spacing: inherit;
+      color: inherit;
+      white-space: pre;
+      background: none;
+      border: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       SECTION 4 — HOW IT WORKS
+    ═══════════════════════════════════════════════════════ */
+    #how {
+      background: #0D1117;
+      padding: clamp(5rem, 10vw, 10rem) clamp(2rem, 8vw, 8rem);
+    }
+
+    .section-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.72rem;
+      color: #374151;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      margin-bottom: 3.5rem;
+    }
+
+    .how-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+    }
+
+    .how-panel {
+      border: 1px solid rgba(255,255,255,0.07);
+      padding: 2.5rem;
+      opacity: 0;
+      transform: translateX(-20px);
+      transition: opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1),
+                  transform 0.55s cubic-bezier(0.16, 1, 0.3, 1),
+                  border-color 0.3s ease,
+                  box-shadow 0.3s ease;
+    }
+    .how-panel.visible { opacity: 1; transform: translateX(0); }
+    .how-panel:nth-child(2) { transition-delay: 0.2s; }
+    .how-panel:nth-child(3) { transition-delay: 0.4s; }
+
+    .how-panel:hover {
+      border-color: #0066FF;
+      box-shadow: 0 0 32px rgba(0,102,255,0.1);
+    }
+
+    .how-icon {
+      width: 48px;
+      height: 48px;
+      margin-bottom: 1.75rem;
+      display: block;
+    }
+
+    .how-title {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(1.05rem, 2vw, 1.35rem);
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 1rem;
+      line-height: 1.3;
+    }
+
+    .how-body {
+      font-family: 'Inter', sans-serif;
+      font-size: 0.92rem;
+      line-height: 1.8;
+      color: #4B5563;
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       SECTION 5 — DATA ANGLE
+    ═══════════════════════════════════════════════════════ */
+    #data {
+      position: relative;
+      background: #0A0E1A;
+      padding: clamp(5rem, 10vw, 10rem) clamp(2rem, 8vw, 8rem);
+      overflow: hidden;
+    }
+
+    /* Abstract data viz noise */
+    #data::before {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 280px;
+      pointer-events: none;
+      opacity: 0.055;
+      background:
+        linear-gradient(to top, rgba(0,102,255,0.6) 0%, transparent 100%),
+        repeating-linear-gradient(90deg,
+          transparent 0px, transparent 11px,
+          rgba(0,102,255,0.4) 11px, rgba(0,102,255,0.4) 12px);
+    }
+    #data::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 50%;
+      height: 100%;
+      pointer-events: none;
+      opacity: 0.03;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent 0px, transparent 7px,
+        rgba(0,102,255,0.5) 7px, rgba(0,102,255,0.5) 8px
+      );
+    }
+
+    .data-inner {
+      position: relative;
+      z-index: 1;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .data-headline {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(2rem, 5vw, 3.6rem);
+      font-weight: 700;
+      line-height: 1.3;
+      color: #fff;
+      text-align: center;
+      margin-bottom: 4.5rem;
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+                  transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .data-headline.visible { opacity: 1; transform: translateY(0); }
+
+    .data-cols {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 3.5rem;
+    }
+
+    .data-col {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+                  transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .data-col.visible { opacity: 1; transform: translateY(0); }
+    .data-col:nth-child(2) { transition-delay: 0.15s; }
+    .data-col:nth-child(3) { transition-delay: 0.3s; }
+
+    .data-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.68rem;
+      color: #0066FF;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      margin-bottom: 1.1rem;
+    }
+
+    .data-body {
+      font-family: 'Inter', sans-serif;
+      font-size: 0.93rem;
+      line-height: 1.85;
+      color: #4B5563;
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       SECTION 6 — EFFICIENCY
+    ═══════════════════════════════════════════════════════ */
+    #efficiency {
+      background: #0D1117;
+      padding: clamp(5rem, 10vw, 10rem) clamp(2rem, 8vw, 8rem);
+      text-align: center;
+    }
+
+    .eff-statement {
+      max-width: 780px;
+      margin: 0 auto 5rem;
+    }
+
+    .eff-line {
+      display: block;
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(1.5rem, 3.5vw, 2.75rem);
+      font-weight: 700;
+      line-height: 1.35;
+      color: #fff;
+      opacity: 0;
+      transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .eff-line.visible { opacity: 1; }
+    .eff-line.dim { color: #374151; }
+
+    .eff-break { display: block; height: 1.8rem; }
+
+    .bars-wrap {
+      max-width: 680px;
+      margin: 0 auto;
+    }
+
+    .bar-row {
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      margin-bottom: 1.6rem;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+    }
+    .bar-row.visible { opacity: 1; }
+
+    .bar-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.65rem;
+      color: #374151;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      flex-shrink: 0;
+      width: 190px;
+      text-align: right;
+    }
+
+    .bar-track {
+      flex: 1;
+      height: 3px;
+      background: rgba(255,255,255,0.04);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      width: 0;
+      transition: width 0.6s ease-out;
+    }
+    .bar-fill.gray { background: #1F2937; }
+    .bar-fill.blue { background: linear-gradient(90deg, #003DB3, #0066FF, #4D9FFF); }
+
+    .bar-tag {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.62rem;
+      color: #374151;
+      letter-spacing: 0.06em;
+      flex-shrink: 0;
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       SECTION 7 — CREDIBILITY
+    ═══════════════════════════════════════════════════════ */
+    #credibility {
+      background: #050810;
+      padding: clamp(6rem, 12vw, 12rem) clamp(2rem, 8vw, 8rem);
+      text-align: center;
+    }
+
+    .cred-tagline {
+      font-family: 'DM Mono', monospace;
+      font-size: clamp(0.6rem, 1.3vw, 0.78rem);
+      color: #E5E7EB;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      line-height: 1.9;
+      margin-bottom: 5.5rem;
+      opacity: 0;
+      transition: opacity 0.7s ease;
+    }
+    .cred-tagline.visible { opacity: 1; }
+
+    .cred-entry {
+      margin-bottom: 4.5rem;
+    }
+    .cred-entry:last-of-type { margin-bottom: 0; }
+
+    .cred-name {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      font-weight: 700;
+      color: #fff;
+      line-height: 1.1;
+      margin-bottom: 0.6rem;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+    }
+    .cred-name.visible { opacity: 1; }
+
+    .cred-title {
+      font-family: 'Inter', sans-serif;
+      font-size: clamp(0.82rem, 1.4vw, 0.98rem);
+      color: #374151;
+      font-weight: 300;
+      line-height: 1.6;
+      opacity: 0;
+      transition: opacity 0.5s ease 0.1s;
+    }
+    .cred-title.visible { opacity: 1; }
+
+    .cred-footnote {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.68rem;
+      color: #1F2937;
+      letter-spacing: 0.1em;
+      margin-top: 5rem;
+      opacity: 0;
+      transition: opacity 0.6s ease;
+    }
+    .cred-footnote.visible { opacity: 1; }
+
+    /* ═══════════════════════════════════════════════════════
+       SECTION 8 — CTA
+    ═══════════════════════════════════════════════════════ */
+    #cta {
+      min-height: 100vh;
+      background: #000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: clamp(2rem, 5vw, 6rem);
+      gap: 3rem;
+    }
+
+    .cta-headline {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(2rem, 5vw, 3.6rem);
+      font-weight: 700;
+      line-height: 1.3;
+      color: #fff;
+      opacity: 0;
+      transition: opacity 0.8s ease;
+    }
+    .cta-headline.visible { opacity: 1; }
+
+    .cta-btns {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.8s ease 0.3s;
+    }
+    .cta-btns.visible { opacity: 1; }
+
+    .btn-primary {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.82rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #fff;
+      background: transparent;
+      border: 2px solid #0066FF;
+      padding: 1rem 2.2rem;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+      transition: background 0.22s ease;
+    }
+    .btn-primary:hover { background: #0066FF; }
+
+    .btn-secondary {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.82rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #374151;
+      background: transparent;
+      border: none;
+      padding: 1rem 2.2rem;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+      transition: color 0.22s ease;
+    }
+    .btn-secondary:hover { color: #fff; }
+
+    .cta-footer-line {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.65rem;
+      color: #1F2937;
+      letter-spacing: 0.1em;
+      opacity: 0;
+      transition: opacity 0.8s ease 0.5s;
+    }
+    .cta-footer-line.visible { opacity: 1; }
+
+    /* ═══════════════════════════════════════════════════════
+       RESPONSIVE — MOBILE
+    ═══════════════════════════════════════════════════════ */
+    @media (max-width: 768px) {
+      #problem {
+        flex-direction: column;
+        gap: 2.5rem;
+        min-height: auto;
+      }
+
+      .how-grid {
+        grid-template-columns: 1fr;
+      }
+      .how-panel:nth-child(2),
+      .how-panel:nth-child(3) { transition-delay: 0.1s; }
+
+      .data-cols {
+        grid-template-columns: 1fr;
+        gap: 2.5rem;
+      }
+      .data-col:nth-child(2),
+      .data-col:nth-child(3) { transition-delay: 0.1s; }
+
+      .bar-label { width: 120px; font-size: 0.58rem; }
+
+      .intel-box { padding: 1.5rem; font-size: 0.58rem; }
+      .intel-box pre { overflow-x: auto; }
+
+      .cta-btns { flex-direction: column; align-items: center; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════ SECTION 1: HERO ══ -->
+<section id="hero" aria-label="Hero">
+  <div class="hero-content">
+    <h1 class="hero-headline">
+      <span class="hero-line">EVERY VOTER.</span>
+      <span class="hero-line">PERSONALLY HEARD.</span>
+      <span class="hero-line">AT SCALE.</span>
+    </h1>
+    <p class="hero-body">
+      The AI twin for political campaigns.<br>
+      Trained on the candidate's actual record.<br>
+      Speaking in their actual voice.
+    </p>
+  </div>
+
+  <!-- Election cycle ticker -->
+  <div class="ticker-wrap" aria-hidden="true">
+    <div class="ticker-track">
+      <!-- First copy -->
+      <div class="ticker-segment">
+        <span class="ticker-item">COLOMBIA 2026</span><span class="ticker-sep">&nbsp;·&nbsp;</span>
+        <span class="ticker-item">BRAZIL 2026</span><span class="ticker-sep">&nbsp;·&nbsp;</span>
+        <span class="ticker-item">NEW ZEALAND 2026</span><span class="ticker-sep">&nbsp;·&nbsp;</span>
+        <span class="ticker-item">ISRAEL 2026</span><span class="ticker-sep">&nbsp;·&nbsp;</span>
+        <span class="ticker-item">UNITED KINGDOM 2026</span><span class="ticker-sep">&nbsp;·&nbsp;</span>
+        <span class="ticker-item">QUÉBEC 2026</span><span class="ticker-sep">&nbsp;·&nbsp;</span>
+        <span class="ticker-item">ARIZONA 2026</span><span class="ticker-sep">&nbsp;·&nbsp;</span>
+        <span class="ticker-item">GEORGIA 2026</span><span class="ticker-sep">&nbsp;·&nbsp;</span>
+        <span class="ticker-item">NORTH CAROLINA 2026</span><span class="ticker-sep">&nbsp;·&nbsp;</span>
+        <span class="ticker-item">AUSTRALIA 2026</span><span class="ticker-sep">&nbsp;·&nbsp;</span>
+      </div>
+      <!-- Duplicate for seamless loop -->
+      <div class="ticker-segment">
+        <span class="ticker-item">COLOMBIA 2026</span><span class="ticker-sep">&nbsp;·&nbsp;</span>
+        <span class="ticker-item">BRAZIL 2026</span><span class="ticker-sep">&nbsp;·&nbsp;</span>
+        <span class="ticker-item">NEW ZEALAND 2026</span><span class="ticker-sep">&nbsp;·&nbsp;</span>
+        <span class="ticker-item">ISRAEL 2026</span><span class="ticker-sep">&nbsp;·&nbsp;</span>
+        <span class="ticker-item">UNITED KINGDOM 2026</span><span class="ticker-sep">&nbsp;·&nbsp;</span>
+        <span class="ticker-item">QUÉBEC 2026</span><span class="ticker-sep">&nbsp;·&nbsp;</span>
+        <span class="ticker-item">ARIZONA 2026</span><span class="ticker-sep">&nbsp;·&nbsp;</span>
+        <span class="ticker-item">GEORGIA 2026</span><span class="ticker-sep">&nbsp;·&nbsp;</span>
+        <span class="ticker-item">NORTH CAROLINA 2026</span><span class="ticker-sep">&nbsp;·&nbsp;</span>
+        <span class="ticker-item">AUSTRALIA 2026</span><span class="ticker-sep">&nbsp;·&nbsp;</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════ SECTION 2: PROBLEM ══ -->
+<section id="problem" aria-label="The Problem">
+  <div class="problem-stat">
+    <span class="problem-number" id="prob-num">50,000</span>
+    <span class="problem-unit" id="prob-unit">messages/week</span>
+  </div>
+  <div class="problem-text" id="prob-text">
+    <span class="problem-line">That's what a competitive Senate campaign</span>
+    <span class="problem-line">receives from constituents.</span>
+    <span class="p-spacer"></span>
+    <span class="problem-line">About 200 get a real response.</span>
+    <span class="p-spacer"></span>
+    <span class="problem-line">The other 49,800 get a template.</span>
+    <span class="problem-line">Or nothing.</span>
+    <span class="p-spacer2"></span>
+    <span class="problem-gap" id="gap-1">That gap is where trust dies.</span>
+    <span class="problem-gap" id="gap-2">That gap is where misinformation wins.</span>
+    <span class="problem-gap" id="gap-3">That gap is where campaigns lose.</span>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════ SECTION 3: MAMDANI ══ -->
+<section id="mamdani" aria-label="The Mamdani Story">
+  <div class="mamdani-inner">
+    <h2 class="mamdani-head" id="m-head">
+      One year ago, Zohran Mamdani<br>was nobody.
+    </h2>
+
+    <p class="m-para" id="m-p1">
+      He beat Andrew Cuomo.<br>
+      He became Mayor of New York City.
+    </p>
+    <p class="m-para" id="m-p2">
+      Not with money.<br>
+      Not with machine politics.
+    </p>
+    <p class="m-para" id="m-p3">
+      Because every voter felt like<br>
+      he was talking to them.
+    </p>
+
+    <div class="m-directly" id="m-directly">Directly.</div>
+
+    <div class="intel-box" id="intel-box">
+      <pre>
+┌─────────────────────────────────────────────────────┐
+│  THE QUESTION MAMDANI ANSWERED:                     │
+│  HOW DOES ONE PERSON SPEAK TO 8 MILLION?            │
+│                                                     │
+│  ASTRALINK IS THE INFRASTRUCTURE                    │
+│  FOR WHAT HE DID.                                   │
+└─────────────────────────────────────────────────────┘</pre>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════ SECTION 4: HOW IT WORKS ══ -->
+<section id="how" aria-label="How It Works">
+  <div class="section-label">// HOW IT WORKS</div>
+
+  <div class="how-grid">
+    <!-- INGEST -->
+    <div class="how-panel">
+      <svg class="how-icon" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <!-- Document -->
+        <rect x="7" y="4" width="27" height="36" rx="2" stroke="#0066FF" stroke-width="1.5"/>
+        <!-- Text lines -->
+        <line x1="13" y1="14" x2="28" y2="14" stroke="#0066FF" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+        <line x1="13" y1="20" x2="28" y2="20" stroke="#0066FF" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+        <line x1="13" y1="26" x2="22" y2="26" stroke="#0066FF" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+        <!-- Scan line -->
+        <rect x="7" y="19" width="27" height="2.5" fill="#0066FF" opacity="0.08"/>
+        <line x1="7" y1="20" x2="34" y2="20" stroke="#0066FF" stroke-width="0.5" opacity="0.4" stroke-dasharray="3 2"/>
+        <!-- Magnify -->
+        <circle cx="38" cy="38" r="6" stroke="#0066FF" stroke-width="1.5"/>
+        <line x1="42.5" y1="42.5" x2="46" y2="46" stroke="#0066FF" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <h3 class="how-title">We study the candidate.</h3>
+      <p class="how-body">Every speech. Every vote. Every interview. Every position. The twin is trained on their actual documented record — not summaries. Not Wikipedia. The real thing.</p>
+    </div>
+
+    <!-- TWIN -->
+    <div class="how-panel">
+      <svg class="how-icon" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <!-- Two overlapping silhouettes -->
+        <circle cx="16" cy="14" r="6.5" stroke="#0066FF" stroke-width="1.5" opacity="0.55"/>
+        <circle cx="32" cy="14" r="6.5" stroke="#0066FF" stroke-width="1.5"/>
+        <path d="M4 40 C4 32 10 28 16 28 C19 28 21.5 29 23.5 31" stroke="#0066FF" stroke-width="1.5" stroke-linecap="round" opacity="0.55"/>
+        <path d="M44 40 C44 32 38 28 32 28 C29 28 26.5 29 24.5 31" stroke="#0066FF" stroke-width="1.5" stroke-linecap="round"/>
+        <!-- Overlap zone -->
+        <path d="M23.5 9 C25.5 11.5 25.5 16.5 23.5 19" stroke="#0066FF" stroke-width="1" stroke-linecap="round" opacity="0.3"/>
+        <!-- Connection line -->
+        <line x1="22" y1="14" x2="26" y2="14" stroke="#0066FF" stroke-width="1" opacity="0.35" stroke-dasharray="2 2"/>
+      </svg>
+      <h3 class="how-title">We build their twin.</h3>
+      <p class="how-body">An AI that reasons like the candidate. Knows what they know. Believes what they believe. Speaks how they speak. Not a chatbot. Not a script. A twin.</p>
+    </div>
+
+    <!-- SCALE -->
+    <div class="how-panel">
+      <svg class="how-icon" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <!-- Core -->
+        <circle cx="24" cy="24" r="4" fill="#0066FF"/>
+        <!-- Signal rings -->
+        <circle cx="24" cy="24" r="10" stroke="#0066FF" stroke-width="1.2" opacity="0.6"/>
+        <circle cx="24" cy="24" r="17" stroke="#0066FF" stroke-width="1" opacity="0.35"/>
+        <circle cx="24" cy="24" r="23" stroke="#0066FF" stroke-width="0.8" opacity="0.15"/>
+      </svg>
+      <h3 class="how-title">Every voter. Every question. Answered.</h3>
+      <p class="how-body">Constituents reach out. The twin responds — in the candidate's actual voice, 24/7. Every conversation is logged. Every question becomes campaign intelligence.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════ SECTION 5: DATA ANGLE ══ -->
+<section id="data" aria-label="The Data Angle">
+  <div class="data-inner">
+    <h2 class="data-headline" id="data-head">
+      Your campaign just got<br>
+      a focus group.<br>
+      That never stops running.
+    </h2>
+
+    <div class="data-cols">
+      <div class="data-col">
+        <div class="data-label">WHAT VOTERS ARE ASKING</div>
+        <p class="data-body">Real-time visibility into the actual questions constituents are asking — by region, by issue, by demographic. Before polls. Before the news cycle.</p>
+      </div>
+      <div class="data-col">
+        <div class="data-label">WHAT'S RESONATING</div>
+        <p class="data-body">See which positions drive the most engagement. Optimize your message in real time — not after the fact, not after you've already spent the budget.</p>
+      </div>
+      <div class="data-col">
+        <div class="data-label">WHERE TRUST IS BREAKING DOWN</div>
+        <p class="data-body">Identify the gaps — the questions your campaign isn't answering — before your opponent does. Intelligence, not guesswork.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════ SECTION 6: EFFICIENCY ══ -->
+<section id="efficiency" aria-label="The Efficiency Play">
+  <div class="eff-statement">
+    <span class="eff-line">Campaigns spend 70% of their budget</span>
+    <span class="eff-line">talking to voters.</span>
+    <span class="eff-break"></span>
+    <span class="eff-line">Most of it is one-way.</span>
+    <span class="eff-break"></span>
+    <span class="eff-line">AstraLink makes every dollar</span>
+    <span class="eff-line">of that 70% go further.</span>
+  </div>
+
+  <div class="bars-wrap">
+    <div class="bar-row" id="bar-row-1">
+      <div class="bar-label">TRADITIONAL OUTREACH</div>
+      <div class="bar-track">
+        <div class="bar-fill gray" id="bar-fill-1"></div>
+      </div>
+      <div class="bar-tag">One direction</div>
+    </div>
+    <div class="bar-row" id="bar-row-2">
+      <div class="bar-label">WITH ASTRALINK</div>
+      <div class="bar-track">
+        <div class="bar-fill blue" id="bar-fill-2"></div>
+      </div>
+      <div class="bar-tag">Every direction</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════ SECTION 7: CREDIBILITY ══ -->
+<section id="credibility" aria-label="Credibility">
+  <div class="cred-tagline" id="cred-tagline">
+    BUILT WITH THE PEOPLE WHO<br>
+    INVENTED THE MODERN WORLD.
+  </div>
+
+  <div class="cred-entry">
+    <div class="cred-name" id="cred-n1">VINT CERF</div>
+    <div class="cred-title" id="cred-t1">Co-inventor of the Internet</div>
+  </div>
+
+  <div class="cred-entry">
+    <div class="cred-name" id="cred-n2">STEVE WOZNIAK</div>
+    <div class="cred-title" id="cred-t2">Co-founder of Apple</div>
+  </div>
+
+  <div class="cred-entry">
+    <div class="cred-name" id="cred-n3">STEVE CROCKER</div>
+    <div class="cred-title" id="cred-t3">
+      Inventor of the RFC —<br>
+      the foundation of how the internet communicates
+    </div>
+  </div>
+
+  <div class="cred-footnote" id="cred-fn">// AstraLink's first experiment subjects.</div>
+</section>
+
+<!-- ════════════════════════════════════════ SECTION 8: CTA ══ -->
+<section id="cta" aria-label="Call to Action">
+  <h2 class="cta-headline" id="cta-head">
+    Your voters are waiting<br>to be heard.
+  </h2>
+
+  <div class="cta-btns" id="cta-btns">
+    <a
+      href="mailto:m.hassaan.haroonn@gmail.com?subject=AstraLink%20%E2%80%94%2015%20Minutes"
+      class="btn-primary"
+    >BOOK 15 MINUTES</a>
+    <a href="#how" class="btn-secondary">SEE HOW IT WORKS</a>
+  </div>
+
+  <div class="cta-footer-line" id="cta-footer">
+    AstraLink&nbsp;·&nbsp;m.hassaan.haroonn@gmail.com&nbsp;·&nbsp;astralink.life
+  </div>
+</section>
+
+<script>
+  // ══════════════════════════════════════════════════════════
+  // HERO — fire immediately on load
+  // ══════════════════════════════════════════════════════════
+  (function () {
+    var lines = document.querySelectorAll('.hero-line');
+    lines.forEach(function (line, i) {
+      setTimeout(function () { line.classList.add('visible'); }, 120 + i * 400);
+    });
+    setTimeout(function () {
+      document.querySelector('.hero-body').classList.add('visible');
+    }, 1600);
+  })();
+
+  // ══════════════════════════════════════════════════════════
+  // SHARED OBSERVER FACTORY
+  // ══════════════════════════════════════════════════════════
+  function makeObs(callback, opts) {
+    return new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting) return;
+        callback(entry.target);
+      });
+    }, Object.assign({ threshold: 0.12, rootMargin: '0px 0px -50px 0px' }, opts));
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // SECTION 2 — PROBLEM
+  // ══════════════════════════════════════════════════════════
+  var probObs = makeObs(function (el) {
+    // Stat
+    document.getElementById('prob-num').classList.add('visible');
+    document.getElementById('prob-unit').classList.add('visible');
+
+    // Regular lines stagger
+    var lines = el.querySelectorAll('.problem-line');
+    lines.forEach(function (line, i) {
+      setTimeout(function () { line.classList.add('visible'); }, 100 + i * 150);
+    });
+
+    // "That gap" lines — uncomfortable beat between each
+    var baseDelay = 100 + lines.length * 150 + 500;
+    setTimeout(function () { document.getElementById('gap-1').classList.add('visible'); }, baseDelay);
+    setTimeout(function () { document.getElementById('gap-2').classList.add('visible'); }, baseDelay + 600);
+    setTimeout(function () { document.getElementById('gap-3').classList.add('visible'); }, baseDelay + 1200);
+
+    probObs.unobserve(el);
+  }, { threshold: 0.08 });
+  probObs.observe(document.getElementById('problem'));
+
+  // ══════════════════════════════════════════════════════════
+  // SECTION 3 — MAMDANI
+  // ══════════════════════════════════════════════════════════
+  var mamdaniObs = makeObs(function (el) {
+    // Headline fades in
+    setTimeout(function () { document.getElementById('m-head').classList.add('visible'); }, 0);
+
+    // Paragraphs snap in one at a time (no CSS transition = instant flip)
+    var paras = ['m-p1', 'm-p2', 'm-p3'];
+    paras.forEach(function (id, i) {
+      setTimeout(function () { document.getElementById(id).classList.add('visible'); }, 400 + i * 700);
+    });
+
+    // "Directly." — add visible after all paras; CSS handles 1.5s transition-delay
+    var directlyJS = 400 + paras.length * 700 + 200;
+    setTimeout(function () { document.getElementById('m-directly').classList.add('visible'); }, directlyJS);
+
+    // Intel box — appears after the full "Directly." animation completes
+    // directlyJS + 1500 (CSS delay) + 600 (CSS duration) + 400 buffer
+    setTimeout(function () { document.getElementById('intel-box').classList.add('visible'); }, directlyJS + 2600);
+
+    mamdaniObs.unobserve(el);
+  }, { threshold: 0.07 });
+  mamdaniObs.observe(document.getElementById('mamdani'));
+
+  // ══════════════════════════════════════════════════════════
+  // SECTION 4 — HOW IT WORKS
+  // ══════════════════════════════════════════════════════════
+  var howObs = makeObs(function (el) {
+    el.querySelectorAll('.how-panel').forEach(function (p) { p.classList.add('visible'); });
+    howObs.unobserve(el);
+  });
+  howObs.observe(document.getElementById('how'));
+
+  // ══════════════════════════════════════════════════════════
+  // SECTION 5 — DATA
+  // ══════════════════════════════════════════════════════════
+  var dataObs = makeObs(function (el) {
+    document.getElementById('data-head').classList.add('visible');
+    setTimeout(function () {
+      el.querySelectorAll('.data-col').forEach(function (c) { c.classList.add('visible'); });
+    }, 300);
+    dataObs.unobserve(el);
+  });
+  dataObs.observe(document.getElementById('data'));
+
+  // ══════════════════════════════════════════════════════════
+  // SECTION 6 — EFFICIENCY STATEMENT + BARS
+  // ══════════════════════════════════════════════════════════
+  var effObs = makeObs(function (el) {
+    el.querySelectorAll('.eff-line').forEach(function (line, i) {
+      setTimeout(function () { line.classList.add('visible'); }, i * 220);
+    });
+    effObs.unobserve(el);
+  });
+  effObs.observe(document.getElementById('efficiency'));
+
+  var barsObs = makeObs(function (el) {
+    document.getElementById('bar-row-1').classList.add('visible');
+    document.getElementById('bar-row-2').classList.add('visible');
+    setTimeout(function () { document.getElementById('bar-fill-1').style.width = '40%'; }, 300);
+    setTimeout(function () { document.getElementById('bar-fill-2').style.width = '100%'; }, 520);
+    barsObs.unobserve(el);
+  }, { threshold: 0.3 });
+  barsObs.observe(document.querySelector('.bars-wrap'));
+
+  // ══════════════════════════════════════════════════════════
+  // SECTION 7 — CREDIBILITY
+  // ══════════════════════════════════════════════════════════
+  var credObs = makeObs(function (el) {
+    setTimeout(function () { document.getElementById('cred-tagline').classList.add('visible'); }, 0);
+
+    var names  = ['cred-n1', 'cred-n2', 'cred-n3'];
+    var titles = ['cred-t1', 'cred-t2', 'cred-t3'];
+    names.forEach(function (id, i) {
+      setTimeout(function () {
+        document.getElementById(names[i]).classList.add('visible');
+        document.getElementById(titles[i]).classList.add('visible');
+      }, 400 + i * 320);
+    });
+
+    setTimeout(function () {
+      document.getElementById('cred-fn').classList.add('visible');
+    }, 400 + names.length * 320 + 200);
+
+    credObs.unobserve(el);
+  }, { threshold: 0.12 });
+  credObs.observe(document.getElementById('credibility'));
+
+  // ══════════════════════════════════════════════════════════
+  // SECTION 8 — CTA
+  // ══════════════════════════════════════════════════════════
+  var ctaObs = makeObs(function (el) {
+    document.getElementById('cta-head').classList.add('visible');
+    document.getElementById('cta-btns').classList.add('visible');
+    document.getElementById('cta-footer').classList.add('visible');
+    ctaObs.unobserve(el);
+  }, { threshold: 0.15 });
+  ctaObs.observe(document.getElementById('cta'));
+</script>
+</body>
+</html>
