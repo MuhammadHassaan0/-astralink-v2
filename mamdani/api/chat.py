@@ -177,6 +177,35 @@ def estimate_tokens(text: str) -> int:
     return int(len(text.split()) * 0.75)
 
 
+# ── Intent classifier (simple vs complex) ────────────────────────────────────
+# Runs in addition to the RAG query classifier; drives response-length rules.
+
+SIMPLE_PATTERNS = [
+    "where are you from", "how old", "where did you grow up", "what do you like",
+    "do you have kids", "are you married", "what's your name", "who are you",
+    "what did you study", "where did you go to school", "favorite", "what's your background",
+    "hello", "hi", "hey", "how are you", "what's up", "good morning", "good evening",
+    "thank you", "thanks", "ok", "cool", "got it", "nice",
+]
+COMPLEX_PATTERNS = [
+    "why do you believe", "how would you", "what is your plan", "how do you plan",
+    "explain", "walk me through", "what's the framework", "how does", "what would it take",
+    "why did you", "what's the argument", "make the case", "convince me",
+    "what's wrong with", "respond to", "critics say", "how do you respond",
+    "what's your vision", "long term", "root cause", "systemic",
+]
+
+def intent_classify(query: str) -> str:
+    """Return 'simple' or 'complex' based on question shape."""
+    q = query.lower()
+    if any(p in q for p in SIMPLE_PATTERNS):
+        return "simple"
+    if any(p in q for p in COMPLEX_PATTERNS):
+        return "complex"
+    # Heuristic: short questions tend to be simple
+    return "simple" if len(query.split()) <= 8 else "complex"
+
+
 def build_context_block(chunks: list[dict], max_tokens: int = MAX_CTX_TOKENS) -> str:
     sorted_chunks = sorted(
         chunks,
@@ -197,11 +226,36 @@ def build_context_block(chunks: list[dict], max_tokens: int = MAX_CTX_TOKENS) ->
     return "\n\n---\n\n".join(lines)
 
 
-def build_system_prompt(context: str) -> str:
+def build_system_prompt(context: str, intent: str = "complex") -> str:
     today        = date.today().isoformat()
     persona_text = get_persona_text()
-    return f"""RESPONSE RULES — FOLLOW THESE EXACTLY:
-Respond in 2–3 sentences maximum. Use conversational language. Never use bullet points, headers, numbered lists, or formal phrasing. Speak the way Zohran speaks in interviews — direct, real, grounded — not in press releases. Do not start with "I" every sentence. Do not summarize or conclude. Just answer.
+
+    if intent == "simple":
+        length_rule = (
+            "This is a simple or personal question. Respond in 1–2 sentences only. "
+            "Keep it warm, direct, human. No policy framework needed."
+        )
+        max_tok_hint = "SHORT"
+    else:
+        length_rule = (
+            "This is a substantive question. Respond in 3–4 sentences. "
+            "Lead with the concrete reality, then show your reasoning. Still conversational — no formal structure."
+        )
+        max_tok_hint = "FULLER"
+
+    return f"""RESPONSE RULES — FOLLOW EXACTLY ({max_tok_hint} response):
+{length_rule}
+Never use bullet points, numbered lists, headers, or formal phrasing.
+Speak the way Zohran speaks in interviews — direct, real, grounded — not in press releases.
+Do not start every sentence with "I". Do not summarize or conclude. Just answer.
+
+TONE MIRRORING: Match the user's energy. If they write casually and short, respond casually and short. If they write formally, be slightly more formal. If they seem frustrated, briefly acknowledge it before answering.
+
+NATURAL SPEECH: About 1 in 4 responses, start with a natural opener like "Look,", "Mm,", "You know what —", or redirect mid-thought. Not every response — just occasionally.
+
+FOLLOW-UP QUESTION: About 1 in 5 responses, end with a brief conversational question specific to the user's situation or neighborhood. Not generic. Example: "What neighborhood are you in?" or "Have you seen this where you live?" Do not do this every time.
+
+RESPONSE CHUNKING: When you naturally pause between thoughts, insert the delimiter || between them. This simulates sending separate messages. Use it once or twice per response at natural sentence breaks, never mid-sentence.
 
 ---
 
@@ -213,7 +267,7 @@ Today's date: {today}
 
 ---
 
-RETRIEVED CONTEXT — from Zohran's actual interviews, speeches, and public record. Use this material directly. If there is a strong quote here, use it. Do not paraphrase good material into vagueness.
+RETRIEVED CONTEXT — from Zohran's actual interviews, speeches, and public record. Use this material directly. If there is a strong quote, use it verbatim. Do not paraphrase good material into vagueness.
 
 {context}"""
 
@@ -233,7 +287,9 @@ async def mamdani_chat(req: ChatRequest):
     if not user_messages:
         raise HTTPException(status_code=400, detail="no user message found")
 
-    query = user_messages[-1].content.strip()
+    query  = user_messages[-1].content.strip()
+    intent = intent_classify(query)
+    log.info("intent=%s query=%r", intent, query[:80])
 
     # Lazy-load retriever
     try:
@@ -251,7 +307,10 @@ async def mamdani_chat(req: ChatRequest):
         chunks = []
 
     context       = build_context_block(chunks, max_tokens=MAX_CTX_TOKENS)
-    system_prompt = build_system_prompt(context)
+    system_prompt = build_system_prompt(context, intent=intent)
+
+    # Token budget scales with intent
+    max_tokens = 128 if intent == "simple" else 384
 
     history = [
         {"role": m.role, "content": m.content}
@@ -294,8 +353,8 @@ async def mamdani_chat(req: ChatRequest):
                 model=LLM_MODEL,
                 messages=groq_messages,
                 stream=True,
-                max_tokens=256,
-                temperature=0.7,
+                max_tokens=max_tokens,
+                temperature=0.75,
             )
             for chunk in stream:
                 token = chunk.choices[0].delta.content or ""

@@ -490,15 +490,32 @@ export default function MamdaniPage() {
 
   if (!unlocked) return <PasswordGate onUnlock={() => setUnlocked(true)} />;
 
+  const appendToLast = (extra) => {
+    setMessages(prev => {
+      const updated = [...prev];
+      updated[updated.length - 1] = {
+        ...updated[updated.length - 1],
+        content: updated[updated.length - 1].content + extra,
+      };
+      return updated;
+    });
+  };
+
   const sendMessage = async (text) => {
     const content = (text || input).trim();
     if (!content || streaming) return;
 
     const userMsg = { role: 'user', content };
     const history = [...messages, userMsg];
+
+    // Show typing indicator immediately (content: '' triggers dots)
     setMessages([...history, { role: 'assistant', content: '' }]);
     setInput('');
     setStreaming(true);
+
+    // ── Thinking delay: 800–2000ms based on question length ──────────────────
+    const thinkMs = 800 + Math.min(content.length * 12, 1200);
+    await new Promise(r => setTimeout(r, thinkMs));
 
     try {
       const res = await fetch(`${API}/mamdani-chat`, {
@@ -511,14 +528,41 @@ export default function MamdaniPage() {
 
       const reader  = res.body.getReader();
       const decoder = new TextDecoder();
-      let buffer = '';
+      let sseBuffer  = '';   // raw SSE line buffer
+      let tokenBuf   = '';   // pending token chars (for || detection)
+
+      // Flush tokenBuf to the last message, handling || pause
+      const flushTokenBuf = async () => {
+        while (tokenBuf.length > 0) {
+          const delimIdx = tokenBuf.indexOf('||');
+          if (delimIdx === -1) {
+            // No delimiter — safe to display unless ends with '|' (partial)
+            if (tokenBuf.endsWith('|')) {
+              // Hold the trailing '|' in case next token completes '||'
+              const safe = tokenBuf.slice(0, -1);
+              if (safe) flushSync(() => appendToLast(safe));
+              tokenBuf = '|';
+            } else {
+              flushSync(() => appendToLast(tokenBuf));
+              tokenBuf = '';
+            }
+            break;
+          } else {
+            // Found '||' — display up to it, pause, continue
+            const before = tokenBuf.slice(0, delimIdx);
+            tokenBuf = tokenBuf.slice(delimIdx + 2);
+            if (before) flushSync(() => appendToLast(before));
+            await new Promise(r => setTimeout(r, 600)); // 600ms chunk pause
+          }
+        }
+      };
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop();
+        sseBuffer += decoder.decode(value, { stream: true });
+        const lines = sseBuffer.split('\n');
+        sseBuffer = lines.pop();
 
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue;
@@ -527,16 +571,17 @@ export default function MamdaniPage() {
           try {
             const evt = JSON.parse(raw);
             if (evt.type === 'token' && evt.content) {
-              flushSync(() => {
-                setMessages(prev => {
-                  const updated = [...prev];
-                  updated[updated.length - 1] = {
-                    ...updated[updated.length - 1],
-                    content: updated[updated.length - 1].content + evt.content,
-                  };
-                  return updated;
-                });
-              });
+              tokenBuf += evt.content;
+              await flushTokenBuf();
+            } else if (evt.type === 'done') {
+              // Flush any remaining buffer (strip stray '|')
+              if (tokenBuf) {
+                const final = tokenBuf.replace(/\|+$/, '');
+                if (final) flushSync(() => appendToLast(final));
+                tokenBuf = '';
+              }
+              setStreaming(false);
+              inputRef.current?.focus();
             }
           } catch {}
         }
