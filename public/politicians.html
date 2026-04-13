@@ -76,6 +76,10 @@
     .section {
       padding: var(--pad-y) var(--pad-x);
     }
+    /* Consistent 1100px container — all sections align to the same grid */
+    .section-inner {
+      max-width: 1100px;
+    }
     .section-label {
       font-size: 0.72rem;
       font-weight: 500;
@@ -342,7 +346,7 @@
       grid-template-columns: 280px 1fr;
       gap: clamp(3rem, 6vw, 7rem);
       align-items: start;
-      max-width: 1000px;
+      max-width: 1100px;
     }
 
     .problem-stat-num {
@@ -583,8 +587,7 @@
     }
 
     .eff-inner {
-      max-width: 760px;
-      margin: 0 auto;
+      max-width: 1100px;
     }
 
     .eff-h2 {
@@ -670,29 +673,20 @@
     }
     .cred-sub.visible { opacity: 1; }
 
-    .cred-cards {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1.25rem;
-      max-width: 900px;
-    }
-
-    .cred-card {
+    .cred-woz-card {
+      display: inline-flex;
+      align-items: center;
+      gap: 1rem;
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 1.75rem;
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 1rem;
+      padding: 1.25rem 1.75rem;
+      margin-top: 2.5rem;
       opacity: 0;
-      transform: translateY(12px);
-      transition: opacity 0.55s ease, transform 0.55s ease;
+      transform: translateY(10px);
+      transition: opacity 0.55s ease, transform 0.55s ease 0.1s;
     }
-    .cred-card.visible { opacity: 1; transform: translateY(0); }
-    .cred-card:nth-child(2) { transition-delay: 0.12s; }
-    .cred-card:nth-child(3) { transition-delay: 0.24s; }
+    .cred-woz-card.visible { opacity: 1; transform: translateY(0); }
 
     .cred-initials {
       width: 48px; height: 48px;
@@ -706,10 +700,11 @@
       font-weight: 600;
       color: var(--text-2);
       letter-spacing: 0.03em;
+      flex-shrink: 0;
     }
     .cred-name {
       font-family: 'Playfair Display', serif;
-      font-size: 1.1rem;
+      font-size: 1.05rem;
       font-weight: 600;
       color: var(--text);
       line-height: 1.2;
@@ -719,16 +714,19 @@
       color: var(--text-3);
       line-height: 1.5;
       font-weight: 400;
+      margin-top: 0.2rem;
     }
-    .cred-footnote {
-      margin-top: 2.5rem;
-      font-size: 0.75rem;
+    .cred-founders {
+      margin-top: 2rem;
+      font-size: 0.88rem;
       color: var(--text-3);
       font-style: italic;
+      max-width: 520px;
+      line-height: 1.7;
       opacity: 0;
-      transition: opacity 0.6s ease;
+      transition: opacity 0.6s ease 0.2s;
     }
-    .cred-footnote.visible { opacity: 1; }
+    .cred-founders.visible { opacity: 1; }
 
     /* ═══════════════════════════════════════════════════════
        CTA
@@ -814,7 +812,7 @@
       .problem-inner { grid-template-columns: 1fr; gap: 2rem; }
       .how-grid      { grid-template-columns: 1fr; }
       .data-cols     { grid-template-columns: 1fr; }
-      .cred-cards    { grid-template-columns: 1fr; }
+      .cred-woz-card { display: flex; }
       .bar-lbl       { width: 130px; font-size: 0.65rem; }
     }
   </style>
@@ -824,7 +822,7 @@
 <!-- NAV -->
 <nav>
   <a class="nav-logo" href="/">AstraLink</a>
-  <a class="nav-cta" href="mailto:m.hassaan.haroonn@gmail.com?subject=AstraLink%20%E2%80%94%2015%20Minutes">Book a call</a>
+  <a class="nav-cta" href="https://calendly.com/astralinkorg/30min">Book a call</a>
 </nav>
 
 <!-- ════════════════════════════════════════════ HERO ══ -->
@@ -841,7 +839,7 @@
       An AI twin trained on your candidate's actual record. Responding to constituents in their actual voice — 24 hours a day.
     </p>
     <div class="hero-actions" id="hero-actions">
-      <a href="mailto:m.hassaan.haroonn@gmail.com?subject=AstraLink%20%E2%80%94%2015%20Minutes" class="btn-dark">Book 15 minutes</a>
+      <a href="https://calendly.com/astralinkorg/30min" class="btn-dark">Book 15 minutes</a>
       <a href="#how" class="btn-ghost">See how it works</a>
     </div>
   </div>
@@ -864,7 +862,7 @@
           <svg viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" stroke="white" stroke-width="1.2"/><path d="M4.5 7h5M7 4.5v5" stroke="white" stroke-width="1.2" stroke-linecap="round"/></svg>
         </div>
         <div class="card-a-body">
-          <div class="card-a-label">Mamdani Twin</div>
+          <div class="card-a-label">The Candidate's Twin</div>
           <div class="card-a-text">We're capping annual rent increases at 3% for existing tenants and building 200,000 units by 2030. Families earning under $80K get down payment support for their first home. These are budget commitments, not talking points.</div>
         </div>
       </div>
@@ -885,7 +883,7 @@
           <svg viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" stroke="white" stroke-width="1.2"/><path d="M4.5 7h5M7 4.5v5" stroke="white" stroke-width="1.2" stroke-linecap="round"/></svg>
         </div>
         <div class="card-a-body">
-          <div class="card-a-label">Mamdani Twin</div>
+          <div class="card-a-label">The Candidate's Twin</div>
           <div class="card-a-text">We'll use the city's purchasing power to negotiate directly with manufacturers — the same model the VA uses. Insulin gets capped at $35/month for any NYC resident. No exceptions, no waiting list.</div>
         </div>
       </div>
@@ -906,7 +904,7 @@
           <svg viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" stroke="white" stroke-width="1.2"/><path d="M4.5 7h5M7 4.5v5" stroke="white" stroke-width="1.2" stroke-linecap="round"/></svg>
         </div>
         <div class="card-a-body">
-          <div class="card-a-label">Mamdani Twin</div>
+          <div class="card-a-label">The Candidate's Twin</div>
           <div class="card-a-text">Policing alone hasn't worked — the data is clear. We're adding 500 mental health crisis responders, fixing 200 broken station lights by spring, and hiring 150 platform attendants. Safety means presence, not just badges.</div>
         </div>
       </div>
@@ -927,7 +925,7 @@
           <svg viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" stroke="white" stroke-width="1.2"/><path d="M4.5 7h5M7 4.5v5" stroke="white" stroke-width="1.2" stroke-linecap="round"/></svg>
         </div>
         <div class="card-a-body">
-          <div class="card-a-label">Mamdani Twin</div>
+          <div class="card-a-label">The Candidate's Twin</div>
           <div class="card-a-text">Starting teacher pay goes to $75K immediately. We're eliminating the childcare waitlist and putting a social worker in every public school. This is in the budget — not a promise for later.</div>
         </div>
       </div>
@@ -948,7 +946,7 @@
           <svg viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" stroke="white" stroke-width="1.2"/><path d="M4.5 7h5M7 4.5v5" stroke="white" stroke-width="1.2" stroke-linecap="round"/></svg>
         </div>
         <div class="card-a-body">
-          <div class="card-a-label">Mamdani Twin</div>
+          <div class="card-a-label">The Candidate's Twin</div>
           <div class="card-a-text">Absolutely and without qualification. We will not cooperate with ICE. Every resident of this city deserves to go to school, to the doctor, to work — without fear. Full stop.</div>
         </div>
       </div>
@@ -1038,17 +1036,17 @@
   <div class="mamdani-inner">
     <div class="mamdani-eyebrow">Case study · New York City 2025</div>
     <h2 class="mamdani-h2" id="m-h2">
-      One year ago, Zohran Mamdani<br>was nobody.
+      One year ago, a first-term mayor<br>was nobody.
     </h2>
 
-    <p class="m-block" id="mb1">He beat Andrew Cuomo.<br>He became Mayor of New York City.</p>
+    <p class="m-block" id="mb1">He beat a four-term incumbent.<br>He became Mayor of New York City.</p>
     <p class="m-block" id="mb2">Not with money. Not with machine politics.</p>
     <p class="m-block" id="mb3">Because every voter felt like<br>he was talking to them.</p>
 
     <div class="m-directly" id="m-directly">Directly.</div>
 
     <div class="intel-card" id="intel-card">
-      <div class="intel-card-label">The question Mamdani answered</div>
+      <div class="intel-card-label">The question the candidate answered</div>
       <div class="intel-card-q">How does one person speak to 8 million?</div>
       <div class="intel-card-a">AstraLink is the infrastructure for what he did. A twin that knows your record, speaks your voice, and scales your reach — without losing what makes it yours.</div>
     </div>
@@ -1106,35 +1104,20 @@
 
 <!-- ══════════════════════════════════ CREDIBILITY ══ -->
 <section id="credibility" class="section">
-  <div class="section-label">Advisors</div>
-  <h2 class="cred-h2" id="cred-h2">Built with the people who<br>invented the modern world.</h2>
-  <p class="cred-sub" id="cred-sub">Three of the architects of the internet. AstraLink's first experiment subjects.</p>
+  <div class="section-inner">
+    <h2 class="cred-h2" id="cred-h2">Built with the people who<br>invented the modern world.</h2>
+    <p class="cred-sub" id="cred-sub">Steve Wozniak, co-founder of Apple, is involved in our work. So are the founding fathers of the internet — the people who built the infrastructure the world runs on.</p>
 
-  <div class="cred-cards">
-    <div class="cred-card" id="cred-c1">
-      <div class="cred-initials">VC</div>
-      <div>
-        <div class="cred-name">Vint Cerf</div>
-        <div class="cred-title">Co-inventor of the Internet</div>
-      </div>
-    </div>
-    <div class="cred-card" id="cred-c2">
+    <div class="cred-woz-card" id="cred-c1">
       <div class="cred-initials">SW</div>
       <div>
         <div class="cred-name">Steve Wozniak</div>
         <div class="cred-title">Co-founder of Apple</div>
       </div>
     </div>
-    <div class="cred-card" id="cred-c3">
-      <div class="cred-initials">SC</div>
-      <div>
-        <div class="cred-name">Steve Crocker</div>
-        <div class="cred-title">Inventor of the RFC — the foundation of how the internet communicates</div>
-      </div>
-    </div>
-  </div>
 
-  <div class="cred-footnote" id="cred-fn">AstraLink's first experiment subjects.</div>
+    <p class="cred-founders" id="cred-fn">The founding fathers of the internet are among AstraLink's first experiment subjects.</p>
+  </div>
 </section>
 
 <!-- ════════════════════════════════════════ CTA ══ -->
@@ -1142,7 +1125,7 @@
   <h2 class="cta-h2" id="cta-h2">Your voters are waiting<br>to be heard.</h2>
   <p class="cta-sub" id="cta-sub">15 minutes. We'll show you what your twin sounds like.</p>
   <div class="cta-btns" id="cta-btns">
-    <a href="mailto:m.hassaan.haroonn@gmail.com?subject=AstraLink%20%E2%80%94%2015%20Minutes" class="btn-dark">Book 15 minutes</a>
+    <a href="https://calendly.com/astralinkorg/30min" class="btn-dark">Book 15 minutes</a>
     <a href="#how" class="btn-ghost">See how it works</a>
   </div>
 </section>
@@ -1229,12 +1212,8 @@
   obs(document.getElementById('credibility'), function() {
     document.getElementById('cred-h2').classList.add('visible');
     document.getElementById('cred-sub').classList.add('visible');
-    setTimeout(function() {
-      ['cred-c1','cred-c2','cred-c3'].forEach(function(id, i) {
-        setTimeout(function(){ document.getElementById(id).classList.add('visible'); }, i * 130);
-      });
-    }, 250);
-    setTimeout(function(){ document.getElementById('cred-fn').classList.add('visible'); }, 900);
+    setTimeout(function() { document.getElementById('cred-c1').classList.add('visible'); }, 250);
+    setTimeout(function() { document.getElementById('cred-fn').classList.add('visible'); }, 450);
   });
 
   // ── CTA ────────────────────────────────────────────────
