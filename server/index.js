@@ -1034,108 +1034,118 @@ app.post('/mamdani-voice', async (req, res) => {
 app.post('/mamdani-realtime-voice', uploadMem.single('audio'), async (req, res) => {
   const TAG = '[mamdani-realtime]';
   console.log(`${TAG} ━━━ REQUEST HIT ━━━`);
-
-  // Top-level guard — catch anything the inner steps miss
   try {
 
-    // ── Guard: file present ─────────────────────────────────────────────────
+    // ── Guard ────────────────────────────────────────────────────────────────
     if (!req.file || !req.file.buffer) {
-      console.error(`${TAG} STEP 0 FAIL — no audio file in request`);
       return res.status(400).json({ error: 'No audio file received' });
     }
-    console.log(`${TAG} STEP 0 OK — file size=${req.file.size} mime=${req.file.mimetype} fieldname=${req.file.fieldname}`);
+    console.log(`${TAG} file=${req.file.size}B mime=${req.file.mimetype}`);
 
     const mamdaniUrl = (process.env.MAMDANI_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
     const mistralKey = (process.env.MISTRAL_API_KEY || '').trim();
-    console.log(`${TAG} STEP 0 ENV — mamdaniUrl=${mamdaniUrl} mistralKeyLen=${mistralKey.length} groqKeyLen=${apiKey.length}`);
-    if (!mistralKey) throw new Error('MISTRAL_API_KEY not configured on Railway');
+    if (!mistralKey) throw new Error('MISTRAL_API_KEY not configured');
 
-    // ── STEP 1 — Transcribe via Groq Whisper (proven reliable) ──────────────
-    // We skip the Mistral voxtral-mini-transcribe-realtime model because it
-    // may not yet be GA — using Groq Whisper directly avoids a 404 that was
-    // silently swallowing errors. Keep the Mistral STT call behind a flag for
-    // future use.
+    // ── STEP 1: STT — Groq Whisper directly (Mistral STT not GA, removed) ───
     let transcript = '';
     const tmpPath = path.join(os.tmpdir(), `mrv_${Date.now()}.webm`);
-    console.log(`${TAG} STEP 1 — writing temp file: ${tmpPath}`);
     try {
       fs.writeFileSync(tmpPath, req.file.buffer);
-      console.log(`${TAG} STEP 1 — temp file written OK (${req.file.buffer.length} bytes)`);
-
-      // Try Mistral transcription first — model may not exist yet so handle gracefully
-      let mistralSTTOk = false;
-      try {
-        // Note: File constructor requires Node ≥ 20; guard it
-        if (typeof File !== 'undefined') {
-          const txForm = new FormData();
-          txForm.append('file', new File([req.file.buffer], 'audio.webm', { type: req.file.mimetype || 'audio/webm' }));
-          txForm.append('model', 'voxtral-mini-transcribe-realtime-2602');
-          console.log(`${TAG} STEP 1 — attempting Mistral STT (voxtral-mini-transcribe-realtime-2602)...`);
-          const txRes = await fetch('https://api.mistral.ai/v1/audio/transcriptions', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${mistralKey}` },
-            body: txForm,
-          });
-          const txStatus = txRes.status;
-          if (txRes.ok) {
-            const data = await txRes.json();
-            transcript = (data.text || '').trim();
-            mistralSTTOk = true;
-            console.log(`${TAG} STEP 1 — Mistral STT OK (${txStatus}) — "${transcript.slice(0, 80)}"`);
-          } else {
-            const errBody = await txRes.text();
-            console.warn(`${TAG} STEP 1 — Mistral STT ${txStatus} (expected if model not GA): ${errBody.slice(0, 200)}`);
-          }
-        } else {
-          console.warn(`${TAG} STEP 1 — File constructor not available (Node < 20), skipping Mistral STT`);
-        }
-      } catch (mistralErr) {
-        console.warn(`${TAG} STEP 1 — Mistral STT threw: ${mistralErr.message}`);
-      }
-
-      // Groq fallback (or primary if Mistral not available)
-      if (!mistralSTTOk) {
-        console.log(`${TAG} STEP 1 — falling back to Groq whisper-large-v3-turbo...`);
-        const groqTx = await groq.audio.transcriptions.create({
-          file: fs.createReadStream(tmpPath),
-          model: 'whisper-large-v3-turbo',
-        });
-        transcript = (groqTx.text || '').trim();
-        console.log(`${TAG} STEP 1 — Groq STT OK — "${transcript.slice(0, 80)}"`);
-      }
+      const groqTx = await groq.audio.transcriptions.create({
+        file:  fs.createReadStream(tmpPath),
+        model: 'whisper-large-v3-turbo',
+      });
+      transcript = (groqTx.text || '').trim();
+      console.log(`${TAG} STT OK — "${transcript.slice(0, 80)}"`);
     } finally {
       try { fs.unlinkSync(tmpPath); } catch {}
     }
+    if (!transcript) throw new Error('Empty transcription — no speech detected');
 
-    if (!transcript) {
-      console.error(`${TAG} STEP 1 FAIL — empty transcript after both STT attempts`);
-      throw new Error('Empty transcription — no speech detected');
-    }
-    console.log(`${TAG} STEP 1 DONE — transcript length=${transcript.length}`);
+    // ── STEP 2: Flush SSE headers immediately (transcript known, fullText TBD) ─
+    // fullText will arrive via a meta SSE event after audio chunks complete.
+    res.set('Content-Type', 'text/event-stream');
+    res.set('Cache-Control', 'no-cache');
+    res.set('X-Transcript-Text', encodeURIComponent(transcript));
+    res.set('Access-Control-Expose-Headers', 'X-Transcript-Text');
+    res.set('X-Accel-Buffering', 'no');
+    res.flushHeaders();
+    console.log(`${TAG} headers flushed — starting pipelined RAG+TTS`);
 
-    // ── STEP 2 — RAG via SSE ─────────────────────────────────────────────────
-    console.log(`${TAG} STEP 2 — calling RAG at ${mamdaniUrl}/mamdani/chat`);
-    const messages = [{ role: 'user', content: transcript }];
+    // ── STEP 3: Pipelined RAG → TTS ─────────────────────────────────────────
+    // As each sentence arrives from the RAG stream, fire a TTS call immediately
+    // (concurrent). Await TTS promises in order so audio plays in sequence.
+    // First audio reaches client while RAG is still generating later sentences.
+
     let chatRes;
     try {
       chatRes = await fetch(`${mamdaniUrl}/mamdani/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages }),
+        body: JSON.stringify({ messages: [{ role: 'user', content: transcript }] }),
       });
-    } catch (fetchErr) {
-      throw new Error(`RAG fetch threw: ${fetchErr.message}`);
-    }
-    console.log(`${TAG} STEP 2 — RAG response status: ${chatRes.status}`);
+    } catch (e) { throw new Error(`RAG fetch threw: ${e.message}`); }
     if (!chatRes.ok) {
       const body = await chatRes.text();
       throw new Error(`Mamdani RAG ${chatRes.status}: ${body.slice(0, 200)}`);
     }
 
-    let sseBuf = '', fullText = '';
+    // TTS helper: returns Buffer or null
+    const callTTS = async (sentence, idx) => {
+      const input = cleanForTTS(sentence);
+      if (!input) return null;
+      console.log(`${TAG} TTS[${idx}] start — "${input.slice(0, 60)}"`);
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        let ttsRes;
+        try {
+          ttsRes = await fetch('https://api.mistral.ai/v1/audio/speech', {
+            method:  'POST',
+            headers: { 'Authorization': `Bearer ${mistralKey}`, 'Content-Type': 'application/json' },
+            body:    JSON.stringify({
+              model:           'voxtral-mini-tts-2603',
+              voice:           '223fc743-8d1e-4624-a4d8-37436ba59f33',
+              input,
+              response_format: 'wav',
+            }),
+          });
+        } catch (e) {
+          console.error(`${TAG} TTS[${idx}] attempt ${attempt} threw: ${e.message}`);
+          if (attempt < 3) { await new Promise(x => setTimeout(x, 1500)); continue; }
+          return null;
+        }
+        if (ttsRes.ok) {
+          const buf = Buffer.from(await ttsRes.arrayBuffer());
+          console.log(`${TAG} TTS[${idx}] OK — ${buf.byteLength}B`);
+          return buf;
+        }
+        const errText = await ttsRes.text();
+        console.error(`${TAG} TTS[${idx}] attempt ${attempt} error ${ttsRes.status}: ${errText.slice(0, 200)}`);
+        if (ttsRes.status !== 500 || attempt === 3) return null;
+        await new Promise(x => setTimeout(x, 1500));
+      }
+      return null;
+    };
+
+    // Read RAG SSE — fire TTS promise the moment a sentence is detected
+    const ttsPromises = [];
+    let ragBuf = '', fullText = '', sentIdx = 0;
+
+    const tryFireSentence = (isEnd = false) => {
+      let sm;
+      while ((sm = ragBuf.match(/^(.{10,}?[.!?]+)\s*/s)) !== null) {
+        const sentence = sm[1];
+        ragBuf = ragBuf.slice(sm[0].length);
+        ttsPromises.push(callTTS(sentence, sentIdx++)); // fire immediately, don't await
+      }
+      if (isEnd && ragBuf.trim().length >= 3) {
+        ttsPromises.push(callTTS(ragBuf.trim(), sentIdx++));
+        ragBuf = '';
+      }
+    };
+
     const sseReader  = chatRes.body.getReader();
     const sseDecoder = new TextDecoder();
-    let tokenCount = 0;
+    let sseBuf = '';
     while (true) {
       const { done, value } = await sseReader.read();
       if (done) break;
@@ -1146,104 +1156,39 @@ app.post('/mamdani-realtime-voice', uploadMem.single('audio'), async (req, res) 
         if (!line.startsWith('data: ')) continue;
         try {
           const evt = JSON.parse(line.slice(6).trim());
-          if (evt.type === 'token' && evt.content) { fullText += evt.content; tokenCount++; }
+          if (evt.type === 'token' && evt.content) {
+            fullText += evt.content;
+            ragBuf   += evt.content;
+            tryFireSentence(); // check for completed sentence after every token
+          }
         } catch {}
       }
     }
-    console.log(`${TAG} STEP 2 DONE — fullText length=${fullText.length} tokens=${tokenCount}`);
-    if (!fullText.trim()) throw new Error('Empty response from Mamdani RAG backend');
+    tryFireSentence(true); // flush any remaining partial sentence
+    console.log(`${TAG} RAG done — ${fullText.length} chars, ${ttsPromises.length} TTS calls in-flight`);
 
-    // ── STEP 3 — Split into sentences ────────────────────────────────────────
-    const sentences = [];
-    let sentRemain = fullText;
-    let sm;
-    while ((sm = sentRemain.match(/^(.{10,}?[.!?]+)\s*/s)) !== null) {
-      sentences.push(sm[1]);
-      sentRemain = sentRemain.slice(sm[0].length);
-    }
-    if (sentRemain.trim()) sentences.push(sentRemain.trim());
-    console.log(`${TAG} STEP 3 — ${sentences.length} sentences:`, sentences.map((s, i) => `[${i}] "${s.slice(0,40)}"`).join(', '));
-
-    // ── STEP 4 — Flush headers immediately so client can read metadata ────────
-    // Headers must be sent before the body starts. X-Transcript-Text and
-    // X-Mamdani-Text are available now (RAG is complete). TTS will stream below.
-    console.log(`${TAG} STEP 4 — flushing SSE headers`);
-    res.set('Content-Type', 'text/event-stream');
-    res.set('Cache-Control', 'no-cache');
-    res.set('X-Transcript-Text', encodeURIComponent(transcript));
-    res.set('X-Mamdani-Text',    encodeURIComponent(fullText));
-    res.set('Access-Control-Expose-Headers', 'X-Transcript-Text, X-Mamdani-Text');
-    res.set('X-Accel-Buffering', 'no');
-    res.flushHeaders();
-    console.log(`${TAG} STEP 4 — headers flushed, starting TTS`);
-
-    // ── STEP 5 — Sequential WAV TTS → stream each chunk as SSE base64 event ──
-    // Format: `data: <base64-wav>\n\n` per sentence, then `data: [DONE]\n\n`.
-    // Client: Web Audio API decodes each WAV independently and schedules playback
-    // at sample-accurate times — zero gaps, no frame-boundary conflicts.
+    // ── STEP 4: Stream TTS results in sentence order as they resolve ─────────
     let sentCount = 0;
-    for (let i = 0; i < sentences.length; i++) {
-      const sentence = sentences[i];
-      const input    = cleanForTTS(sentence);
-      if (!input) { console.log(`${TAG} STEP 5 [${i}] — skipped (empty after clean)`); continue; }
-      console.log(`${TAG} STEP 5 [${i}/${sentences.length}] TTS → "${input.slice(0, 70)}"`);
-
-      let buf = null;
-      for (let attempt = 1; attempt <= 3; attempt++) {
-        let ttsRes;
-        try {
-          ttsRes = await fetch('https://api.mistral.ai/v1/audio/speech', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${mistralKey}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              model:           'voxtral-mini-tts-2603',
-              voice:           '223fc743-8d1e-4624-a4d8-37436ba59f33',
-              input,
-              response_format: 'mp3',
-            }),
-          });
-        } catch (fetchErr) {
-          console.error(`${TAG} STEP 5 [${i}] attempt ${attempt} fetch threw: ${fetchErr.message}`);
-          if (attempt === 3) break;
-          await new Promise(x => setTimeout(x, 1500));
-          continue;
-        }
-
-        if (ttsRes.ok) {
-          const arrayBuf = await ttsRes.arrayBuffer();
-          buf = Buffer.from(arrayBuf);
-          console.log(`${TAG} STEP 5 [${i}] TTS OK — ${buf.byteLength}B WAV`);
-          break;
-        } else {
-          const errText = await ttsRes.text();
-          console.error(`${TAG} STEP 5 [${i}] attempt ${attempt} TTS ${ttsRes.status}: ${errText.slice(0, 200)}`);
-          if (ttsRes.status !== 500 || attempt === 3) break;
-          await new Promise(x => setTimeout(x, 1500));
-        }
-      }
-
+    for (let i = 0; i < ttsPromises.length; i++) {
+      const buf = await ttsPromises[i]; // each subsequent call is likely already done
       if (buf && buf.byteLength > 0) {
-        // Send as a single SSE data line — base64 has no newlines so this is safe
         res.write(`data: ${buf.toString('base64')}\n\n`);
         if (typeof res.flush === 'function') res.flush();
         sentCount++;
-        console.log(`${TAG} STEP 5 [${i}] — SSE event sent (${buf.byteLength}B)`);
-      } else {
-        console.warn(`${TAG} STEP 5 [${i}] — no audio produced, sentence skipped`);
+        console.log(`${TAG} streamed chunk ${i} — ${buf.byteLength}B`);
       }
     }
 
+    // Send fullText via SSE meta event so client can update chat history
+    res.write(`data: ${JSON.stringify({ type: 'meta', text: fullText })}\n\n`);
     res.write('data: [DONE]\n\n');
     res.end();
-    console.log(`${TAG} ━━━ DONE — ${sentCount}/${sentences.length} sentences streamed ━━━`);
+    console.log(`${TAG} ━━━ DONE — ${sentCount}/${ttsPromises.length} chunks sent ━━━`);
 
   } catch (e) {
-    // Full stack to Railway logs so we can see the exact line
-    console.error(`${TAG} ━━━ UNHANDLED ERROR ━━━`);
-    console.error(`${TAG} message: ${e.message}`);
-    console.error(`${TAG} stack:\n${e.stack}`);
+    console.error(`${TAG} UNHANDLED: ${e.message}\n${e.stack}`);
     if (!res.headersSent) {
-      res.status(500).json({ error: e.message, stack: e.stack });
+      res.status(500).json({ error: e.message });
     } else {
       res.end();
     }

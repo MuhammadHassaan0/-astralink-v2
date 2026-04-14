@@ -4,10 +4,10 @@ import mamdaniImage from '../assets/mamdani.jpg';
 
 const API = 'https://astralink-v2-production.up.railway.app';
 
-// RMS thresholds (values are 0–1 scale)
-const SPEECH_THRESHOLD    = 0.012; // above → speech detected
-const SILENCE_THRESHOLD   = 0.008; // below after speech → start silence timer
-const INTERRUPT_THRESHOLD = 0.035; // above during playback → interrupt
+// RMS thresholds (values are 0–1 scale) — FIX 3: raised to avoid mic loop
+const SPEECH_THRESHOLD    = 0.035; // above → speech detected
+const SILENCE_THRESHOLD   = 0.020; // below after speech → start silence timer
+const INTERRUPT_THRESHOLD = 0.08;  // above during playback → interrupt
 const SILENCE_MS          = 600;   // ms of silence before submitting
 
 const STYLES = `
@@ -156,6 +156,7 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose, audioCtx:
     let closed              = false;
     let audioCtx            = null;  // set from propAudioCtx in initMic
     let analyser            = null;
+    let micGain             = null;  // FIX 3: GainNode for mic muting during TTS
     let micStream           = null;
     let mediaRec            = null;
     let recChunks           = [];
@@ -237,21 +238,45 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose, audioCtx:
       }
     };
 
-    // ── Play audio response ───────────────────────────────────────────────
-    // Server sends SSE stream of base64-encoded MP3 chunks (one per sentence).
-    // AudioContext was created during the user-gesture button click so it is
-    // already unlocked — decodeAudioData + BufferSourceNode.start() work
-    // without autoplay restrictions regardless of how deep in async chains we are.
-    // Sentences are decoded+played sequentially: source.onended triggers the next.
+    // ── FIX 2: Decode WAV with retry ─────────────────────────────────────────
+    // decodeAudioData detaches the ArrayBuffer on failure, so each attempt
+    // needs a fresh copy. We use a Uint8Array as the stable source.
+    const decodeWithRetry = async (b64) => {
+      const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const ab = new ArrayBuffer(bytes.length);
+        new Uint8Array(ab).set(bytes);
+        try {
+          return await audioCtx.decodeAudioData(ab);
+        } catch (e) {
+          console.error(`[MamdaniRTV] decodeAudioData attempt ${attempt + 1} failed: ${e.message}`);
+        }
+      }
+      return null;
+    };
+
+    // ── Play audio response ─────────────────────────────────────────────────
+    // Returns a Promise<string> that resolves with mamdaniText once all audio
+    // has finished playing (or been interrupted).
+    //
+    // FIX 2 — Look-ahead decode: the moment each SSE chunk arrives, we fire
+    // decodeWithRetry() immediately (non-blocking). By the time the previous
+    // sentence finishes playing, the next one is already decoded.
+    //
+    // FIX 2 — Meta event: server sends {"type":"meta","text":"..."} as the
+    // last SSE event before [DONE]; we capture it as mamdaniText.
     const playAudio = (response) => new Promise(async (resolve) => {
 
-      let resolved = false;
-      const done_ = () => { if (!resolved) { resolved = true; resolve(); } };
+      let resolved    = false;
+      let mamdaniText = '';
+      const done_ = () => {
+        if (!resolved) { resolved = true; resolve(mamdaniText); }
+      };
 
-      let interrupted  = false;
-      let serverDone   = false;
-      const pending    = []; // base64 strings received but not yet decoded
-      let processing   = false; // true while a decode+play is in flight
+      let interrupted      = false;
+      let serverDone       = false;
+      const decodePromises = []; // Promises<AudioBuffer|null> — started on SSE arrival
+      let processing       = false; // true while a playback is in-flight
 
       // Stop current source and resolve immediately (interrupt or cleanup)
       const stopAll = () => {
@@ -266,51 +291,49 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose, audioCtx:
         done_();
       };
 
-      // After each source ends, call this to play the next pending chunk
-      // or resolve if everything is done.
+      // Shift the next decode promise, await it (likely already resolved
+      // from look-ahead), then start playback. onended chains to next.
       const processNext = async () => {
         if (interrupted) return;
-        if (pending.length === 0) {
+        if (decodePromises.length === 0) {
           processing = false;
           if (serverDone) {
             console.log('[MamdaniRTV] Queue drained + server done → resolve');
             done_();
           }
-          // else: wait — next SSE event will push to pending and call processNext
+          // else: wait — next SSE event will push to decodePromises and call processNext
           return;
         }
         processing = true;
-        const b64 = pending.shift();
-        console.log(`[MamdaniRTV] Decoding chunk (${b64.length} b64 chars), ${pending.length} still queued`);
 
-        try {
-          const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
-          const ab    = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
-          console.log(`[MamdaniRTV] decodeAudioData (${ab.byteLength}B, ctx state=${audioCtx?.state})…`);
+        // Await the earliest in-flight decode (look-ahead already started it)
+        const audioBuffer = await decodePromises.shift();
+        console.log(`[MamdaniRTV] decode settled, ${decodePromises.length} still queued`);
 
-          const audioBuffer = await audioCtx.decodeAudioData(ab);
-          console.log(`[MamdaniRTV] Decoded ${audioBuffer.duration.toFixed(2)}s — starting playback`);
+        if (interrupted) { processing = false; return; }
 
-          if (interrupted) { processing = false; return; }
-
-          const src = audioCtx.createBufferSource();
-          src.buffer = audioBuffer;
-          src.connect(audioCtx.destination);
-          currentPlayingSource = src;
-
-          src.onended = () => {
-            console.log('[MamdaniRTV] Source ended, chaining next');
-            currentPlayingSource = null;
-            processNext(); // chain: play next sentence immediately
-          };
-
-          src.start(0);
-          console.log('[MamdaniRTV] source.start(0) called');
-        } catch (err) {
-          console.error('[MamdaniRTV] decode/play error:', err.message);
-          currentPlayingSource = null;
-          processNext(); // skip failed chunk, continue with next
+        if (!audioBuffer) {
+          // Both decode attempts failed — skip this chunk
+          console.warn('[MamdaniRTV] Skipping null audioBuffer');
+          processNext();
+          return;
         }
+
+        console.log(`[MamdaniRTV] Playing ${audioBuffer.duration.toFixed(2)}s`);
+
+        const src = audioCtx.createBufferSource();
+        src.buffer = audioBuffer;
+        src.connect(audioCtx.destination);
+        currentPlayingSource = src;
+
+        src.onended = () => {
+          console.log('[MamdaniRTV] Source ended, chaining next');
+          currentPlayingSource = null;
+          processNext();
+        };
+
+        src.start(0);
+        console.log('[MamdaniRTV] source.start(0) called');
       };
 
       // Interrupt poller — mic RMS while speaking
@@ -324,7 +347,7 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose, audioCtx:
         }
       }, 80);
 
-      // Parse SSE stream: each data event is one base64-encoded MP3 chunk
+      // Parse SSE stream: base64-encoded WAV chunks + meta JSON event
       const reader = response.body.getReader();
       const dec    = new TextDecoder();
       let sseBuf   = '';
@@ -347,14 +370,27 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose, audioCtx:
             if (data === '[DONE]') {
               console.log('[MamdaniRTV] [DONE] received from server');
               serverDone = true;
-              if (!processing && pending.length === 0) done_();
+              if (!processing && decodePromises.length === 0) done_();
               continue;
             }
 
             if (interrupted) break;
 
-            console.log(`[MamdaniRTV] SSE chunk received (${data.length} chars), processing=${processing}`);
-            pending.push(data);
+            // Meta event: {"type":"meta","text":"..."} — capture fullText, not audio
+            if (data.startsWith('{')) {
+              try {
+                const parsed = JSON.parse(data);
+                if (parsed.type === 'meta' && parsed.text) {
+                  mamdaniText = parsed.text;
+                  console.log(`[MamdaniRTV] meta received — ${mamdaniText.length} chars`);
+                }
+              } catch {}
+              continue;
+            }
+
+            // Audio chunk — FIX 2 look-ahead: start decoding immediately
+            console.log(`[MamdaniRTV] SSE audio chunk (${data.length} b64 chars) — firing decode`);
+            decodePromises.push(decodeWithRetry(data));
             if (!processing) processNext(); // kick off if idle
           }
         }
@@ -364,7 +400,7 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose, audioCtx:
 
       if (!serverDone) {
         serverDone = true;
-        if (!processing && pending.length === 0) done_();
+        if (!processing && decodePromises.length === 0) done_();
       }
     });
 
@@ -381,22 +417,34 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose, audioCtx:
         if (!voiceRes.ok) throw new Error(`Server error ${voiceRes.status}`);
 
         const transcriptText = decodeURIComponent(voiceRes.headers.get('X-Transcript-Text') || '');
-        const mamdaniText    = decodeURIComponent(voiceRes.headers.get('X-Mamdani-Text')    || '');
+        // Note: mamdaniText now comes via SSE meta event inside playAudio()
 
         if (closed) return;
+
+        // FIX 3: Mute mic input during TTS so room audio doesn't retrigger recording
+        if (micGain) micGain.gain.setValueAtTime(0, audioCtx.currentTime);
         go('speaking');
 
-        await playAudio(voiceRes);
+        // playAudio now returns mamdaniText (resolved from meta SSE event)
+        const mamdaniText = await playAudio(voiceRes);
 
         if (closed) return;
         if (transcriptText && mamdaniText) {
           onNewExchangeRef.current?.(transcriptText, mamdaniText);
         }
-        // Auto-restart
-        startListening();
+
+        // FIX 3: 1500ms cooldown before re-enabling mic and restarting listening
+        setTimeout(() => {
+          if (closed) return;
+          if (micGain) micGain.gain.setValueAtTime(1, audioCtx.currentTime);
+          startListening();
+        }, 1500);
+
       } catch (e) {
         console.error('[MamdaniRTV] submitBlob error:', e);
         if (!closed) {
+          // Restore mic on error path too
+          if (micGain) micGain.gain.setValueAtTime(1, audioCtx.currentTime);
           go('error');
           setErrMsg(e.message || 'Something went wrong');
         }
@@ -459,8 +507,13 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose, audioCtx:
         analyser.fftSize = 512;
         analyser.smoothingTimeConstant = 0.8;
 
+        // FIX 3: Insert GainNode between mic source and analyser so we can
+        // mute mic during TTS playback to prevent audio feedback loops.
         const micSource = audioCtx.createMediaStreamSource(stream);
-        micSource.connect(analyser);
+        micGain = audioCtx.createGain();
+        micGain.gain.setValueAtTime(1, audioCtx.currentTime); // start unmuted
+        micSource.connect(micGain);
+        micGain.connect(analyser);
         // NOT connected to destination — avoids mic echo
 
         rafId = requestAnimationFrame(draw);
