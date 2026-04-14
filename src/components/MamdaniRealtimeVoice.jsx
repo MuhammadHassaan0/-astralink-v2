@@ -238,15 +238,23 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose, audioCtx:
       }
     };
 
-    // ── FIX 2: Decode WAV with retry ─────────────────────────────────────────
-    // decodeAudioData detaches the ArrayBuffer on failure, so each attempt
-    // needs a fresh copy. We use a Uint8Array as the stable source.
+    // ── Decode MP3 with retry ─────────────────────────────────────────────────
+    // b64ToArrayBuffer: correct byte-by-byte conversion via charCodeAt.
+    // decodeAudioData detaches the ArrayBuffer on failure so each attempt
+    // calls b64ToArrayBuffer() again to get a fresh buffer.
+    const b64ToArrayBuffer = (b64) => {
+      const binary = atob(b64);
+      const bytes  = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return bytes.buffer;
+    };
+
     const decodeWithRetry = async (b64) => {
-      const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
-      console.log(`[MamdaniRTV] decodeWithRetry start — ${bytes.length}B raw, audioCtx.state=${audioCtx?.state}`);
+      console.log(`[MamdaniRTV] decodeWithRetry start — b64.length=${b64.length} (~${Math.round(b64.length * 0.75 / 1024)}KB raw), audioCtx.state=${audioCtx?.state}`);
       for (let attempt = 0; attempt < 2; attempt++) {
-        const ab = new ArrayBuffer(bytes.length);
-        new Uint8Array(ab).set(bytes);
+        const ab = b64ToArrayBuffer(b64); // fresh ArrayBuffer each attempt
         try {
           console.log(`[MamdaniRTV] decodeAudioData attempt ${attempt + 1} — ArrayBuffer ${ab.byteLength}B`);
           const audioBuffer = await audioCtx.decodeAudioData(ab);

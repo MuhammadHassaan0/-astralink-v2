@@ -1111,7 +1111,7 @@ app.post('/mamdani-realtime-voice', uploadMem.single('audio'), async (req, res) 
               model:           'voxtral-mini-tts-2603',
               voice:           '223fc743-8d1e-4624-a4d8-37436ba59f33',
               input,
-              response_format: 'wav',
+              response_format: 'mp3',
             }),
           });
         } catch (e) {
