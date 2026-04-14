@@ -243,15 +243,20 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose, audioCtx:
     // needs a fresh copy. We use a Uint8Array as the stable source.
     const decodeWithRetry = async (b64) => {
       const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+      console.log(`[MamdaniRTV] decodeWithRetry start — ${bytes.length}B raw, audioCtx.state=${audioCtx?.state}`);
       for (let attempt = 0; attempt < 2; attempt++) {
         const ab = new ArrayBuffer(bytes.length);
         new Uint8Array(ab).set(bytes);
         try {
-          return await audioCtx.decodeAudioData(ab);
+          console.log(`[MamdaniRTV] decodeAudioData attempt ${attempt + 1} — ArrayBuffer ${ab.byteLength}B`);
+          const audioBuffer = await audioCtx.decodeAudioData(ab);
+          console.log(`[MamdaniRTV] decodeAudioData attempt ${attempt + 1} ✓ — duration=${audioBuffer.duration.toFixed(3)}s sampleRate=${audioBuffer.sampleRate} channels=${audioBuffer.numberOfChannels}`);
+          return audioBuffer;
         } catch (e) {
-          console.error(`[MamdaniRTV] decodeAudioData attempt ${attempt + 1} failed: ${e.message}`);
+          console.error(`[MamdaniRTV] decodeAudioData attempt ${attempt + 1} ✗ — ${e.name}: ${e.message}`);
         }
       }
+      console.error(`[MamdaniRTV] decodeWithRetry gave up — returning null`);
       return null;
     };
 
@@ -294,12 +299,15 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose, audioCtx:
       // Shift the next decode promise, await it (likely already resolved
       // from look-ahead), then start playback. onended chains to next.
       const processNext = async () => {
+        console.log(`[MamdaniRTV] processNext — interrupted=${interrupted} decodePromises.length=${decodePromises.length} processing=${processing} serverDone=${serverDone}`);
         if (interrupted) return;
         if (decodePromises.length === 0) {
           processing = false;
           if (serverDone) {
-            console.log('[MamdaniRTV] Queue drained + server done → resolve');
+            console.log('[MamdaniRTV] Queue drained + server done → resolve playAudio');
             done_();
+          } else {
+            console.log('[MamdaniRTV] Queue empty but server not done — waiting for more SSE chunks');
           }
           // else: wait — next SSE event will push to decodePromises and call processNext
           return;
@@ -307,19 +315,20 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose, audioCtx:
         processing = true;
 
         // Await the earliest in-flight decode (look-ahead already started it)
+        console.log(`[MamdaniRTV] processNext — awaiting head of decodePromises (${decodePromises.length} in queue)`);
         const audioBuffer = await decodePromises.shift();
-        console.log(`[MamdaniRTV] decode settled, ${decodePromises.length} still queued`);
+        console.log(`[MamdaniRTV] processNext — decode promise settled, ${decodePromises.length} still queued`);
 
-        if (interrupted) { processing = false; return; }
+        if (interrupted) { processing = false; console.log('[MamdaniRTV] processNext — interrupted after decode, aborting'); return; }
 
         if (!audioBuffer) {
           // Both decode attempts failed — skip this chunk
-          console.warn('[MamdaniRTV] Skipping null audioBuffer');
+          console.warn('[MamdaniRTV] processNext — null audioBuffer (decode failed twice), skipping chunk');
           processNext();
           return;
         }
 
-        console.log(`[MamdaniRTV] Playing ${audioBuffer.duration.toFixed(2)}s`);
+        console.log(`[MamdaniRTV] processNext — starting playback: duration=${audioBuffer.duration.toFixed(3)}s sampleRate=${audioBuffer.sampleRate}`);
 
         const src = audioCtx.createBufferSource();
         src.buffer = audioBuffer;
@@ -327,13 +336,13 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose, audioCtx:
         currentPlayingSource = src;
 
         src.onended = () => {
-          console.log('[MamdaniRTV] Source ended, chaining next');
+          console.log(`[MamdaniRTV] onended — source finished playing, ${decodePromises.length} still queued, chaining processNext`);
           currentPlayingSource = null;
           processNext();
         };
 
         src.start(0);
-        console.log('[MamdaniRTV] source.start(0) called');
+        console.log('[MamdaniRTV] source.start(0) called — audio is playing');
       };
 
       // Interrupt poller — mic RMS while speaking
@@ -351,12 +360,14 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose, audioCtx:
       const reader = response.body.getReader();
       const dec    = new TextDecoder();
       let sseBuf   = '';
+      let sseEventCount = 0;
+      console.log('[MamdaniRTV] SSE connection open — starting stream read loop');
 
       try {
         while (true) {
           const { done: streamDone, value } = await reader.read();
-          if (streamDone) { console.log('[MamdaniRTV] SSE stream body closed'); break; }
-          if (interrupted) { try { reader.cancel(); } catch {} break; }
+          if (streamDone) { console.log('[MamdaniRTV] SSE stream body closed (done=true)'); break; }
+          if (interrupted) { console.log('[MamdaniRTV] SSE read interrupted — cancelling reader'); try { reader.cancel(); } catch {} break; }
 
           sseBuf += dec.decode(value, { stream: true });
           const lines = sseBuf.split('\n');
@@ -367,10 +378,18 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose, audioCtx:
             const data = line.slice(6).trim();
             if (!data) continue;
 
+            sseEventCount++;
+            console.log(`[MamdaniRTV] SSE event #${sseEventCount} received — length=${data.length} first8="${data.slice(0, 8)}"`);
+
             if (data === '[DONE]') {
-              console.log('[MamdaniRTV] [DONE] received from server');
+              console.log('[MamdaniRTV] [DONE] received from server — marking serverDone');
               serverDone = true;
-              if (!processing && decodePromises.length === 0) done_();
+              if (!processing && decodePromises.length === 0) {
+                console.log('[MamdaniRTV] [DONE] — queue already empty and idle, resolving now');
+                done_();
+              } else {
+                console.log(`[MamdaniRTV] [DONE] — processing=${processing} decodePromises.length=${decodePromises.length}, will resolve when queue drains`);
+              }
               continue;
             }
 
@@ -382,20 +401,29 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose, audioCtx:
                 const parsed = JSON.parse(data);
                 if (parsed.type === 'meta' && parsed.text) {
                   mamdaniText = parsed.text;
-                  console.log(`[MamdaniRTV] meta received — ${mamdaniText.length} chars`);
+                  console.log(`[MamdaniRTV] meta event ✓ — mamdaniText captured (${mamdaniText.length} chars): "${mamdaniText.slice(0, 80)}"`);
+                } else {
+                  console.log(`[MamdaniRTV] JSON event (unknown type="${parsed.type}")`);
                 }
-              } catch {}
+              } catch (e) {
+                console.warn(`[MamdaniRTV] JSON parse failed for event: ${e.message}`);
+              }
               continue;
             }
 
             // Audio chunk — FIX 2 look-ahead: start decoding immediately
-            console.log(`[MamdaniRTV] SSE audio chunk (${data.length} b64 chars) — firing decode`);
+            console.log(`[MamdaniRTV] audio chunk #${sseEventCount} (${data.length} b64 chars ≈ ${Math.round(data.length * 0.75 / 1024)}KB) — firing decodeWithRetry immediately`);
             decodePromises.push(decodeWithRetry(data));
-            if (!processing) processNext(); // kick off if idle
+            if (!processing) {
+              console.log(`[MamdaniRTV] was idle — kicking off processNext`);
+              processNext();
+            } else {
+              console.log(`[MamdaniRTV] already processing — chunk queued, look-ahead decode running`);
+            }
           }
         }
       } catch (streamErr) {
-        console.error('[MamdaniRTV] SSE read error:', streamErr.message);
+        console.error('[MamdaniRTV] SSE read error:', streamErr.name, streamErr.message);
       }
 
       if (!serverDone) {
@@ -417,16 +445,22 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose, audioCtx:
         if (!voiceRes.ok) throw new Error(`Server error ${voiceRes.status}`);
 
         const transcriptText = decodeURIComponent(voiceRes.headers.get('X-Transcript-Text') || '');
+        console.log(`[MamdaniRTV] SSE connection opened — status=${voiceRes.status} X-Transcript-Text="${transcriptText}"`);
         // Note: mamdaniText now comes via SSE meta event inside playAudio()
 
         if (closed) return;
 
         // FIX 3: Mute mic input during TTS so room audio doesn't retrigger recording
-        if (micGain) micGain.gain.setValueAtTime(0, audioCtx.currentTime);
+        if (micGain) {
+          micGain.gain.setValueAtTime(0, audioCtx.currentTime);
+          console.log('[MamdaniRTV] mic muted (gain=0) — entering speaking phase');
+        }
         go('speaking');
 
         // playAudio now returns mamdaniText (resolved from meta SSE event)
+        console.log('[MamdaniRTV] calling playAudio — awaiting completion');
         const mamdaniText = await playAudio(voiceRes);
+        console.log(`[MamdaniRTV] playAudio resolved — mamdaniText="${mamdaniText.slice(0, 80)}" (${mamdaniText.length} chars)`);
 
         if (closed) return;
         if (transcriptText && mamdaniText) {
@@ -434,9 +468,14 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose, audioCtx:
         }
 
         // FIX 3: 1500ms cooldown before re-enabling mic and restarting listening
+        console.log('[MamdaniRTV] starting 1500ms cooldown before re-listening');
         setTimeout(() => {
           if (closed) return;
-          if (micGain) micGain.gain.setValueAtTime(1, audioCtx.currentTime);
+          if (micGain) {
+            micGain.gain.setValueAtTime(1, audioCtx.currentTime);
+            console.log('[MamdaniRTV] mic unmuted (gain=1) — cooldown elapsed');
+          }
+          console.log('[MamdaniRTV] startListening() called after cooldown');
           startListening();
         }, 1500);
 

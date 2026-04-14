@@ -1040,27 +1040,30 @@ app.post('/mamdani-realtime-voice', uploadMem.single('audio'), async (req, res) 
     if (!req.file || !req.file.buffer) {
       return res.status(400).json({ error: 'No audio file received' });
     }
-    console.log(`${TAG} file=${req.file.size}B mime=${req.file.mimetype}`);
+    console.log(`${TAG} file=${req.file.size}B mime=${req.file.mimetype} originalname=${req.file.originalname}`);
 
     const mamdaniUrl = (process.env.MAMDANI_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
     const mistralKey = (process.env.MISTRAL_API_KEY || '').trim();
     if (!mistralKey) throw new Error('MISTRAL_API_KEY not configured');
+    console.log(`${TAG} mamdaniUrl=${mamdaniUrl} mistralKey=${mistralKey ? mistralKey.slice(0,8)+'…' : 'MISSING'}`);
 
     // ── STEP 1: STT — Groq Whisper directly (Mistral STT not GA, removed) ───
     let transcript = '';
     const tmpPath = path.join(os.tmpdir(), `mrv_${Date.now()}.webm`);
     try {
       fs.writeFileSync(tmpPath, req.file.buffer);
+      console.log(`${TAG} STT → calling Groq whisper-large-v3-turbo, tmpFile=${tmpPath}`);
       const groqTx = await groq.audio.transcriptions.create({
         file:  fs.createReadStream(tmpPath),
         model: 'whisper-large-v3-turbo',
       });
       transcript = (groqTx.text || '').trim();
-      console.log(`${TAG} STT OK — "${transcript.slice(0, 80)}"`);
+      console.log(`${TAG} STT ✓ transcript (${transcript.length} chars): "${transcript}"`);
     } finally {
       try { fs.unlinkSync(tmpPath); } catch {}
     }
     if (!transcript) throw new Error('Empty transcription — no speech detected');
+    console.log(`${TAG} STT passed empty-check — proceeding to RAG`);
 
     // ── STEP 2: Flush SSE headers immediately (transcript known, fullText TBD) ─
     // fullText will arrive via a meta SSE event after audio chunks complete.
@@ -1070,7 +1073,7 @@ app.post('/mamdani-realtime-voice', uploadMem.single('audio'), async (req, res) 
     res.set('Access-Control-Expose-Headers', 'X-Transcript-Text');
     res.set('X-Accel-Buffering', 'no');
     res.flushHeaders();
-    console.log(`${TAG} headers flushed — starting pipelined RAG+TTS`);
+    console.log(`${TAG} headers flushed — SSE open — starting pipelined RAG+TTS`);
 
     // ── STEP 3: Pipelined RAG → TTS ─────────────────────────────────────────
     // As each sentence arrives from the RAG stream, fire a TTS call immediately
@@ -1078,6 +1081,7 @@ app.post('/mamdani-realtime-voice', uploadMem.single('audio'), async (req, res) 
     // First audio reaches client while RAG is still generating later sentences.
 
     let chatRes;
+    console.log(`${TAG} RAG → fetching ${mamdaniUrl}/mamdani/chat`);
     try {
       chatRes = await fetch(`${mamdaniUrl}/mamdani/chat`, {
         method: 'POST',
@@ -1089,15 +1093,17 @@ app.post('/mamdani-realtime-voice', uploadMem.single('audio'), async (req, res) 
       const body = await chatRes.text();
       throw new Error(`Mamdani RAG ${chatRes.status}: ${body.slice(0, 200)}`);
     }
+    console.log(`${TAG} RAG ✓ response ${chatRes.status} — SSE stream open, reading tokens…`);
 
     // TTS helper: returns Buffer or null
     const callTTS = async (sentence, idx) => {
       const input = cleanForTTS(sentence);
-      if (!input) return null;
-      console.log(`${TAG} TTS[${idx}] start — "${input.slice(0, 60)}"`);
+      if (!input) { console.log(`${TAG} TTS[${idx}] skipped (empty after clean)`); return null; }
+      console.log(`${TAG} TTS[${idx}] → sending to Mistral voxtral-mini-tts-2603 — input (${input.length} chars): "${input.slice(0, 80)}"`);
       for (let attempt = 1; attempt <= 3; attempt++) {
         let ttsRes;
         try {
+          console.log(`${TAG} TTS[${idx}] attempt ${attempt} — fetch start`);
           ttsRes = await fetch('https://api.mistral.ai/v1/audio/speech', {
             method:  'POST',
             headers: { 'Authorization': `Bearer ${mistralKey}`, 'Content-Type': 'application/json' },
@@ -1113,9 +1119,11 @@ app.post('/mamdani-realtime-voice', uploadMem.single('audio'), async (req, res) 
           if (attempt < 3) { await new Promise(x => setTimeout(x, 1500)); continue; }
           return null;
         }
+        console.log(`${TAG} TTS[${idx}] attempt ${attempt} — Mistral responded status=${ttsRes.status} content-type=${ttsRes.headers.get('content-type')}`);
         if (ttsRes.ok) {
-          const buf = Buffer.from(await ttsRes.arrayBuffer());
-          console.log(`${TAG} TTS[${idx}] OK — ${buf.byteLength}B`);
+          const ab  = await ttsRes.arrayBuffer();
+          const buf = Buffer.from(ab);
+          console.log(`${TAG} TTS[${idx}] ✓ WAV received — ${buf.byteLength}B (${(buf.byteLength/1024).toFixed(1)}KB)`);
           return buf;
         }
         const errText = await ttsRes.text();
@@ -1135,9 +1143,11 @@ app.post('/mamdani-realtime-voice', uploadMem.single('audio'), async (req, res) 
       while ((sm = ragBuf.match(/^(.{10,}?[.!?]+)\s*/s)) !== null) {
         const sentence = sm[1];
         ragBuf = ragBuf.slice(sm[0].length);
+        console.log(`${TAG} sentence[${sentIdx}] detected (${sentence.length} chars) — firing TTS immediately: "${sentence.slice(0, 60)}"`);
         ttsPromises.push(callTTS(sentence, sentIdx++)); // fire immediately, don't await
       }
       if (isEnd && ragBuf.trim().length >= 3) {
+        console.log(`${TAG} sentence[${sentIdx}] tail flush (${ragBuf.trim().length} chars) — firing TTS: "${ragBuf.trim().slice(0, 60)}"`);
         ttsPromises.push(callTTS(ragBuf.trim(), sentIdx++));
         ragBuf = '';
       }
@@ -1146,9 +1156,10 @@ app.post('/mamdani-realtime-voice', uploadMem.single('audio'), async (req, res) 
     const sseReader  = chatRes.body.getReader();
     const sseDecoder = new TextDecoder();
     let sseBuf = '';
+    let tokenCount = 0;
     while (true) {
       const { done, value } = await sseReader.read();
-      if (done) break;
+      if (done) { console.log(`${TAG} RAG SSE stream body closed (done=true)`); break; }
       sseBuf += sseDecoder.decode(value, { stream: true });
       const lines = sseBuf.split('\n');
       sseBuf = lines.pop();
@@ -1157,6 +1168,7 @@ app.post('/mamdani-realtime-voice', uploadMem.single('audio'), async (req, res) 
         try {
           const evt = JSON.parse(line.slice(6).trim());
           if (evt.type === 'token' && evt.content) {
+            tokenCount++;
             fullText += evt.content;
             ragBuf   += evt.content;
             tryFireSentence(); // check for completed sentence after every token
@@ -1165,25 +1177,31 @@ app.post('/mamdani-realtime-voice', uploadMem.single('audio'), async (req, res) 
       }
     }
     tryFireSentence(true); // flush any remaining partial sentence
-    console.log(`${TAG} RAG done — ${fullText.length} chars, ${ttsPromises.length} TTS calls in-flight`);
+    console.log(`${TAG} RAG done — ${tokenCount} tokens, ${fullText.length} chars total, ${ttsPromises.length} TTS calls in-flight`);
 
     // ── STEP 4: Stream TTS results in sentence order as they resolve ─────────
+    console.log(`${TAG} step4 — awaiting ${ttsPromises.length} TTS promises in order`);
     let sentCount = 0;
     for (let i = 0; i < ttsPromises.length; i++) {
+      console.log(`${TAG} step4 awaiting TTS[${i}]…`);
       const buf = await ttsPromises[i]; // each subsequent call is likely already done
       if (buf && buf.byteLength > 0) {
-        res.write(`data: ${buf.toString('base64')}\n\n`);
+        const b64 = buf.toString('base64');
+        res.write(`data: ${b64}\n\n`);
         if (typeof res.flush === 'function') res.flush();
         sentCount++;
-        console.log(`${TAG} streamed chunk ${i} — ${buf.byteLength}B`);
+        console.log(`${TAG} ✓ SSE chunk[${i}] sent to client — ${buf.byteLength}B raw (${b64.length} b64 chars)`);
+      } else {
+        console.warn(`${TAG} ✗ TTS[${i}] returned null/empty — skipping SSE chunk`);
       }
     }
 
     // Send fullText via SSE meta event so client can update chat history
+    console.log(`${TAG} sending meta event — fullText ${fullText.length} chars`);
     res.write(`data: ${JSON.stringify({ type: 'meta', text: fullText })}\n\n`);
     res.write('data: [DONE]\n\n');
     res.end();
-    console.log(`${TAG} ━━━ DONE — ${sentCount}/${ttsPromises.length} chunks sent ━━━`);
+    console.log(`${TAG} ━━━ DONE — ${sentCount}/${ttsPromises.length} audio chunks sent ━━━`);
 
   } catch (e) {
     console.error(`${TAG} UNHANDLED: ${e.message}\n${e.stack}`);
