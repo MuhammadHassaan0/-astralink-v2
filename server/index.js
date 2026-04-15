@@ -1150,39 +1150,24 @@ app.post('/mamdani-realtime-voice', uploadMem.single('audio'), async (req, res) 
       return null;
     };
 
-    // Read RAG SSE — fire TTS promise the moment a sentence is detected.
-    // Each promise wraps callTTS + an immediate res.write so the chunk is
-    // sent to the client the instant that sentence's TTS resolves, without
-    // waiting for earlier or later sentences.
+    // Read RAG SSE — fire all TTS calls in parallel the moment each sentence
+    // is detected. ttsPromises[] stores the raw callTTS() promises so step 4
+    // can await them in index order, guaranteeing sequential delivery even if
+    // a later sentence's TTS resolves before an earlier one.
     const ttsPromises = [];
     let ragBuf = '', fullText = '', sentIdx = 0, sentCount = 0;
-
-    const fireTTS = (sentence, idx) => {
-      const p = callTTS(sentence, idx).then(buf => {
-        if (buf && buf.byteLength > 0) {
-          const b64 = buf.toString('base64');
-          res.write(`data: ${b64}\n\n`);
-          if (typeof res.flush === 'function') res.flush();
-          sentCount++;
-          console.log(`${TAG} ✓ SSE chunk[${idx}] sent immediately — ${buf.byteLength}B (${b64.length} b64 chars)`);
-        } else {
-          console.warn(`${TAG} ✗ TTS[${idx}] null/empty — skipping SSE chunk`);
-        }
-      });
-      ttsPromises.push(p);
-    };
 
     const tryFireSentence = (isEnd = false) => {
       let sm;
       while ((sm = ragBuf.match(/^(.{10,}?[.!?]+)\s*/s)) !== null) {
         const sentence = sm[1];
         ragBuf = ragBuf.slice(sm[0].length);
-        console.log(`${TAG} sentence[${sentIdx}] detected (${sentence.length} chars) — firing TTS immediately: "${sentence.slice(0, 60)}"`);
-        fireTTS(sentence, sentIdx++);
+        console.log(`${TAG} sentence[${sentIdx}] detected (${sentence.length} chars) — firing TTS: "${sentence.slice(0, 60)}"`);
+        ttsPromises.push(callTTS(sentence, sentIdx++)); // start immediately, don't await
       }
       if (isEnd && ragBuf.trim().length >= 3) {
         console.log(`${TAG} sentence[${sentIdx}] tail flush (${ragBuf.trim().length} chars) — firing TTS: "${ragBuf.trim().slice(0, 60)}"`);
-        fireTTS(ragBuf.trim(), sentIdx++);
+        ttsPromises.push(callTTS(ragBuf.trim(), sentIdx++));
         ragBuf = '';
       }
     };
@@ -1213,12 +1198,23 @@ app.post('/mamdani-realtime-voice', uploadMem.single('audio'), async (req, res) 
     tryFireSentence(true); // flush any remaining partial sentence
     console.log(`${TAG} RAG done — ${tokenCount} tokens, ${fullText.length} chars total, ${ttsPromises.length} TTS calls in-flight`);
 
-    // ── STEP 4: Wait for all in-flight TTS sends to complete ─────────────────
-    // Each promise in ttsPromises already writes to res the moment it resolves
-    // (see fireTTS above) — we just need to wait for all of them to finish
-    // before we can send the meta event and [DONE].
-    console.log(`${TAG} step4 — awaiting Promise.all for ${ttsPromises.length} TTS send-promises`);
-    await Promise.all(ttsPromises);
+    // ── STEP 4: Send TTS results to client in sentence order ─────────────────
+    // All TTS calls are already running in parallel (started in tryFireSentence).
+    // Awaiting in index order guarantees chunk[0] always arrives before chunk[1]
+    // on the client, even if TTS[1] resolved faster than TTS[0].
+    console.log(`${TAG} step4 — streaming ${ttsPromises.length} chunks in order`);
+    for (let i = 0; i < ttsPromises.length; i++) {
+      const buf = await ttsPromises[i]; // likely already resolved — near-zero wait
+      if (buf && buf.byteLength > 0) {
+        const b64 = buf.toString('base64');
+        res.write(`data: ${b64}\n\n`);
+        if (typeof res.flush === 'function') res.flush();
+        sentCount++;
+        console.log(`${TAG} ✓ SSE chunk[${i}] sent — ${buf.byteLength}B (${b64.length} b64 chars)`);
+      } else {
+        console.warn(`${TAG} ✗ TTS[${i}] null/empty — skipping`);
+      }
+    }
 
     // Send fullText via SSE meta event so client can update chat history
     console.log(`${TAG} sending meta event — fullText ${fullText.length} chars`);

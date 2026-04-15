@@ -409,14 +409,10 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose }) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Press-and-hold handlers ────────────────────────────────────────────────
-  const handlePressStart = (e) => {
-    e.preventDefault(); // prevent touch scroll / context menu
-    startRecordingRef.current?.();
-  };
-  const handlePressEnd = (e) => {
-    e.preventDefault();
-    stopRecordingRef.current?.();
-  };
+  const handleMouseDown = () => startRecordingRef.current?.();
+  const handleMouseUp   = () => stopRecordingRef.current?.();
+  const handleTouchStart = (e) => { e.preventDefault(); startRecordingRef.current?.(); };
+  const handleTouchEnd   = (e) => { e.preventDefault(); stopRecordingRef.current?.(); };
 
   // ── Derived UI ────────────────────────────────────────────────────────────
   const statusText = {
@@ -466,11 +462,11 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose }) {
         <button
           className={`mrv-hold-btn${btnHeld ? ' mrv-held' : ''}`}
           disabled={btnDisabled}
-          onMouseDown={handlePressStart}
-          onMouseUp={handlePressEnd}
-          onMouseLeave={handlePressEnd}
-          onTouchStart={handlePressStart}
-          onTouchEnd={handlePressEnd}
+          onMouseDown={handleMouseDown}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
           onContextMenu={(e) => e.preventDefault()}
           aria-label="Hold to speak"
         >
