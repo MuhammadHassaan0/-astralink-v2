@@ -1121,11 +1121,24 @@ app.post('/mamdani-realtime-voice', uploadMem.single('audio'), async (req, res) 
         }
         console.log(`${TAG} TTS[${idx}] attempt ${attempt} — Mistral responded status=${ttsRes.status} content-type=${ttsRes.headers.get('content-type')}`);
         if (ttsRes.ok) {
-          const ab  = await ttsRes.arrayBuffer();
-          const buf = Buffer.from(ab);
-          console.log(`${TAG} TTS[${idx}] ✓ received — ${buf.byteLength}B (${(buf.byteLength/1024).toFixed(1)}KB)`);
-          console.log(`[TTS] first 4 bytes hex:`, buf.slice(0, 4).toString('hex'));
-          return buf;
+          const responseBuffer = Buffer.from(await ttsRes.arrayBuffer());
+          console.log(`${TAG} TTS[${idx}] raw response — ${responseBuffer.byteLength}B first4=${responseBuffer.slice(0, 4).toString('hex')}`);
+
+          // Mistral returns JSON: { "audio": "<base64>" } — extract the inner audio bytes
+          let audioBytes;
+          try {
+            const json = JSON.parse(responseBuffer.toString('utf8'));
+            const audioBase64 = json.audio;
+            if (!audioBase64) throw new Error('no "audio" field in response JSON');
+            audioBytes = Buffer.from(audioBase64, 'base64');
+            console.log(`[TTS] extracted audio from JSON — ${audioBytes.length} bytes, first4=${audioBytes.slice(0, 4).toString('hex')}`);
+          } catch (parseErr) {
+            // Not JSON (or unexpected shape) — treat raw body as audio bytes directly
+            console.warn(`[TTS] JSON parse failed (${parseErr.message}), using raw bytes`);
+            audioBytes = responseBuffer;
+          }
+
+          return audioBytes;
         }
         const errText = await ttsRes.text();
         console.error(`${TAG} TTS[${idx}] attempt ${attempt} error ${ttsRes.status}: ${errText.slice(0, 200)}`);
