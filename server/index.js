@@ -1128,6 +1128,8 @@ app.post('/mamdani-realtime-voice', uploadMem.single('audio'), async (req, res) 
           let audioBytes;
           try {
             const json = JSON.parse(responseBuffer.toString('utf8'));
+            console.log('[TTS] JSON keys:', Object.keys(json));
+            console.log('[TTS] JSON preview:', responseBuffer.toString('utf8').slice(0, 200));
             const audioBase64 = json.audio;
             if (!audioBase64) throw new Error('no "audio" field in response JSON');
             audioBytes = Buffer.from(audioBase64, 'base64');
