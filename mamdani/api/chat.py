@@ -62,10 +62,12 @@ log.info("QDRANT_API_KEY present: %s", bool(QDRANT_API_KEY))
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 PERSONA_FILE = ROOT / "prompts" / "mamdani_persona.md"
+SKILL_FILE   = ROOT / "knowledge" / "mamdani_skill.md"
 FRONTEND_DIR = ROOT / "frontend"
 
 log.info("ROOT: %s", ROOT)
 log.info("PERSONA_FILE exists: %s", PERSONA_FILE.exists())
+log.info("SKILL_FILE exists: %s", SKILL_FILE.exists())
 log.info("FRONTEND_DIR exists: %s", FRONTEND_DIR.exists())
 
 # ── sys.path for retrieval/ imports ───────────────────────────────────────────
@@ -76,6 +78,7 @@ if str(ROOT) not in sys.path:
 _groq_client   = None
 _qdrant_client = None
 _persona_text  = None
+_skill_text    = None
 _retrieve      = None
 _classify      = None
 
@@ -118,6 +121,18 @@ def get_persona_text() -> str:
             log.error("Persona file read failed: %s", e)
             _persona_text = "You are Zohran Mamdani, NYC Mayor."
     return _persona_text
+
+
+def get_skill_text() -> str:
+    global _skill_text
+    if _skill_text is None:
+        try:
+            _skill_text = SKILL_FILE.read_text()
+            log.info("[mamdani] cognitive layer loaded: %d chars", len(_skill_text))
+        except Exception as e:
+            log.error("Skill file read failed: %s", e)
+            _skill_text = ""  # non-fatal — RAG + persona still work without it
+    return _skill_text
 
 
 def get_retriever():
@@ -263,6 +278,7 @@ def build_context_block(chunks: list[dict], max_tokens: int = MAX_CTX_TOKENS) ->
 def build_system_prompt(context: str, intent: str = "complex") -> str:
     today        = date.today().isoformat()
     persona_text = get_persona_text()
+    skill_text   = get_skill_text()
 
     if intent == "simple":
         length_rule = (
@@ -291,6 +307,10 @@ NATURAL SPEECH: About 1 in 4 responses, start with a natural opener like "Look,"
 ---
 
 {persona_text}
+
+---
+
+{skill_text}
 
 ---
 
