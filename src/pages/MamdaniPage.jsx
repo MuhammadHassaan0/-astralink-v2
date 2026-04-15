@@ -771,6 +771,15 @@ export default function MamdaniPage() {
           <button
             className="mp-voice-btn"
             onClick={() => {
+              // Unlock HTML Audio autoplay policy via user-gesture AudioContext.
+              // Browsers block audio.play() from async contexts; creating and
+              // immediately closing an AudioContext during a click marks this
+              // page as "user interacted" so all subsequent audio.play() calls work.
+              try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                ctx.resume();
+                ctx.close();
+              } catch (_) {}
               setShowVoice(true);
             }}
             aria-label="Open voice mode"

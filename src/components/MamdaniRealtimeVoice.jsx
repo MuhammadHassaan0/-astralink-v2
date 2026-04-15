@@ -2,10 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import mamdaniImage from '../assets/mamdani.jpg';
 
-const API = 'https://astralink-v2-production.up.railway.app';
-
-const RECORD_MS  = 4000; // fixed recording window — stop and submit after 4 seconds
-const COOLDOWN_MS = 1500; // wait after TTS finishes before restarting
+const API        = 'https://astralink-v2-production.up.railway.app';
+const COOLDOWN_MS = 1500; // wait after TTS finishes before returning to idle
 
 const STYLES = `
   @keyframes mrvFadeIn {
@@ -16,7 +14,7 @@ const STYLES = `
     from { opacity: 0; transform: translateY(24px); }
     to   { opacity: 1; transform: translateY(0); }
   }
-  @keyframes mrvListening {
+  @keyframes mrvPulse {
     0%   { box-shadow: 0 0 0 0px  rgba(46,204,113,0.7), 0 0 0 3px #2ecc71; }
     70%  { box-shadow: 0 0 0 22px rgba(46,204,113,0),   0 0 0 3px #2ecc71; }
     100% { box-shadow: 0 0 0 0px  rgba(46,204,113,0),   0 0 0 3px #2ecc71; }
@@ -30,9 +28,9 @@ const STYLES = `
     50%  { box-shadow: 0 0 0 3px #27ae60; opacity: 0.7; }
     100% { box-shadow: 0 0 0 3px #2ecc71; opacity: 1; }
   }
-  @keyframes mrvCountdown {
-    from { width: 100%; }
-    to   { width: 0%; }
+  @keyframes mrvHoldPulse {
+    0%, 100% { transform: scale(1);    box-shadow: 0 0 0 0   rgba(231,76,60,0.5); }
+    50%      { transform: scale(1.08); box-shadow: 0 0 0 14px rgba(231,76,60,0);   }
   }
 
   .mrv-overlay {
@@ -44,7 +42,7 @@ const STYLES = `
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 28px;
+    gap: 24px;
     animation: mrvFadeIn 0.25s ease forwards;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     -webkit-font-smoothing: antialiased;
@@ -61,7 +59,6 @@ const STYLES = `
     border: 1px solid #333;
     color: #777;
     font-size: 16px;
-    line-height: 1;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -83,33 +80,37 @@ const STYLES = `
     animation: mrvSlideUp 0.4s ease forwards;
     flex-shrink: 0;
   }
-  .mrv-avatar.mrv-listening {
-    animation: mrvSlideUp 0.4s ease forwards,
-               mrvListening 2s ease-out infinite 0.4s;
-  }
-  .mrv-avatar.mrv-speaking {
-    animation: mrvSlideUp 0.4s ease forwards,
-               mrvSpeaking 0.75s ease-in-out infinite 0.4s;
-  }
-  .mrv-avatar.mrv-processing {
-    animation: mrvSlideUp 0.4s ease forwards,
-               mrvProcessing 1.2s ease-in-out infinite 0.4s;
-  }
+  .mrv-avatar.mrv-recording  { animation: mrvSlideUp 0.4s ease forwards, mrvPulse 1.4s ease-out infinite 0.4s; }
+  .mrv-avatar.mrv-speaking   { animation: mrvSlideUp 0.4s ease forwards, mrvSpeaking 0.75s ease-in-out infinite 0.4s; }
+  .mrv-avatar.mrv-processing { animation: mrvSlideUp 0.4s ease forwards, mrvProcessing 1.2s ease-in-out infinite 0.4s; }
 
-  /* Countdown bar shown while recording */
-  .mrv-countdown-track {
-    width: 220px;
-    height: 3px;
-    background: #222;
-    border-radius: 2px;
-    overflow: hidden;
+  /* Hold-to-speak button */
+  .mrv-hold-btn {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    border: 3px solid #2ecc71;
+    background: transparent;
+    color: #2ecc71;
+    font-size: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    touch-action: none; /* prevent scroll-cancel on mobile long press */
   }
-  .mrv-countdown-bar {
-    height: 100%;
-    background: #2ecc71;
-    border-radius: 2px;
-    animation: mrvCountdown ${RECORD_MS}ms linear forwards;
-    transform-origin: left;
+  .mrv-hold-btn:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+  .mrv-hold-btn.mrv-held {
+    background: rgba(231,76,60,0.15);
+    border-color: #e74c3c;
+    color: #e74c3c;
+    animation: mrvHoldPulse 0.9s ease-in-out infinite;
   }
 
   .mrv-status {
@@ -122,15 +123,16 @@ const STYLES = `
     transition: color 0.3s;
   }
   .mrv-status.mrv-active { color: #2ecc71; }
+  .mrv-status.mrv-rec    { color: #e74c3c; }
   .mrv-status.mrv-error  { color: #e74c3c; }
 
   .mrv-hint {
     font-size: 12px;
     color: #3a3a3a;
     text-align: center;
-    max-width: 220px;
+    max-width: 240px;
     line-height: 1.6;
-    margin-top: -12px;
+    margin-top: -8px;
   }
 `;
 
@@ -138,7 +140,9 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose }) {
   const [phase,  setPhase]  = useState('connecting');
   const [errMsg, setErrMsg] = useState('');
 
-  const onNewExchangeRef = useRef(onNewExchange);
+  const onNewExchangeRef   = useRef(onNewExchange);
+  const startRecordingRef  = useRef(null); // bridge: closure fn → JSX handler
+  const stopRecordingRef   = useRef(null);
   useEffect(() => { onNewExchangeRef.current = onNewExchange; }, [onNewExchange]);
 
   // ── Inject CSS ─────────────────────────────────────────────────────────────
@@ -156,7 +160,6 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose }) {
     let micStream  = null;
     let mediaRec   = null;
     let recChunks  = [];
-    let recTimer   = null; // the 4-second auto-stop timer
     let phaseLocal = 'connecting';
 
     const go = (p) => {
@@ -165,7 +168,7 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose }) {
       setPhase(p);
     };
 
-    // ── Play one MP3 chunk from base64 via HTML Audio ─────────────────────
+    // ── Play one MP3 chunk (base64) via HTML Audio ────────────────────────
     const playChunk = (b64) => new Promise((resolve) => {
       console.log(`[MamdaniRTV] playChunk — b64.length=${b64.length} (~${Math.round(b64.length * 0.75 / 1024)}KB)`);
       const binary = atob(b64);
@@ -176,7 +179,7 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose }) {
       const audio = new Audio(url);
 
       audio.onended = () => {
-        console.log('[MamdaniRTV] playChunk onended — revoking URL');
+        console.log('[MamdaniRTV] playChunk onended');
         URL.revokeObjectURL(url);
         resolve();
       };
@@ -194,7 +197,7 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose }) {
       });
     });
 
-    // ── Play full SSE response sequentially; return mamdaniText ──────────
+    // ── Drain SSE response sequentially; return mamdaniText ───────────────
     const playAudio = (response) => new Promise(async (resolve) => {
       let mamdaniText = '';
       let resolved    = false;
@@ -207,10 +210,10 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose }) {
       const drainQueue = async () => {
         if (playing) return;
         playing = true;
-        console.log(`[MamdaniRTV] drainQueue start — ${pending.length} chunks`);
+        console.log(`[MamdaniRTV] drainQueue — ${pending.length} chunks`);
         while (pending.length > 0) {
           const b64 = pending.shift();
-          console.log(`[MamdaniRTV] drainQueue — playing chunk, ${pending.length} remaining`);
+          console.log(`[MamdaniRTV] drainQueue — playing, ${pending.length} remaining`);
           await playChunk(b64);
         }
         playing = false;
@@ -244,7 +247,7 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose }) {
             if (data === '[DONE]') {
               console.log(`[MamdaniRTV] [DONE] — playing=${playing} pending=${pending.length}`);
               serverDone = true;
-              if (!playing && pending.length === 0) { console.log('[MamdaniRTV] [DONE] resolving immediately'); done_(); }
+              if (!playing && pending.length === 0) done_();
               continue;
             }
 
@@ -253,7 +256,7 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose }) {
                 const parsed = JSON.parse(data);
                 if (parsed.type === 'meta' && parsed.text) {
                   mamdaniText = parsed.text;
-                  console.log(`[MamdaniRTV] meta ✓ — ${mamdaniText.length} chars: "${mamdaniText.slice(0, 80)}"`);
+                  console.log(`[MamdaniRTV] meta ✓ — ${mamdaniText.length} chars`);
                 }
               } catch (e) { console.warn('[MamdaniRTV] JSON parse failed:', e.message); }
               continue;
@@ -270,12 +273,12 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose }) {
 
       if (!serverDone) {
         serverDone = true;
-        console.log('[MamdaniRTV] stream ended without [DONE] — forcing serverDone');
+        console.log('[MamdaniRTV] stream ended without [DONE]');
         if (!playing && pending.length === 0) done_();
       }
     });
 
-    // ── Submit blob to server ─────────────────────────────────────────────
+    // ── Submit blob → server ─────────────────────────────────────────────
     const submitBlob = async (blob) => {
       if (closed) return;
       go('processing');
@@ -306,8 +309,8 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose }) {
         console.log(`[MamdaniRTV] waiting ${COOLDOWN_MS}ms cooldown`);
         setTimeout(() => {
           if (closed) return;
-          console.log('[MamdaniRTV] cooldown done — startListening');
-          startListening();
+          console.log('[MamdaniRTV] cooldown done — back to idle');
+          go('idle');
         }, COOLDOWN_MS);
 
       } catch (e) {
@@ -316,56 +319,57 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose }) {
       }
     };
 
-    // ── Start a 4-second recording then auto-submit ───────────────────────
-    const startListening = () => {
-      if (closed) return;
-      recChunks = [];
+    // ── Start recording (called on button press) ──────────────────────────
+    const startRecording = () => {
+      if (closed || phaseLocal !== 'idle') return;
 
+      // Re-acquire mic if tracks died while idle
       if (!micStream || micStream.getTracks().some(t => t.readyState === 'ended')) {
         go('connecting');
         initMic();
         return;
       }
 
+      recChunks = [];
       const mimeType =
         ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', '']
           .find(m => !m || MediaRecorder.isTypeSupported(m)) || '';
 
       mediaRec = new MediaRecorder(micStream, mimeType ? { mimeType } : {});
-
       mediaRec.ondataavailable = (ev) => {
         if (ev.data && ev.data.size > 0) recChunks.push(ev.data);
       };
-
       mediaRec.onstop = () => {
-        if (recTimer) { clearTimeout(recTimer); recTimer = null; }
         if (closed) return;
         const blob = new Blob(recChunks, { type: mediaRec.mimeType || 'audio/webm' });
         recChunks = [];
         console.log(`[MamdaniRTV] MediaRecorder stopped — blob ${blob.size}B`);
         if (blob.size < 1000) {
-          console.log('[MamdaniRTV] blob too small — restarting');
-          startListening();
+          console.log('[MamdaniRTV] blob too small — back to idle');
+          go('idle');
           return;
         }
         submitBlob(blob);
       };
 
       mediaRec.start(100);
-      go('listening');
-      console.log(`[MamdaniRTV] MediaRecorder started — will auto-stop in ${RECORD_MS}ms`);
-
-      // Fixed timer: stop and submit after RECORD_MS regardless of speech content
-      recTimer = setTimeout(() => {
-        recTimer = null;
-        if (mediaRec?.state === 'recording') {
-          console.log('[MamdaniRTV] 4s timer elapsed — stopping MediaRecorder');
-          mediaRec.stop();
-        }
-      }, RECORD_MS);
+      go('recording');
+      console.log('[MamdaniRTV] MediaRecorder started — press-and-hold active');
     };
 
-    // ── Acquire mic ────────────────────────────────────────────────────────
+    // ── Stop recording (called on button release) ─────────────────────────
+    const stopRecording = () => {
+      if (mediaRec?.state === 'recording') {
+        console.log('[MamdaniRTV] stopRecording — stopping MediaRecorder');
+        mediaRec.stop();
+      }
+    };
+
+    // Expose to JSX via refs (closure fns can't be called directly from JSX)
+    startRecordingRef.current = startRecording;
+    stopRecordingRef.current  = stopRecording;
+
+    // ── Acquire mic — set idle when ready, do NOT auto-start recording ────
     const initMic = async () => {
       if (closed) return;
       try {
@@ -373,8 +377,8 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose }) {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         if (closed) { stream.getTracks().forEach(t => t.stop()); return; }
         micStream = stream;
-        console.log('[MamdaniRTV] initMic ✓ — mic acquired');
-        startListening();
+        console.log('[MamdaniRTV] initMic ✓ — mic acquired, waiting for button press');
+        go('idle');
       } catch (err) {
         console.error('[MamdaniRTV] getUserMedia error:', err);
         if (!closed) { go('error'); setErrMsg('Microphone access denied'); }
@@ -385,23 +389,37 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose }) {
 
     return () => {
       closed = true;
-      if (recTimer) { clearTimeout(recTimer); recTimer = null; }
+      startRecordingRef.current = null;
+      stopRecordingRef.current  = null;
       if (mediaRec?.state === 'recording') try { mediaRec.stop(); } catch {}
       micStream?.getTracks().forEach(t => t.stop());
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Press-and-hold handlers ────────────────────────────────────────────────
+  const handlePressStart = (e) => {
+    e.preventDefault(); // prevent touch scroll / context menu
+    startRecordingRef.current?.();
+  };
+  const handlePressEnd = (e) => {
+    e.preventDefault();
+    stopRecordingRef.current?.();
+  };
+
   // ── Derived UI ────────────────────────────────────────────────────────────
   const statusText = {
     connecting: 'Connecting…',
-    listening:  'Recording… (4s)',
+    idle:       'Ready',
+    recording:  'Recording…',
     processing: 'Thinking…',
     speaking:   'Speaking…',
     error:      errMsg || 'Something went wrong',
   }[phase] ?? '';
 
   const hintText = {
-    listening:  'Speak now — submitting in 4 seconds',
+    connecting: 'Setting up microphone…',
+    idle:       'Hold to speak — release to send',
+    recording:  'Release to send',
     processing: 'Processing your question…',
     speaking:   'Playing response…',
     error:      'Close and try again',
@@ -409,36 +427,46 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose }) {
 
   const avatarClass = [
     'mrv-avatar',
-    phase === 'listening'  ? 'mrv-listening'  : '',
+    phase === 'recording'  ? 'mrv-recording'  : '',
     phase === 'speaking'   ? 'mrv-speaking'   : '',
     phase === 'processing' ? 'mrv-processing' : '',
   ].filter(Boolean).join(' ');
 
   const statusClass = [
     'mrv-status',
-    (phase === 'listening' || phase === 'speaking') ? 'mrv-active' : '',
-    phase === 'error' ? 'mrv-error' : '',
+    phase === 'recording' ? 'mrv-rec'    : '',
+    phase === 'speaking'  ? 'mrv-active' : '',
+    phase === 'error'     ? 'mrv-error'  : '',
   ].filter(Boolean).join(' ');
+
+  // Button is only interactive when idle or recording
+  const btnDisabled = phase !== 'idle' && phase !== 'recording';
+  const btnHeld     = phase === 'recording';
 
   return createPortal(
     <div className="mrv-overlay" role="dialog" aria-modal="true" aria-label="Voice chat with Mamdani">
       <button className="mrv-close" onClick={onClose} aria-label="Close voice mode">✕</button>
 
-      <img
-        src={mamdaniImage}
-        alt="Zohran Mamdani"
-        className={avatarClass}
-      />
+      <img src={mamdaniImage} alt="Zohran Mamdani" className={avatarClass} />
 
-      {/* Countdown bar — only visible while recording */}
-      {phase === 'listening' && (
-        <div className="mrv-countdown-track">
-          <div className="mrv-countdown-bar" />
-        </div>
+      {/* Hold-to-speak button — only shown when mic is ready or recording */}
+      {(phase === 'idle' || phase === 'recording') && (
+        <button
+          className={`mrv-hold-btn${btnHeld ? ' mrv-held' : ''}`}
+          disabled={btnDisabled}
+          onMouseDown={handlePressStart}
+          onMouseUp={handlePressEnd}
+          onMouseLeave={handlePressEnd}
+          onTouchStart={handlePressStart}
+          onTouchEnd={handlePressEnd}
+          onContextMenu={(e) => e.preventDefault()}
+          aria-label="Hold to speak"
+        >
+          🎙
+        </button>
       )}
 
       <div className={statusClass}>{statusText}</div>
-
       {hintText && <div className="mrv-hint">{hintText}</div>}
     </div>,
     document.body
