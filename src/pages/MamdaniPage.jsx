@@ -620,9 +620,6 @@ export default function MamdaniPage() {
     setInput('');
     setStreaming(true);
 
-    const thinkMs = 800 + Math.min(content.length * 12, 1200);
-    await new Promise(r => setTimeout(r, thinkMs));
-
     try {
       const res = await fetch(`${API}/mamdani-chat`, {
         method:  'POST',
