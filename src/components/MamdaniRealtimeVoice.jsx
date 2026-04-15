@@ -215,11 +215,12 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose }) {
       tryPlay('audio/mpeg');
     });
 
-    // ── Drain SSE response sequentially; return mamdaniText ───────────────
+    // ── Drain SSE response sequentially; return { mamdaniText, transcriptText } ──
     const playAudio = (response) => new Promise(async (resolve) => {
-      let mamdaniText = '';
-      let resolved    = false;
-      const done_ = () => { if (!resolved) { resolved = true; resolve(mamdaniText); } };
+      let mamdaniText    = '';
+      let transcriptText = '';
+      let resolved       = false;
+      const done_ = () => { if (!resolved) { resolved = true; resolve({ mamdaniText, transcriptText }); } };
 
       const pending    = [];
       let   playing    = false;
@@ -272,9 +273,10 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose }) {
             if (data.startsWith('{')) {
               try {
                 const parsed = JSON.parse(data);
-                if (parsed.type === 'meta' && parsed.text) {
-                  mamdaniText = parsed.text;
-                  console.log(`[MamdaniRTV] meta ✓ — ${mamdaniText.length} chars`);
+                if (parsed.type === 'meta') {
+                  if (parsed.text)       mamdaniText    = parsed.text;
+                  if (parsed.transcript) transcriptText = parsed.transcript;
+                  console.log(`[MamdaniRTV] meta ✓ — mamdani ${mamdaniText.length} chars, transcript "${transcriptText}"`);
                 }
               } catch (e) { console.warn('[MamdaniRTV] JSON parse failed:', e.message); }
               continue;
@@ -308,16 +310,15 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose }) {
         console.log(`[MamdaniRTV] submitBlob — POSTing ${blob.size}B`);
         const voiceRes = await fetch(`${API}/mamdani-realtime-voice`, { method: 'POST', body: fd });
         if (!voiceRes.ok) throw new Error(`Server error ${voiceRes.status}`);
-
-        const transcriptText = decodeURIComponent(voiceRes.headers.get('X-Transcript-Text') || '');
-        console.log(`[MamdaniRTV] response ok — status=${voiceRes.status} transcript="${transcriptText}"`);
+        console.log(`[MamdaniRTV] response ok — status=${voiceRes.status}, reading SSE`);
 
         if (closed) return;
         // Note: go('speaking') fires inside playChunk when audio.play() is called
+        // Transcript arrives via SSE meta event (not a header) since headers are flushed before STT
 
         console.log('[MamdaniRTV] calling playAudio');
-        const mamdaniText = await playAudio(voiceRes);
-        console.log(`[MamdaniRTV] playAudio done — ${mamdaniText.length} chars`);
+        const { mamdaniText, transcriptText } = await playAudio(voiceRes);
+        console.log(`[MamdaniRTV] playAudio done — mamdani ${mamdaniText.length} chars, transcript "${transcriptText}"`);
 
         if (closed) return;
         if (transcriptText && mamdaniText) {
@@ -349,11 +350,14 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose }) {
       }
 
       recChunks = [];
-      const mimeType =
-        ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', '']
-          .find(m => !m || MediaRecorder.isTypeSupported(m)) || '';
+      const recMimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : (MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '');
 
-      mediaRec = new MediaRecorder(micStream, mimeType ? { mimeType } : {});
+      mediaRec = new MediaRecorder(micStream, {
+        ...(recMimeType ? { mimeType: recMimeType } : {}),
+        audioBitsPerSecond: 16000,
+      });
       mediaRec.ondataavailable = (ev) => {
         if (ev.data && ev.data.size > 0) recChunks.push(ev.data);
       };
@@ -393,7 +397,14 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose }) {
       if (closed) return;
       try {
         console.log('[MamdaniRTV] initMic — requesting getUserMedia');
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            channelCount:     1,
+            sampleRate:       16000,
+            echoCancellation: true,
+            noiseSuppression: true,
+          },
+        });
         if (closed) { stream.getTracks().forEach(t => t.stop()); return; }
         micStream = stream;
         console.log('[MamdaniRTV] initMic ✓ — mic acquired, waiting for button press');

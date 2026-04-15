@@ -1047,7 +1047,16 @@ app.post('/mamdani-realtime-voice', uploadMem.single('audio'), async (req, res) 
     if (!mistralKey) throw new Error('MISTRAL_API_KEY not configured');
     console.log(`${TAG} mamdaniUrl=${mamdaniUrl} mistralKey=${mistralKey ? mistralKey.slice(0,8)+'…' : 'MISSING'}`);
 
-    // ── STEP 1: STT — Groq Whisper directly (Mistral STT not GA, removed) ───
+    // ── STEP 1: Flush SSE headers immediately — before STT so client connection
+    // is open and waiting while Whisper runs. Transcript sent via SSE meta event
+    // instead of a header (headers are immutable once flushed).
+    res.set('Content-Type', 'text/event-stream');
+    res.set('Cache-Control', 'no-cache');
+    res.set('X-Accel-Buffering', 'no');
+    res.flushHeaders();
+    console.log(`${TAG} SSE headers flushed — client connection open, starting STT`);
+
+    // ── STEP 2: STT — Groq Whisper ───────────────────────────────────────────
     let transcript = '';
     const tmpPath = path.join(os.tmpdir(), `mrv_${Date.now()}.webm`);
     try {
@@ -1062,18 +1071,13 @@ app.post('/mamdani-realtime-voice', uploadMem.single('audio'), async (req, res) 
     } finally {
       try { fs.unlinkSync(tmpPath); } catch {}
     }
-    if (!transcript) throw new Error('Empty transcription — no speech detected');
-    console.log(`${TAG} STT passed empty-check — proceeding to RAG`);
-
-    // ── STEP 2: Flush SSE headers immediately (transcript known, fullText TBD) ─
-    // fullText will arrive via a meta SSE event after audio chunks complete.
-    res.set('Content-Type', 'text/event-stream');
-    res.set('Cache-Control', 'no-cache');
-    res.set('X-Transcript-Text', encodeURIComponent(transcript));
-    res.set('Access-Control-Expose-Headers', 'X-Transcript-Text');
-    res.set('X-Accel-Buffering', 'no');
-    res.flushHeaders();
-    console.log(`${TAG} headers flushed — SSE open — starting pipelined RAG+TTS`);
+    if (!transcript) {
+      console.warn(`${TAG} empty transcript — sending error event`);
+      res.write(`data: ${JSON.stringify({ type: 'error', message: 'No speech detected' })}\n\n`);
+      res.end();
+      return;
+    }
+    console.log(`${TAG} STT done — starting pipelined RAG+TTS`);
 
     // ── STEP 3: Pipelined RAG → TTS ─────────────────────────────────────────
     // As each sentence arrives from the RAG stream, fire a TTS call immediately
@@ -1216,9 +1220,9 @@ app.post('/mamdani-realtime-voice', uploadMem.single('audio'), async (req, res) 
       }
     }
 
-    // Send fullText via SSE meta event so client can update chat history
-    console.log(`${TAG} sending meta event — fullText ${fullText.length} chars`);
-    res.write(`data: ${JSON.stringify({ type: 'meta', text: fullText })}\n\n`);
+    // Send fullText + transcript via SSE meta event (headers are immutable after flushHeaders)
+    console.log(`${TAG} sending meta event — fullText ${fullText.length} chars, transcript ${transcript.length} chars`);
+    res.write(`data: ${JSON.stringify({ type: 'meta', text: fullText, transcript })}\n\n`);
     res.write('data: [DONE]\n\n');
     res.end();
     console.log(`${TAG} ━━━ DONE — ${sentCount}/${ttsPromises.length} audio chunks sent ━━━`);
