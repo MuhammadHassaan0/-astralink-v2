@@ -170,6 +170,10 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose }) {
 
     // ── Play one MP3 chunk (base64) via HTML Audio ────────────────────────
     // Tries 'audio/mpeg' first; if onerror fires, retries with '' (auto-detect).
+    // Sets phase to 'speaking' right before audio.play() so the UI only
+    // reflects speaking state when audio is actually starting, not when the
+    // SSE connection opens (which can be 4-5 seconds before first audio).
+    let firstChunkPlayed = false;
     const playChunk = (b64) => new Promise((resolve) => {
       console.log(`[MamdaniRTV] playChunk — b64.length=${b64.length} (~${Math.round(b64.length * 0.75 / 1024)}KB)`);
       const binary = atob(b64);
@@ -199,6 +203,8 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose }) {
           }
         };
 
+        // Switch to 'speaking' the moment audio actually starts — not when SSE opens
+        if (!firstChunkPlayed) { firstChunkPlayed = true; go('speaking'); }
         audio.play().catch((e) => {
           console.error(`[MamdaniRTV] play() rejected (mimeType="${mimeType}"):`, e.message);
           URL.revokeObjectURL(url);
@@ -307,7 +313,7 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose }) {
         console.log(`[MamdaniRTV] response ok — status=${voiceRes.status} transcript="${transcriptText}"`);
 
         if (closed) return;
-        go('speaking');
+        // Note: go('speaking') fires inside playChunk when audio.play() is called
 
         console.log('[MamdaniRTV] calling playAudio');
         const mamdaniText = await playAudio(voiceRes);
