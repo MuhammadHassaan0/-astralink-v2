@@ -169,32 +169,44 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose }) {
     };
 
     // ── Play one MP3 chunk (base64) via HTML Audio ────────────────────────
+    // Tries 'audio/mpeg' first; if onerror fires, retries with '' (auto-detect).
     const playChunk = (b64) => new Promise((resolve) => {
       console.log(`[MamdaniRTV] playChunk — b64.length=${b64.length} (~${Math.round(b64.length * 0.75 / 1024)}KB)`);
       const binary = atob(b64);
       const bytes  = new Uint8Array(binary.length);
       for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-      const blob  = new Blob([bytes], { type: 'audio/mpeg' });
-      const url   = URL.createObjectURL(blob);
-      const audio = new Audio(url);
 
-      audio.onended = () => {
-        console.log('[MamdaniRTV] playChunk onended');
-        URL.revokeObjectURL(url);
-        resolve();
-      };
-      audio.onerror = (e) => {
-        console.error('[MamdaniRTV] playChunk onerror:', e.message ?? e);
-        URL.revokeObjectURL(url);
-        resolve();
+      const tryPlay = (mimeType) => {
+        console.log(`[MamdaniRTV] tryPlay mimeType="${mimeType}"`);
+        const blob  = new Blob([bytes], { type: mimeType });
+        const url   = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+
+        audio.onended = () => {
+          console.log(`[MamdaniRTV] playChunk onended (mimeType="${mimeType}")`);
+          URL.revokeObjectURL(url);
+          resolve();
+        };
+        audio.onerror = (e) => {
+          console.error(`[MamdaniRTV] playChunk onerror (mimeType="${mimeType}"):`, e.message ?? e);
+          URL.revokeObjectURL(url);
+          if (mimeType !== '') {
+            console.log('[MamdaniRTV] retrying with auto-detect (mimeType="")');
+            tryPlay(''); // retry with browser auto-detect
+          } else {
+            console.error('[MamdaniRTV] both mime types failed — skipping chunk');
+            resolve();
+          }
+        };
+
+        audio.play().catch((e) => {
+          console.error(`[MamdaniRTV] play() rejected (mimeType="${mimeType}"):`, e.message);
+          URL.revokeObjectURL(url);
+          resolve();
+        });
       };
 
-      console.log('[MamdaniRTV] playChunk — calling audio.play()');
-      audio.play().catch((e) => {
-        console.error('[MamdaniRTV] playChunk play() rejected:', e.message);
-        URL.revokeObjectURL(url);
-        resolve();
-      });
+      tryPlay('audio/mpeg');
     });
 
     // ── Drain SSE response sequentially; return mamdaniText ───────────────

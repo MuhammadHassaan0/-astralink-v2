@@ -1123,7 +1123,8 @@ app.post('/mamdani-realtime-voice', uploadMem.single('audio'), async (req, res) 
         if (ttsRes.ok) {
           const ab  = await ttsRes.arrayBuffer();
           const buf = Buffer.from(ab);
-          console.log(`${TAG} TTS[${idx}] ✓ WAV received — ${buf.byteLength}B (${(buf.byteLength/1024).toFixed(1)}KB)`);
+          console.log(`${TAG} TTS[${idx}] ✓ received — ${buf.byteLength}B (${(buf.byteLength/1024).toFixed(1)}KB)`);
+          console.log(`[TTS] first 4 bytes hex:`, buf.slice(0, 4).toString('hex'));
           return buf;
         }
         const errText = await ttsRes.text();
