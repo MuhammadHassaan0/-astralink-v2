@@ -299,7 +299,7 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose }) {
     // ── Submit blob → server ─────────────────────────────────────────────
     const submitBlob = async (blob) => {
       if (closed) return;
-      go('processing');
+      // go('processing') already fired in stopRecording on button release
 
       try {
         const fd = new FormData();
@@ -379,6 +379,7 @@ export default function MamdaniRealtimeVoice({ onNewExchange, onClose }) {
     const stopRecording = () => {
       if (mediaRec?.state === 'recording') {
         console.log('[MamdaniRTV] stopRecording — stopping MediaRecorder');
+        go('processing'); // instant UI feedback on button release, before onstop fires
         mediaRec.stop();
       }
     };

@@ -1165,7 +1165,7 @@ app.post('/mamdani-realtime-voice', uploadMem.single('audio'), async (req, res) 
         console.log(`${TAG} sentence[${sentIdx}] detected (${sentence.length} chars) — firing TTS: "${sentence.slice(0, 60)}"`);
         ttsPromises.push(callTTS(sentence, sentIdx++)); // start immediately, don't await
       }
-      if (isEnd && ragBuf.trim().length >= 3) {
+      if (isEnd && ragBuf.trim().length >= 1) {
         console.log(`${TAG} sentence[${sentIdx}] tail flush (${ragBuf.trim().length} chars) — firing TTS: "${ragBuf.trim().slice(0, 60)}"`);
         ttsPromises.push(callTTS(ragBuf.trim(), sentIdx++));
         ragBuf = '';

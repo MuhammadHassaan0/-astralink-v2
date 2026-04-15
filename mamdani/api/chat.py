@@ -362,7 +362,7 @@ async def mamdani_chat(req: ChatRequest):
     system_prompt = build_system_prompt(context, intent=intent)
 
     # Token budget scales with intent
-    max_tokens = 128 if intent == "simple" else 384
+    max_tokens = 200 if intent == "simple" else 400
 
     history = [
         {"role": m.role, "content": m.content}
