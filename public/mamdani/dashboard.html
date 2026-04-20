@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mamdani Campaign Intelligence</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0d0d0d;
+    color: #e8e8e8;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  /* ── Gate ── */
+  .gate {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .gate-card {
+    background: #161616;
+    border: 1px solid #2a2a2a;
+    border-radius: 20px;
+    padding: 40px;
+    width: 340px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .gate-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #e8e8e8;
+    text-align: center;
+  }
+  .gate-sub {
+    font-size: 12px;
+    color: #555;
+    text-align: center;
+  }
+  .gate-input {
+    width: 100%;
+    background: #1f1f1f;
+    border: 1px solid #2a2a2a;
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 15px;
+    color: #e8e8e8;
+    outline: none;
+    font-family: inherit;
+    transition: border-color 0.15s;
+    text-align: center;
+  }
+  .gate-input:focus { border-color: #2ecc71; }
+  .gate-btn {
+    width: 100%;
+    background: #2ecc71;
+    color: #000;
+    border: none;
+    border-radius: 10px;
+    padding: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: opacity 0.15s;
+  }
+  .gate-btn:hover { opacity: 0.88; }
+  .gate-error { font-size: 12px; color: #e74c3c; text-align: center; min-height: 16px; }
+
+  /* ── Dashboard ── */
+  .dash { display: none; flex-direction: column; max-width: 900px; margin: 0 auto; padding: 40px 24px 80px; gap: 32px; }
+  .dash.visible { display: flex; }
+
+  .dash-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+  .dash-header h1 { font-size: 22px; font-weight: 700; color: #e8e8e8; }
+  .dash-header p  { font-size: 12px; color: #555; }
+  .badge {
+    background: #1a2e22;
+    border: 1px solid #2ecc71;
+    color: #2ecc71;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 20px;
+    letter-spacing: 0.04em;
+  }
+
+  /* ── Stat cards ── */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+  .card {
+    background: #161616;
+    border: 1px solid #2a2a2a;
+    border-radius: 16px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .card-label { font-size: 11px; font-weight: 600; color: #555; letter-spacing: 0.06em; text-transform: uppercase; }
+  .card-value { font-size: 36px; font-weight: 700; color: #e8e8e8; line-height: 1; }
+  .card-sub   { font-size: 12px; color: #444; }
+
+  /* ── Section ── */
+  .section { display: flex; flex-direction: column; gap: 16px; }
+  .section-title { font-size: 14px; font-weight: 600; color: #888; letter-spacing: 0.04em; text-transform: uppercase; }
+
+  /* ── Bar chart ── */
+  .chart { background: #161616; border: 1px solid #2a2a2a; border-radius: 16px; padding: 24px; display: flex; flex-direction: column; gap: 14px; }
+  .bar-row { display: flex; align-items: center; gap: 12px; }
+  .bar-word { font-size: 13px; color: #bbb; width: 110px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar-track { flex: 1; background: #1f1f1f; border-radius: 4px; height: 8px; overflow: hidden; }
+  .bar-fill  { height: 100%; background: #2ecc71; border-radius: 4px; transition: width 0.6s ease; }
+  .bar-count { font-size: 12px; color: #555; width: 28px; text-align: right; flex-shrink: 0; }
+
+  /* ── Channel split ── */
+  .channel-split { background: #161616; border: 1px solid #2a2a2a; border-radius: 16px; padding: 24px; display: flex; gap: 20px; flex-wrap: wrap; }
+  .channel-item { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 120px; }
+  .channel-label { font-size: 11px; font-weight: 600; color: #555; text-transform: uppercase; letter-spacing: 0.06em; }
+  .channel-count { font-size: 28px; font-weight: 700; color: #e8e8e8; }
+  .channel-pct   { font-size: 12px; color: #444; }
+  .channel-bar-track { width: 100%; background: #1f1f1f; border-radius: 4px; height: 6px; }
+  .channel-bar-fill  { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
+  .channel-bar-fill.text  { background: #2ecc71; }
+  .channel-bar-fill.voice { background: #3498db; }
+
+  /* ── Footer ── */
+  .dash-footer { font-size: 11px; color: #333; text-align: center; }
+
+  /* ── Loading ── */
+  .loading { text-align: center; color: #555; font-size: 14px; padding: 60px; }
+
+  /* ── Refresh btn ── */
+  .refresh-btn {
+    background: #1f1f1f;
+    border: 1px solid #2a2a2a;
+    color: #888;
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .refresh-btn:hover { color: #2ecc71; border-color: #2ecc71; }
+</style>
+</head>
+<body>
+
+<!-- Password gate -->
+<div class="gate" id="gate">
+  <div class="gate-card">
+    <div class="gate-title">Campaign Intelligence</div>
+    <div class="gate-sub">Mamdani Digital Twin · Analytics</div>
+    <input class="gate-input" type="password" id="gate-input" placeholder="Access code" autocomplete="off" />
+    <button class="gate-btn" id="gate-btn">View Dashboard</button>
+    <div class="gate-error" id="gate-error"></div>
+  </div>
+</div>
+
+<!-- Dashboard -->
+<div class="dash" id="dash">
+  <div class="loading" id="loading">Loading analytics…</div>
+
+  <div id="dash-content" style="display:none; flex-direction:column; gap:32px;">
+
+    <div class="dash-header">
+      <div>
+        <h1>Campaign Intelligence</h1>
+        <p>Mamdani Digital Twin · Last 7 days</p>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="badge">LIVE</span>
+        <button class="refresh-btn" id="refresh-btn">↻ Refresh</button>
+      </div>
+    </div>
+
+    <!-- Stat cards -->
+    <div class="cards">
+      <div class="card">
+        <div class="card-label">Total Conversations</div>
+        <div class="card-value" id="stat-total">—</div>
+        <div class="card-sub">Last 7 days</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Avg Session Length</div>
+        <div class="card-value" id="stat-avg">—</div>
+        <div class="card-sub">seconds per conversation</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Voice Interactions</div>
+        <div class="card-value" id="stat-voice">—</div>
+        <div class="card-sub">via realtime voice</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Text Interactions</div>
+        <div class="card-value" id="stat-text">—</div>
+        <div class="card-sub">via chat interface</div>
+      </div>
+    </div>
+
+    <!-- Top topics -->
+    <div class="section">
+      <div class="section-title">Top Topics Asked</div>
+      <div class="chart" id="topics-chart"></div>
+    </div>
+
+    <!-- Channel split -->
+    <div class="section">
+      <div class="section-title">Channel Breakdown</div>
+      <div class="channel-split" id="channel-split"></div>
+    </div>
+
+    <div class="dash-footer">
+      AstraLink Campaign Intelligence · Data resets every 7 days · IPs hashed for privacy
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const PASS = 'astralink2026';
+  const ANALYTICS_URL = '/mamdani/analytics';
+
+  // ── Gate ────────────────────────────────────────────────────────────────────
+  const gateEl   = document.getElementById('gate');
+  const dashEl   = document.getElementById('dash');
+  const inputEl  = document.getElementById('gate-input');
+  const btnEl    = document.getElementById('gate-btn');
+  const errEl    = document.getElementById('gate-error');
+
+  function unlock() {
+    if (inputEl.value.trim() === PASS) {
+      gateEl.style.display = 'none';
+      dashEl.classList.add('visible');
+      loadData();
+    } else {
+      errEl.textContent = 'Incorrect access code';
+      inputEl.value = '';
+      inputEl.focus();
+    }
+  }
+  btnEl.addEventListener('click', unlock);
+  inputEl.addEventListener('keydown', e => { if (e.key === 'Enter') unlock(); });
+
+  // ── Load data ────────────────────────────────────────────────────────────────
+  async function loadData() {
+    const loadingEl = document.getElementById('loading');
+    const contentEl = document.getElementById('dash-content');
+    loadingEl.style.display = 'block';
+    contentEl.style.display = 'none';
+
+    try {
+      const res  = await fetch(ANALYTICS_URL);
+      const data = await res.json();
+      render(data);
+      contentEl.style.display = 'flex';
+    } catch (e) {
+      loadingEl.textContent = 'Failed to load analytics. Is the backend running?';
+    } finally {
+      loadingEl.style.display = 'none';
+    }
+  }
+
+  document.getElementById('refresh-btn').addEventListener('click', loadData);
+
+  // ── Render ───────────────────────────────────────────────────────────────────
+  function render(data) {
+    const total  = data.total_conversations || 0;
+    const avgSec = data.average_session_duration_sec || 0;
+    const voice  = (data.by_channel || {}).voice || 0;
+    const text   = (data.by_channel || {}).text  || 0;
+    const topics = data.top_topics || [];
+
+    document.getElementById('stat-total').textContent = total;
+    document.getElementById('stat-avg').textContent   = avgSec + 's';
+    document.getElementById('stat-voice').textContent = voice;
+    document.getElementById('stat-text').textContent  = text;
+
+    // Bar chart — top topics
+    const chart = document.getElementById('topics-chart');
+    const maxCount = topics.length > 0 ? topics[0].count : 1;
+    if (topics.length === 0) {
+      chart.innerHTML = '<div style="color:#555;font-size:13px;">No conversations yet this week.</div>';
+    } else {
+      chart.innerHTML = topics.map(({ word, count }) => `
+        <div class="bar-row">
+          <div class="bar-word">${word}</div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width:${Math.round(count / maxCount * 100)}%"></div>
+          </div>
+          <div class="bar-count">${count}</div>
+        </div>
+      `).join('');
+    }
+
+    // Channel split
+    const channelEl = document.getElementById('channel-split');
+    const totalCh   = voice + text || 1;
+    const textPct   = Math.round(text  / totalCh * 100);
+    const voicePct  = Math.round(voice / totalCh * 100);
+    channelEl.innerHTML = `
+      <div class="channel-item">
+        <div class="channel-label">Text Chat</div>
+        <div class="channel-count">${text}</div>
+        <div class="channel-pct">${textPct}% of total</div>
+        <div class="channel-bar-track">
+          <div class="channel-bar-fill text" style="width:${textPct}%"></div>
+        </div>
+      </div>
+      <div class="channel-item">
+        <div class="channel-label">Voice</div>
+        <div class="channel-count">${voice}</div>
+        <div class="channel-pct">${voicePct}% of total</div>
+        <div class="channel-bar-track">
+          <div class="channel-bar-fill voice" style="width:${voicePct}%"></div>
+        </div>
+      </div>
+    `;
+  }
+</script>
+</body>
+</html>

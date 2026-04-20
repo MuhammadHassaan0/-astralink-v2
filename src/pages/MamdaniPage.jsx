@@ -874,6 +874,17 @@ export default function MamdaniPage() {
               </svg>
             </button>
           </div>
+          <p style={{
+            margin: '8px 0 0',
+            fontSize: '10px',
+            color: '#333',
+            textAlign: 'center',
+            lineHeight: 1.5,
+            letterSpacing: '0.01em',
+          }}>
+            This is an AI twin trained on public records. It is not Zohran Mamdani.
+            Conversations may be used to improve the product.
+          </p>
         </div>
 
       </div>
