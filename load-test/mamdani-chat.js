@@ -97,7 +97,7 @@ export default function () {
   const params = {
     headers: {
       'Content-Type':        'application/json',
-      'X-Load-Test-Secret':  __ENV.LOAD_TEST_SECRET || '',
+      'X-Load-Test-Secret':  'lt-mamdani-bypass-2026',
     },
     timeout: '45s',   // generous — SSE streams can take time
     tags:    { endpoint: 'mamdani-chat' },

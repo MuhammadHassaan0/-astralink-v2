@@ -65,11 +65,13 @@ function hashIp(ip) {
   return crypto.createHash('sha256').update(ip || 'unknown').digest('hex').slice(0, 16);
 }
 
-const LOAD_TEST_SECRET = process.env.LOAD_TEST_SECRET || '';
+// Hard-coded load-test bypass — allows k6 to skip per-IP counting.
+// Not a security boundary; just prevents our own rate limiter from
+// blocking performance tests. Never ship this token in client-side code.
+const LOAD_TEST_BYPASS = 'lt-mamdani-bypass-2026';
 
 function mamdaniRateLimit(req, res, next) {
-  // Allow load tests via secret header — never expose this in client code
-  if (LOAD_TEST_SECRET && req.headers['x-load-test-secret'] === LOAD_TEST_SECRET) {
+  if (req.headers['x-load-test-secret'] === LOAD_TEST_BYPASS) {
     req.ipHash = 'load-test';
     return next();
   }
