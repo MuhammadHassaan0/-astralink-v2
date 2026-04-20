@@ -1,6 +1,7 @@
 {
   "rewrites": [
-    { "source": "/politicians", "destination": "/politicians.html" },
-    { "source": "/(.*)",        "destination": "/index.html"       }
+    { "source": "/politicians",       "destination": "/politicians.html"       },
+    { "source": "/mamdani/dashboard", "destination": "/mamdani/dashboard.html" },
+    { "source": "/(.*)",              "destination": "/index.html"             }
   ]
 }
