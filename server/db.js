@@ -51,6 +51,34 @@ async function initDB() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS mamdani_conversations (
+      id SERIAL PRIMARY KEY,
+      ip_hash TEXT NOT NULL,
+      channel TEXT DEFAULT 'text',
+      user_message TEXT,
+      assistant_response TEXT,
+      session_duration_ms INTEGER,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_mamdani_conv_created
+    ON mamdani_conversations (created_at)
+  `);
+}
+
+async function logMamdaniConversation({ ipHash, channel, userMessage, assistantResponse, durationMs }) {
+  try {
+    await pool.query(
+      `INSERT INTO mamdani_conversations
+         (ip_hash, channel, user_message, assistant_response, session_duration_ms)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [ipHash, channel, userMessage || '', assistantResponse || '', durationMs || 0]
+    );
+  } catch (e) {
+    console.error('[mamdani-log] DB write failed:', e.message);
+  }
 }
 
 async function getUserContext(userId) {
@@ -95,4 +123,4 @@ async function getPublicContext(userId) {
   return context;
 }
 
-module.exports = { pool, initDB, getUserContext, getPublicContext };
+module.exports = { pool, initDB, getUserContext, getPublicContext, logMamdaniConversation };

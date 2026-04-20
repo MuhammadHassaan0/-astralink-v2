@@ -7,7 +7,8 @@ const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { pool, initDB, getUserContext, getPublicContext } = require('./db');
+const crypto = require('crypto');
+const { pool, initDB, getUserContext, getPublicContext, logMamdaniConversation } = require('./db');
 const Groq = require('groq-sdk');
 const pdfParse = require('pdf-parse');
 
@@ -53,6 +54,36 @@ function authMiddleware(req, res, next) {
   } catch {
     res.status(401).json({ error: 'Invalid token' });
   }
+}
+
+// ── Mamdani rate limiter — 20 req / IP / hour (in-memory) ────────────────────
+const _mamdaniRateMap = new Map(); // ipHash -> { count, windowStart }
+const RATE_MAX    = 20;
+const RATE_WINDOW = 60 * 60 * 1000; // 1 hour in ms
+
+function hashIp(ip) {
+  return crypto.createHash('sha256').update(ip || 'unknown').digest('hex').slice(0, 16);
+}
+
+function mamdaniRateLimit(req, res, next) {
+  const ip   = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.ip || 'unknown';
+  const hash = hashIp(ip);
+  const now  = Date.now();
+  const entry = _mamdaniRateMap.get(hash);
+
+  if (!entry || now - entry.windowStart > RATE_WINDOW) {
+    _mamdaniRateMap.set(hash, { count: 1, windowStart: now });
+    req.ipHash = hash;
+    return next();
+  }
+  entry.count++;
+  if (entry.count > RATE_MAX) {
+    return res.status(429).json({
+      error: "You've reached the limit for now — check back in an hour.",
+    });
+  }
+  req.ipHash = hash;
+  next();
 }
 
 app.post('/register', async (req, res) => {
@@ -818,8 +849,13 @@ app.post('/woz-chat', async (req, res) => {
 // ── Mamdani proxy ─────────────────────────────────────────────────────────────
 // Forwards to the Python FastAPI RAG backend.
 // Set MAMDANI_API_URL in Railway env vars when the Python backend is deployed.
-app.post('/mamdani-chat', async (req, res) => {
+app.post('/mamdani-chat', mamdaniRateLimit, async (req, res) => {
   const mamdaniUrl = (process.env.MAMDANI_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
+  const startMs    = Date.now();
+  // Extract last user message for logging
+  const msgs       = Array.isArray(req.body?.messages) ? req.body.messages : [];
+  const userMsg    = [...msgs].reverse().find(m => m.role === 'user')?.content || '';
+
   try {
     const upstream = await fetch(`${mamdaniUrl}/mamdani/chat`, {
       method: 'POST',
@@ -837,19 +873,41 @@ app.post('/mamdani-chat', async (req, res) => {
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
-    res.flushHeaders(); // send headers to client NOW before any data arrives
+    res.flushHeaders();
 
-    const reader = upstream.body.getReader();
-    const pump = async () => {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) { res.end(); break; }
-        res.write(value);
-        // flush each chunk immediately — prevents Express/nginx buffering
-        if (typeof res.flush === 'function') res.flush();
+    const reader     = upstream.body.getReader();
+    const sseDec     = new TextDecoder();
+    let   sseBuf     = '';
+    let   fullResp   = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) { res.end(); break; }
+      // Decode SSE tokens while forwarding raw bytes to client
+      sseBuf += sseDec.decode(value, { stream: true });
+      const lines = sseBuf.split('\n');
+      sseBuf = lines.pop();
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const evt = JSON.parse(line.slice(6));
+            if (evt.type === 'token' && evt.content) fullResp += evt.content;
+          } catch {}
+        }
       }
-    };
-    await pump();
+      res.write(value);
+      if (typeof res.flush === 'function') res.flush();
+    }
+
+    // Log after stream completes — non-blocking
+    logMamdaniConversation({
+      ipHash:            req.ipHash,
+      channel:           'text',
+      userMessage:       userMsg,
+      assistantResponse: fullResp,
+      durationMs:        Date.now() - startMs,
+    });
+
   } catch (e) {
     console.error('[mamdani-chat] proxy error:', e.message);
     if (!res.headersSent) res.status(502).json({ error: `Mamdani backend unreachable: ${e.message}` });
@@ -1031,8 +1089,9 @@ app.post('/mamdani-voice', async (req, res) => {
 });
 
 // ── Mamdani Realtime Voice ────────────────────────────────────────────────────
-app.post('/mamdani-realtime-voice', uploadMem.single('audio'), async (req, res) => {
-  const TAG = '[mamdani-realtime]';
+app.post('/mamdani-realtime-voice', mamdaniRateLimit, uploadMem.single('audio'), async (req, res) => {
+  const TAG     = '[mamdani-realtime]';
+  const startMs = Date.now();
   console.log(`${TAG} ━━━ REQUEST HIT ━━━`);
   try {
 
@@ -1227,6 +1286,15 @@ app.post('/mamdani-realtime-voice', uploadMem.single('audio'), async (req, res) 
     res.end();
     console.log(`${TAG} ━━━ DONE — ${sentCount}/${ttsPromises.length} audio chunks sent ━━━`);
 
+    // Log conversation — non-blocking, after response is complete
+    logMamdaniConversation({
+      ipHash:            req.ipHash,
+      channel:           'voice',
+      userMessage:       transcript,
+      assistantResponse: fullText,
+      durationMs:        Date.now() - startMs,
+    });
+
   } catch (e) {
     console.error(`${TAG} UNHANDLED: ${e.message}\n${e.stack}`);
     if (!res.headersSent) {
@@ -1234,6 +1302,75 @@ app.post('/mamdani-realtime-voice', uploadMem.single('audio'), async (req, res) 
     } else {
       res.end();
     }
+  }
+});
+
+// ── Mamdani Analytics ─────────────────────────────────────────────────────────
+const STOP_WORDS = new Set([
+  'the','a','an','is','are','was','were','i','you','he','she','it','we','they',
+  'my','your','his','her','its','our','their','what','how','why','when','where',
+  'who','do','does','did','have','has','had','will','would','could','should',
+  'can','may','might','shall','be','been','being','to','of','in','for','on',
+  'with','at','by','from','about','and','or','but','not','this','that','these',
+  'those','me','him','us','them','so','if','than','then','because','as','up',
+  'out','into','through','during','before','after','tell','think','just','like',
+  'get','know','want','say','go','make','see','think','come','its','also','more',
+]);
+
+app.get('/mamdani/analytics', async (req, res) => {
+  try {
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    const [totalRes, avgRes, msgsRes, byChannelRes] = await Promise.all([
+      pool.query(
+        'SELECT COUNT(*) AS total FROM mamdani_conversations WHERE created_at > $1',
+        [weekAgo]
+      ),
+      pool.query(
+        'SELECT AVG(session_duration_ms)::INTEGER AS avg_ms FROM mamdani_conversations WHERE created_at > $1',
+        [weekAgo]
+      ),
+      pool.query(
+        'SELECT user_message FROM mamdani_conversations WHERE created_at > $1',
+        [weekAgo]
+      ),
+      pool.query(
+        `SELECT channel, COUNT(*) AS count
+         FROM mamdani_conversations WHERE created_at > $1
+         GROUP BY channel`,
+        [weekAgo]
+      ),
+    ]);
+
+    // Simple keyword frequency extraction
+    const wordCounts = {};
+    for (const { user_message } of msgsRes.rows) {
+      if (!user_message) continue;
+      for (const raw of user_message.toLowerCase().replace(/[^a-z\s]/g, '').split(/\s+/)) {
+        const w = raw.trim();
+        if (w.length < 3 || STOP_WORDS.has(w)) continue;
+        wordCounts[w] = (wordCounts[w] || 0) + 1;
+      }
+    }
+    const top_topics = Object.entries(wordCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([word, count]) => ({ word, count }));
+
+    const by_channel = {};
+    for (const { channel, count } of byChannelRes.rows) by_channel[channel] = parseInt(count);
+
+    res.json({
+      period:                        'last_7_days',
+      total_conversations:           parseInt(totalRes.rows[0].total),
+      average_session_duration_ms:   avgRes.rows[0].avg_ms || 0,
+      average_session_duration_sec:  Math.round((avgRes.rows[0].avg_ms || 0) / 1000),
+      by_channel,
+      top_topics,
+    });
+  } catch (e) {
+    console.error('[mamdani/analytics] error:', e.message);
+    res.status(500).json({ error: e.message });
   }
 });
 
