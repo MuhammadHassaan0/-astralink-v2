@@ -65,7 +65,15 @@ function hashIp(ip) {
   return crypto.createHash('sha256').update(ip || 'unknown').digest('hex').slice(0, 16);
 }
 
+const LOAD_TEST_SECRET = process.env.LOAD_TEST_SECRET || '';
+
 function mamdaniRateLimit(req, res, next) {
+  // Allow load tests via secret header — never expose this in client code
+  if (LOAD_TEST_SECRET && req.headers['x-load-test-secret'] === LOAD_TEST_SECRET) {
+    req.ipHash = 'load-test';
+    return next();
+  }
+
   const ip   = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.ip || 'unknown';
   const hash = hashIp(ip);
   const now  = Date.now();
