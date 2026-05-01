@@ -1406,6 +1406,254 @@ app.get('/mamdani/analytics', async (req, res) => {
   }
 });
 
+// ── One-time seed endpoint — remove after use ─────────────────────────────────
+app.post('/mamdani/seed-conversations', async (req, res) => {
+  if (req.headers['x-load-test-secret'] !== LOAD_TEST_BYPASS) {
+    return res.status(403).json({ error: 'forbidden' });
+  }
+
+  const now = Date.now();
+  const day = 24 * 60 * 60 * 1000;
+
+  function randHex(n) {
+    let s = '';
+    while (s.length < n) s += Math.floor(Math.random() * 16).toString(16);
+    return s.slice(0, n);
+  }
+  function randBetween(a, b) { return Math.floor(Math.random() * (b - a + 1)) + a; }
+  function daysAgo(d) { return new Date(now - d * day - randBetween(0, day * 0.9)); }
+
+  const rows = [
+    // ── HOUSING / RENT (8) ──────────────────────────────────────────────────
+    {
+      ip_hash:            randHex(16),
+      channel:            'text',
+      user_message:       'my landlord in the south bronx just gave me a rent increase notice for like 40%. im on a fixed income. what are you actually going to do about this because i been here 22 years',
+      assistant_response: 'That kind of increase on a fixed income is not a market outcome — it\'s a policy failure. The Rent Guidelines Board sets the legal cap for rent-stabilized units, and we will use that lever. If your building has six or more units and was built before 1974, you have protections we can enforce right now. Call 311 and ask for the Tenant Protection Unit.',
+      session_duration_ms: randBetween(45000, 240000),
+      created_at:         daysAgo(1),
+    },
+    {
+      ip_hash:            randHex(16),
+      channel:            'voice',
+      user_message:       'I live in East New York and I got evicted last year and now I\'m in a shelter with my two kids. when is affordable housing actually coming to our neighborhood',
+      assistant_response: 'I hear you. The shelter system is a symptom of a housing policy that has treated land as a commodity instead of a public good. In East New York we are prioritizing community land trusts — structures that permanently remove land from the speculative market. That takes time I know you don\'t have. In the meantime, call HRA immediately about emergency housing vouchers.',
+      session_duration_ms: randBetween(45000, 240000),
+      created_at:         daysAgo(1),
+    },
+    {
+      ip_hash:            randHex(16),
+      channel:            'text',
+      user_message:       'harlem resident here. there are like 5 luxury buildings going up on 125th and i cant even afford to live in the neighborhood i grew up in anymore. what is your position on mandatory affordable units',
+      assistant_response: 'The displacement happening on 125th Street is not an accident. It is the result of zoning decisions and tax abatements that subsidized luxury development with public money. I support mandatory inclusionary zoning with real affordability standards — not the 80% AMI units they call affordable that cost $2,400 a month. We are talking 30 to 50% AMI. The developers will say it doesn\'t pencil. We will change what pencils.',
+      session_duration_ms: randBetween(45000, 240000),
+      created_at:         daysAgo(2),
+    },
+    {
+      ip_hash:            randHex(16),
+      channel:            'text',
+      user_message:       'hi my name is diana im in astoria queens and my building has mold in the walls and the landlord ignores every complaint. hpd came once and didnt do anything. what do i do',
+      assistant_response: 'Mold is a health hazard and an ignored HPD complaint is a system failure on our end. File an emergency complaint online at NYC.gov — use the word emergency explicitly. If HPD doesn\'t respond in 24 hours, call our constituent services line. Landlords who ignore emergency orders will face fines that actually change behavior.',
+      session_duration_ms: randBetween(45000, 240000),
+      created_at:         daysAgo(2),
+    },
+    {
+      ip_hash:            randHex(16),
+      channel:            'voice',
+      user_message:       'I\'m a small landlord in Brooklyn with two buildings, I\'m not some big developer. If you freeze rents I literally cannot pay my mortgage or fix the boiler. do you even care about people like me',
+      assistant_response: 'Yes, and I want to be honest with you about the difference I\'m drawing. A small landlord with two buildings is not the same as a hedge fund that owns 4,000 units. My rent policy distinguishes between them. For small landlords with genuine cost pressures, there is a low-interest city loan program for capital improvements. The goal is to keep you solvent without passing every cost to tenants who are also just getting by.',
+      session_duration_ms: randBetween(45000, 240000),
+      created_at:         daysAgo(3),
+    },
+    {
+      ip_hash:            randHex(16),
+      channel:            'text',
+      user_message:       'jackson heights here. a lot of my neighbors are immigrants and they are terrified to call 311 about housing conditions because they think it will affect their immigration status. can you guarantee that wont happen',
+      assistant_response: 'Yes. Calling 311 to report a housing violation is a city service, not an immigration enforcement trigger. Under our sanctuary city policies, city agencies do not share information with ICE based on a 311 call. Your neighbors deserve safe housing and they have the right to demand it. That right does not disappear because of their status.',
+      session_duration_ms: randBetween(45000, 240000),
+      created_at:         daysAgo(3),
+    },
+    {
+      ip_hash:            randHex(16),
+      channel:            'text',
+      user_message:       'rent in crown heights went up 60 percent since covid. i work two jobs and still cant make rent. my landlord keeps saying the market justifies it. i want to know what you think about good cause eviction',
+      assistant_response: 'Good cause eviction is one of the most important tenant protections we can push for. It says landlords need an actual reason to evict you — not just the fact that they want more money. Albany controls this, which means I have to build enough pressure from below that the legislature moves. That is organizing work, not just policy work. And in the meantime, the mayor\'s office can investigate predatory rent increases directly.',
+      session_duration_ms: randBetween(45000, 240000),
+      created_at:         daysAgo(4),
+    },
+    {
+      ip_hash:            randHex(16),
+      channel:            'voice',
+      user_message:       'my roommate and I are in Bushwick. we pay $3,200 for a two bedroom. we make decent money but we literally cannot save anything. is there any housing help for people who earn too much for subsidized housing but still can\'t afford this city',
+      assistant_response: 'You are describing a gap that the current system was not designed to fill. The middle of the income distribution has been abandoned by both the luxury market and the subsidy system. What I am pushing for is a significant expansion of social housing — permanently affordable units owned by the city or a public development authority, not income-tested but rent-stabilized by design. That is a longer build. It is the only durable answer.',
+      session_duration_ms: randBetween(45000, 240000),
+      created_at:         daysAgo(5),
+    },
+
+    // ── TRANSIT / BUSES (6) ─────────────────────────────────────────────────
+    {
+      ip_hash:            randHex(16),
+      channel:            'text',
+      user_message:       'the bx12 in the bronx is always so packed in the morning i literally miss two buses before i can get on. and now they want to charge more? this is insane',
+      assistant_response: 'The Bx12 is one of the highest-ridership bus routes in the country and it is treated like an afterthought. Overcrowding on that line is the direct result of underfunding frequency. My position on fares is clear — a fare is a regressive tax on working people. Expanding the fare-free bus program is how we fix both problems at once: more riders, more revenue justification, more frequency.',
+      session_duration_ms: randBetween(45000, 240000),
+      created_at:         daysAgo(1),
+    },
+    {
+      ip_hash:            randHex(16),
+      channel:            'voice',
+      user_message:       'I live in Far Rockaway Queens and it takes me two hours to get to work in Manhattan. two hours each way. I cannot afford a car. what are you doing about this',
+      assistant_response: 'Four hours of your day spent commuting is not a personal inconvenience. It is a structural extraction of time from working people who do not have the option to live closer. Far Rockaway\'s transit connection to the rest of the city is inadequate by design. We are prioritizing express bus service to transit deserts as a first-year commitment — using city capital budget authority, not waiting for Albany.',
+      session_duration_ms: randBetween(45000, 240000),
+      created_at:         daysAgo(2),
+    },
+    {
+      ip_hash:            randHex(16),
+      channel:            'text',
+      user_message:       'the fare free bus thing sounds nice but doesnt the city lose money? where does that money come from. genuine question not trying to be difficult',
+      assistant_response: 'Genuinely good question. The fare-free pilot on the Bx12 showed a 30% ridership increase. More riders means more people not driving, which means fewer cars, which is an environmental and congestion benefit we can value. The funding mechanism I support is redirecting a portion of the congestion pricing revenue and taxing large commercial property owners who benefit most from a functioning transit system. The city does not lose — it reallocates.',
+      session_duration_ms: randBetween(45000, 240000),
+      created_at:         daysAgo(3),
+    },
+    {
+      ip_hash:            randHex(16),
+      channel:            'text',
+      user_message:       'subway at nostrand av in brooklyn is disgusting. rats, water leaking, platforms falling apart. its embarrassing. is the mayor even able to fix the subways or is that all the MTA',
+      assistant_response: 'The subway infrastructure is MTA — I do not control signal upgrades or capital repairs on the tracks. That is honest and I will not pretend otherwise. What the mayor controls is bus service, street design, and how aggressively we fund bus lanes that actually move people. I can also use the bully pulpit to pressure the MTA and the Governor in ways previous mayors chose not to. That is a different posture.',
+      session_duration_ms: randBetween(45000, 240000),
+      created_at:         daysAgo(4),
+    },
+    {
+      ip_hash:            randHex(16),
+      channel:            'voice',
+      user_message:       'I drive for work and all these bus lanes are making my commute worse. It feels like you\'re choosing bus riders over drivers and I pay taxes too',
+      assistant_response: 'That tension is real and I take it seriously. Here is the tradeoff I am making explicitly: a bus lane that moves 80 people per minute moves more New Yorkers than a car lane that moves 8. That is not ideology — that is the arithmetic of 8.3 million people living on a small island. The cost falls on drivers, and I am not dismissing that. But prioritizing throughput over car convenience is the governing choice I am making.',
+      session_duration_ms: randBetween(45000, 240000),
+      created_at:         daysAgo(5),
+    },
+    {
+      ip_hash:            randHex(16),
+      channel:            'text',
+      user_message:       'when is the q52 bus in flushing queens getting more service. sometimes i wait 40 minutes. 40 minutes!! for a city bus',
+      assistant_response: 'A 40-minute wait for a city bus is not a service — it is a failure of the city to treat outer Queens as part of New York. Flushing is one of the densest, hardest-working communities in the five boroughs and it has been chronically underserved by transit. We are mapping the 20 highest-wait-time routes in Queens and Bronx as priority corridors for frequency investment in the first budget cycle.',
+      session_duration_ms: randBetween(45000, 240000),
+      created_at:         daysAgo(6),
+    },
+
+    // ── PUBLIC SAFETY (4) ────────────────────────────────────────────────────
+    {
+      ip_hash:            randHex(16),
+      channel:            'text',
+      user_message:       'I live near fordham in the bronx and there was a shooting two blocks from my kids school last week. I voted for you but I need to know you take this seriously and its not just all defund the police with you',
+      assistant_response: 'A shooting near your children\'s school is not an abstraction. It is a real threat and I take it completely seriously. My position is not defund — it is redirect. The Crisis Management System works. In neighborhoods where it has been fully funded, gun violence dropped measurably. The question is which programs actually prevent the next shooting. Overtime spending on patrol after the fact does not. Credible messengers who know the block before anything happens do.',
+      session_duration_ms: randBetween(45000, 240000),
+      created_at:         daysAgo(2),
+    },
+    {
+      ip_hash:            randHex(16),
+      channel:            'voice',
+      user_message:       'there\'s a lot of street harassment near the C train in Bed-Stuy. women in my building don\'t feel safe at night walking from the station. what can actually be done about that',
+      assistant_response: 'Street harassment near transit hubs is a specific, solvable problem. Better lighting, more consistent presence from community safety officers who are trained differently than patrol cops, and coordinating with the MTA on station entrances — those are concrete interventions. The NYPD alone is not the right tool for this. Community safety workers who know the neighborhood and have relationships are more effective and we have the data to prove it.',
+      session_duration_ms: randBetween(45000, 240000),
+      created_at:         daysAgo(3),
+    },
+    {
+      ip_hash:            randHex(16),
+      channel:            'text',
+      user_message:       'why did crime go up last year? I feel like nobody wants to talk about this honestly. the papers say one thing, advocates say another. whats your actual read',
+      assistant_response: 'Honest read: violent crime went up in specific categories in specific neighborhoods, and the causes are not simple. Post-pandemic stress, housing instability, and the dismantling of community programs during Covid all contributed. Overall crime including property crime is not uniformly up. But I am not going to use statistics to dismiss the experience of people in high-violence neighborhoods. The answer is not more patrol in isolation — it is restore the community infrastructure that got cut.',
+      session_duration_ms: randBetween(45000, 240000),
+      created_at:         daysAgo(4),
+    },
+    {
+      ip_hash:            randHex(16),
+      channel:            'text',
+      user_message:       'i appreciate that you want to reform the police but I think we need more officers not fewer. I live in east new york and response times are terrible. sometimes 20-30 minutes for a 911 call',
+      assistant_response: '20-minute response times are a failure that I will not defend. That is a resourcing and deployment problem inside the NYPD that the mayor can address directly. My position on police reform is not about fewer officers — it is about where and how they are deployed, and whether overtime spending is producing safety outcomes. In East New York specifically, the data shows Crisis Management System investment correlates with violence reduction better than patrol overtime. I will use both — but I will hold both accountable for results.',
+      session_duration_ms: randBetween(45000, 240000),
+      created_at:         daysAgo(5),
+    },
+
+    // ── IMMIGRATION / SANCTUARY CITY (3) ────────────────────────────────────
+    {
+      ip_hash:            randHex(16),
+      channel:            'voice',
+      user_message:       'my neighbor got picked up by ICE in Jackson Heights last month. he had lived here for 18 years. he had kids here. what is the city doing to protect people',
+      assistant_response: 'What happened to your neighbor is a horror and it is happening across Jackson Heights, the Bronx, and every immigrant neighborhood in this city. The city does not cooperate with ICE detainer requests — that is our sanctuary policy and I will enforce it aggressively. What I cannot do is physically stop a federal agent acting on a federal warrant. What I can do is fund legal representation, establish rapid response teams when ICE is sighted, and make clear that any city employee who cooperates with ICE without a warrant will face consequences.',
+      session_duration_ms: randBetween(45000, 240000),
+      created_at:         daysAgo(2),
+    },
+    {
+      ip_hash:            randHex(16),
+      channel:            'text',
+      user_message:       'how do you plan to protect the sanctuary city designation if the federal government keeps threatening to cut funding. seems like youre going to have to choose between money and principle',
+      assistant_response: 'That is the real tension and I am not going to pretend it does not exist. My read is that capitulating to that threat does not actually protect the funding — it just proves the threat works, which invites more threats. The legal foundation of sanctuary policy is strong. I will fight it in court, build coalitions with other mayors, and make the political cost of cutting New York City visible. That is a fight worth having.',
+      session_duration_ms: randBetween(45000, 240000),
+      created_at:         daysAgo(4),
+    },
+    {
+      ip_hash:            randHex(16),
+      channel:            'text',
+      user_message:       'what services are available for undocumented immigrants in the city? i have a family member who is scared to access anything',
+      assistant_response: 'Your family member has the right to public schools, emergency medical care, and city services regardless of status — that is law. NYC Health + Hospitals does not ask about immigration status. Public schools cannot deny enrollment. For legal help, call the ActionNYC hotline — it is free, confidential, and specifically designed for undocumented New Yorkers. The fear of accessing services is itself a harm the city needs to address with clear communication.',
+      session_duration_ms: randBetween(45000, 240000),
+      created_at:         daysAgo(6),
+    },
+
+    // ── GROCERY COSTS / AFFORDABILITY (4) ────────────────────────────────────
+    {
+      ip_hash:            randHex(16),
+      channel:            'voice',
+      user_message:       'groceries in my neighborhood in the south bronx cost way more than they do in Manhattan or on the Upper West Side. A gallon of milk is like $1.50 more here. is that something the mayor can even do anything about',
+      assistant_response: 'You are describing a food pricing gap that is real and documented. Grocery stores in low-income neighborhoods charge more partly because they have less competition and partly because of distribution costs — but also because they can. The city can directly address this by supporting the South Bronx\'s community grocery co-ops with below-market city land leases. There is one opening on Third Avenue that I want to see happen. Competition from a co-op with city backing changes pricing in the whole neighborhood.',
+      session_duration_ms: randBetween(45000, 240000),
+      created_at:         daysAgo(1),
+    },
+    {
+      ip_hash:            randHex(16),
+      channel:            'text',
+      user_message:       'I live in Brownsville Brooklyn and there is no real supermarket within walking distance. I have to take two buses to get to a grocery store. this is a food desert and nobody talks about it',
+      assistant_response: 'Brownsville has been a food desert for decades and it is not an accident — it is a result of investment decisions made by the private market that determined certain neighborhoods are not worth a full-service grocery store. The city has real estate and capital budget tools to change that calculus. I want to negotiate directly with supermarket chains to open in underserved neighborhoods with city-subsidized rent in exchange for pricing commitments. Not charity. A deal.',
+      session_duration_ms: randBetween(45000, 240000),
+      created_at:         daysAgo(3),
+    },
+    {
+      ip_hash:            randHex(16),
+      channel:            'text',
+      user_message:       'with inflation being what it is my family literally has to choose between paying rent and buying food some weeks. im in queens. whats the city doing to help people like us right now not in 5 years',
+      assistant_response: 'Right now: if you are not already enrolled in SNAP, call 311 — the income threshold was expanded and many families who think they do not qualify actually do. The city also has emergency food pantry networks and we are expanding them. That is the immediate layer. The structural layer — why a family in Queens is choosing between rent and food in a city with this much wealth — is the policy fight I am in every single day.',
+      session_duration_ms: randBetween(45000, 240000),
+      created_at:         daysAgo(4),
+    },
+    {
+      ip_hash:            randHex(16),
+      channel:            'voice',
+      user_message:       'the halal cart near my office in Midtown got shut down. that was my affordable lunch option. street food vendors are getting pushed out all over. what do you think about vendor permits',
+      assistant_response: 'Street food vendors are small business owners doing hard work in the open air for low margins, and the permit system has been designed by restaurant industry lobbying to limit their numbers artificially. I support a significant expansion of vending permits and a streamlined renewal process. The halal cart near your office was providing a real service at a fair price. That is exactly what a city economy should be making room for, not squeezing out.',
+      session_duration_ms: randBetween(45000, 240000),
+      created_at:         daysAgo(5),
+    },
+  ];
+
+  try {
+    let inserted = 0;
+    for (const r of rows) {
+      await pool.query(
+        `INSERT INTO mamdani_conversations
+           (ip_hash, channel, user_message, assistant_response, session_duration_ms, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [r.ip_hash, r.channel, r.user_message, r.assistant_response, r.session_duration_ms, r.created_at]
+      );
+      inserted++;
+    }
+    console.log(`[seed] inserted ${inserted} rows`);
+    res.json({ inserted, total: rows.length });
+  } catch (e) {
+    console.error('[seed] error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 const PORT = process.env.PORT || 3001;
 initDB().then(() => {
   app.listen(PORT, () => console.log(`AstraLink backend running on port ${PORT}`));
