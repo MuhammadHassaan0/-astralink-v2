@@ -219,6 +219,27 @@ const STYLES = `
   .mp-voice-btn:hover  { background: #1f3828; }
   .mp-voice-btn:active { transform: scale(0.92); }
 
+  /* ── Campaign Intelligence button ── */
+  .mp-ci-btn {
+    margin-left: 6px;
+    flex-shrink: 0;
+    background: transparent;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    padding: 5px 10px;
+    color: #555;
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color 0.15s, border-color 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    letter-spacing: 0.01em;
+  }
+  .mp-ci-btn:hover { color: #2ecc71; border-color: #2ecc71; }
+
   /* ── Chat area ── */
   .mp-chat {
     flex: 1;
@@ -783,6 +804,13 @@ export default function MamdaniPage() {
             title="Voice mode"
           >
             <VoiceIcon size={15} />
+          </button>
+          <button
+            className="mp-ci-btn"
+            onClick={() => window.open('https://astralink.life/mamdani/dashboard', '_blank')}
+            title="Campaign Intelligence dashboard"
+          >
+            CI →
           </button>
         </div>
 

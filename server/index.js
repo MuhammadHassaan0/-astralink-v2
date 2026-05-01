@@ -1317,6 +1317,7 @@ app.post('/mamdani-realtime-voice', mamdaniRateLimit, uploadMem.single('audio'),
 
 // ── Mamdani Analytics ─────────────────────────────────────────────────────────
 const STOP_WORDS = new Set([
+  // Common English
   'the','a','an','is','are','was','were','i','you','he','she','it','we','they',
   'my','your','his','her','its','our','their','what','how','why','when','where',
   'who','do','does','did','have','has','had','will','would','could','should',
@@ -1324,14 +1325,22 @@ const STOP_WORDS = new Set([
   'with','at','by','from','about','and','or','but','not','this','that','these',
   'those','me','him','us','them','so','if','than','then','because','as','up',
   'out','into','through','during','before','after','tell','think','just','like',
-  'get','know','want','say','go','make','see','think','come','its','also','more',
+  'get','know','want','say','go','make','see','come','its','also','more','really',
+  'very','much','many','some','any','all','one','two','three','new','old','good',
+  'big','great','right','well','back','even','still','way','work','time','year',
+  // Campaign noise — generic words that add no topic signal
+  'plan','plans','policy','policies','nyc','york','city','run','running','public',
+  'pay','paying','think','thinking','feel','feeling','believe','need','needs',
+  'help','people','something','everything','anything','nothing','around','going',
+  'take','taking','give','giving','look','looking','talk','talking','ask','asking',
+  'mean','means','zohran','mamdani','mayor','would','going','done','make','let',
 ]);
 
 app.get('/mamdani/analytics', async (req, res) => {
   try {
     const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-    const [totalRes, avgRes, msgsRes, byChannelRes] = await Promise.all([
+    const [totalRes, avgRes, msgsRes, byChannelRes, recentRes] = await Promise.all([
       pool.query(
         'SELECT COUNT(*) AS total FROM mamdani_conversations WHERE created_at > $1',
         [weekAgo]
@@ -1349,6 +1358,12 @@ app.get('/mamdani/analytics', async (req, res) => {
          FROM mamdani_conversations WHERE created_at > $1
          GROUP BY channel`,
         [weekAgo]
+      ),
+      pool.query(
+        `SELECT user_message, created_at
+         FROM mamdani_conversations
+         WHERE user_message IS NOT NULL AND user_message != ''
+         ORDER BY created_at DESC LIMIT 10`
       ),
     ]);
 
@@ -1370,13 +1385,20 @@ app.get('/mamdani/analytics', async (req, res) => {
     const by_channel = {};
     for (const { channel, count } of byChannelRes.rows) by_channel[channel] = parseInt(count);
 
+    const recent_conversations = recentRes.rows.map(r => ({
+      message:    r.user_message.slice(0, 200), // cap length for display
+      timestamp:  r.created_at,
+    }));
+
     res.json({
       period:                        'last_7_days',
       total_conversations:           parseInt(totalRes.rows[0].total),
       average_session_duration_ms:   avgRes.rows[0].avg_ms || 0,
       average_session_duration_sec:  Math.round((avgRes.rows[0].avg_ms || 0) / 1000),
+      most_asked_topic:              top_topics[0]?.word || null,
       by_channel,
       top_topics,
+      recent_conversations,
     });
   } catch (e) {
     console.error('[mamdani/analytics] error:', e.message);

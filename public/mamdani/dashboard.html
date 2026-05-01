@@ -3,290 +3,501 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Mamdani Campaign Intelligence</title>
+<title>What Your Constituents Are Asking · Mamdani</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+  :root {
+    --green:   #16a34a;
+    --green-lt:#dcfce7;
+    --border:  #e5e7eb;
+    --bg:      #f9fafb;
+    --card:    #ffffff;
+    --text:    #111827;
+    --sub:     #6b7280;
+    --lite:    #9ca3af;
+  }
+
   body {
-    background: #0d0d0d;
-    color: #e8e8e8;
+    background: var(--bg);
+    color: var(--text);
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     -webkit-font-smoothing: antialiased;
     min-height: 100vh;
   }
 
-  /* ── Gate ── */
-  .gate {
-    min-height: 100vh;
+  /* ── Layout ── */
+  .page { max-width: 960px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  /* ── Header ── */
+  .header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 36px;
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--border);
+  }
+  .header-left h1 {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 4px;
+    line-height: 1.2;
+  }
+  .header-left p {
+    font-size: 14px;
+    color: var(--sub);
+  }
+  .header-right {
     display: flex;
     align-items: center;
-    justify-content: center;
+    gap: 10px;
+    flex-shrink: 0;
   }
-  .gate-card {
-    background: #161616;
-    border: 1px solid #2a2a2a;
-    border-radius: 20px;
-    padding: 40px;
-    width: 340px;
+  .live-badge {
     display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-  .gate-title {
-    font-size: 18px;
-    font-weight: 600;
-    color: #e8e8e8;
-    text-align: center;
-  }
-  .gate-sub {
+    align-items: center;
+    gap: 6px;
+    background: var(--green-lt);
+    color: var(--green);
     font-size: 12px;
-    color: #555;
-    text-align: center;
-  }
-  .gate-input {
-    width: 100%;
-    background: #1f1f1f;
-    border: 1px solid #2a2a2a;
-    border-radius: 10px;
-    padding: 12px 16px;
-    font-size: 15px;
-    color: #e8e8e8;
-    outline: none;
-    font-family: inherit;
-    transition: border-color 0.15s;
-    text-align: center;
-  }
-  .gate-input:focus { border-color: #2ecc71; }
-  .gate-btn {
-    width: 100%;
-    background: #2ecc71;
-    color: #000;
-    border: none;
-    border-radius: 10px;
-    padding: 12px;
-    font-size: 14px;
     font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 20px;
+    letter-spacing: 0.03em;
+  }
+  .live-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; }
+    50%      { opacity: 0.4; }
+  }
+  .refresh-btn {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--sub);
     cursor: pointer;
     font-family: inherit;
-    transition: opacity 0.15s;
+    transition: border-color 0.15s, color 0.15s;
   }
-  .gate-btn:hover { opacity: 0.88; }
-  .gate-error { font-size: 12px; color: #e74c3c; text-align: center; min-height: 16px; }
-
-  /* ── Dashboard ── */
-  .dash { display: none; flex-direction: column; max-width: 900px; margin: 0 auto; padding: 40px 24px 80px; gap: 32px; }
-  .dash.visible { display: flex; }
-
-  .dash-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
-  .dash-header h1 { font-size: 22px; font-weight: 700; color: #e8e8e8; }
-  .dash-header p  { font-size: 12px; color: #555; }
-  .badge {
-    background: #1a2e22;
-    border: 1px solid #2ecc71;
-    color: #2ecc71;
-    font-size: 11px;
-    font-weight: 600;
-    padding: 4px 12px;
-    border-radius: 20px;
-    letter-spacing: 0.04em;
-  }
+  .refresh-btn:hover { border-color: var(--green); color: var(--green); }
 
   /* ── Stat cards ── */
-  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 36px;
+  }
   .card {
-    background: #161616;
-    border: 1px solid #2a2a2a;
-    border-radius: 16px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px 20px;
+  }
+  .card-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--sub);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .card-value {
+    font-size: 34px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+  .card-value.topic {
+    font-size: 22px;
+    text-transform: capitalize;
+    color: var(--green);
+  }
+  .card-sub {
+    font-size: 13px;
+    color: var(--lite);
+  }
+
+  /* ── Section ── */
+  .section { margin-bottom: 36px; }
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .section-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .section-sub {
+    font-size: 13px;
+    color: var(--lite);
+  }
+
+  /* ── Bar chart ── */
+  .chart {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
     padding: 24px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 14px;
   }
-  .card-label { font-size: 11px; font-weight: 600; color: #555; letter-spacing: 0.06em; text-transform: uppercase; }
-  .card-value { font-size: 36px; font-weight: 700; color: #e8e8e8; line-height: 1; }
-  .card-sub   { font-size: 12px; color: #444; }
-
-  /* ── Section ── */
-  .section { display: flex; flex-direction: column; gap: 16px; }
-  .section-title { font-size: 14px; font-weight: 600; color: #888; letter-spacing: 0.04em; text-transform: uppercase; }
-
-  /* ── Bar chart ── */
-  .chart { background: #161616; border: 1px solid #2a2a2a; border-radius: 16px; padding: 24px; display: flex; flex-direction: column; gap: 14px; }
-  .bar-row { display: flex; align-items: center; gap: 12px; }
-  .bar-word { font-size: 13px; color: #bbb; width: 110px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .bar-track { flex: 1; background: #1f1f1f; border-radius: 4px; height: 8px; overflow: hidden; }
-  .bar-fill  { height: 100%; background: #2ecc71; border-radius: 4px; transition: width 0.6s ease; }
-  .bar-count { font-size: 12px; color: #555; width: 28px; text-align: right; flex-shrink: 0; }
+  .bar-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .bar-word {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    width: 120px;
+    flex-shrink: 0;
+    text-transform: capitalize;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .bar-track {
+    flex: 1;
+    background: #f3f4f6;
+    border-radius: 6px;
+    height: 10px;
+    overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    background: var(--green);
+    border-radius: 6px;
+    transition: width 0.7s cubic-bezier(.4,0,.2,1);
+  }
+  .bar-count {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--sub);
+    width: 32px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .empty-state {
+    text-align: center;
+    color: var(--lite);
+    font-size: 14px;
+    padding: 32px;
+  }
 
   /* ── Channel split ── */
-  .channel-split { background: #161616; border: 1px solid #2a2a2a; border-radius: 16px; padding: 24px; display: flex; gap: 20px; flex-wrap: wrap; }
-  .channel-item { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 120px; }
-  .channel-label { font-size: 11px; font-weight: 600; color: #555; text-transform: uppercase; letter-spacing: 0.06em; }
-  .channel-count { font-size: 28px; font-weight: 700; color: #e8e8e8; }
-  .channel-pct   { font-size: 12px; color: #444; }
-  .channel-bar-track { width: 100%; background: #1f1f1f; border-radius: 4px; height: 6px; }
-  .channel-bar-fill  { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
-  .channel-bar-fill.text  { background: #2ecc71; }
-  .channel-bar-fill.voice { background: #3498db; }
+  .channel-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .channel-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .channel-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--sub);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .channel-count { font-size: 30px; font-weight: 700; color: var(--text); line-height: 1; margin-bottom: 6px; }
+  .channel-pct   { font-size: 13px; color: var(--lite); margin-bottom: 12px; }
+  .channel-bar-track { width: 100%; background: #f3f4f6; border-radius: 6px; height: 6px; }
+  .channel-bar-fill  { height: 100%; border-radius: 6px; transition: width 0.7s cubic-bezier(.4,0,.2,1); }
+  .channel-bar-fill.text  { background: var(--green); }
+  .channel-bar-fill.voice { background: #3b82f6; }
+
+  /* ── Recent conversations ── */
+  .feed {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .feed-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px 20px;
+    border-bottom: 1px solid #f3f4f6;
+    transition: background 0.1s;
+  }
+  .feed-item:last-child { border-bottom: none; }
+  .feed-item:hover { background: #fafafa; }
+  .feed-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: #f3f4f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+    color: var(--sub);
+  }
+  .feed-body { flex: 1; min-width: 0; }
+  .feed-message {
+    font-size: 14px;
+    color: var(--text);
+    line-height: 1.5;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 3px;
+  }
+  .feed-time {
+    font-size: 12px;
+    color: var(--lite);
+  }
+
+  /* ── Loading skeleton ── */
+  .skeleton {
+    background: linear-gradient(90deg, #f3f4f6 25%, #e9eaeb 50%, #f3f4f6 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+    border-radius: 6px;
+  }
+  @keyframes shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
 
   /* ── Footer ── */
-  .dash-footer { font-size: 11px; color: #333; text-align: center; }
-
-  /* ── Loading ── */
-  .loading { text-align: center; color: #555; font-size: 14px; padding: 60px; }
-
-  /* ── Refresh btn ── */
-  .refresh-btn {
-    background: #1f1f1f;
-    border: 1px solid #2a2a2a;
-    color: #888;
-    border-radius: 8px;
-    padding: 6px 14px;
+  .footer {
+    text-align: center;
     font-size: 12px;
-    cursor: pointer;
-    font-family: inherit;
-    transition: color 0.15s, border-color 0.15s;
+    color: var(--lite);
+    padding-top: 32px;
+    border-top: 1px solid var(--border);
+    line-height: 1.8;
   }
-  .refresh-btn:hover { color: #2ecc71; border-color: #2ecc71; }
+  .footer strong { color: var(--sub); font-weight: 600; }
+
+  /* ── Error ── */
+  .error-banner {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #dc2626;
+    border-radius: 10px;
+    padding: 14px 18px;
+    font-size: 14px;
+    margin-bottom: 24px;
+    display: none;
+  }
+
+  @media (max-width: 520px) {
+    .channel-grid { grid-template-columns: 1fr; }
+    .bar-word { width: 90px; }
+    .header-left h1 { font-size: 20px; }
+  }
 </style>
 </head>
 <body>
+<div class="page">
 
-<!-- Password gate -->
-<div class="gate" id="gate">
-  <div class="gate-card">
-    <div class="gate-title">Campaign Intelligence</div>
-    <div class="gate-sub">Mamdani Digital Twin · Analytics</div>
-    <input class="gate-input" type="password" id="gate-input" placeholder="Access code" autocomplete="off" />
-    <button class="gate-btn" id="gate-btn">View Dashboard</button>
-    <div class="gate-error" id="gate-error"></div>
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <h1>What your constituents are asking</h1>
+      <p>Mamdani Digital Twin · Last 7 days · All data anonymized</p>
+    </div>
+    <div class="header-right">
+      <div class="live-badge"><div class="live-dot"></div> Live</div>
+      <button class="refresh-btn" id="refresh-btn">↻ Refresh</button>
+    </div>
   </div>
-</div>
 
-<!-- Dashboard -->
-<div class="dash" id="dash">
-  <div class="loading" id="loading">Loading analytics…</div>
+  <!-- Error -->
+  <div class="error-banner" id="error-banner"></div>
 
-  <div id="dash-content" style="display:none; flex-direction:column; gap:32px;">
-
-    <div class="dash-header">
-      <div>
-        <h1>Campaign Intelligence</h1>
-        <p>Mamdani Digital Twin · Last 7 days</p>
-      </div>
-      <div style="display:flex;align-items:center;gap:10px;">
-        <span class="badge">LIVE</span>
-        <button class="refresh-btn" id="refresh-btn">↻ Refresh</button>
-      </div>
+  <!-- Stat cards -->
+  <div class="cards" id="cards">
+    <div class="card">
+      <div class="card-label">Total Conversations</div>
+      <div class="card-value skeleton" id="stat-total" style="height:40px;width:60px;">&nbsp;</div>
+      <div class="card-sub">This week</div>
     </div>
-
-    <!-- Stat cards -->
-    <div class="cards">
-      <div class="card">
-        <div class="card-label">Total Conversations</div>
-        <div class="card-value" id="stat-total">—</div>
-        <div class="card-sub">Last 7 days</div>
-      </div>
-      <div class="card">
-        <div class="card-label">Avg Session Length</div>
-        <div class="card-value" id="stat-avg">—</div>
-        <div class="card-sub">seconds per conversation</div>
-      </div>
-      <div class="card">
-        <div class="card-label">Voice Interactions</div>
-        <div class="card-value" id="stat-voice">—</div>
-        <div class="card-sub">via realtime voice</div>
-      </div>
-      <div class="card">
-        <div class="card-label">Text Interactions</div>
-        <div class="card-value" id="stat-text">—</div>
-        <div class="card-sub">via chat interface</div>
-      </div>
+    <div class="card">
+      <div class="card-label">Avg Conversation Length</div>
+      <div class="card-value skeleton" id="stat-avg" style="height:40px;width:80px;">&nbsp;</div>
+      <div class="card-sub">seconds per session</div>
     </div>
-
-    <!-- Top topics -->
-    <div class="section">
-      <div class="section-title">Top Topics Asked</div>
-      <div class="chart" id="topics-chart"></div>
+    <div class="card">
+      <div class="card-label">Most Asked Topic</div>
+      <div class="card-value topic skeleton" id="stat-topic" style="height:36px;width:100px;">&nbsp;</div>
+      <div class="card-sub">Top keyword this week</div>
     </div>
-
-    <!-- Channel split -->
-    <div class="section">
-      <div class="section-title">Channel Breakdown</div>
-      <div class="channel-split" id="channel-split"></div>
+    <div class="card">
+      <div class="card-label">Channel Split</div>
+      <div class="card-value skeleton" id="stat-split" style="height:40px;width:120px;">&nbsp;</div>
+      <div class="card-sub">text vs voice</div>
     </div>
-
-    <div class="dash-footer">
-      AstraLink Campaign Intelligence · Data resets every 7 days · IPs hashed for privacy
-    </div>
-
   </div>
+
+  <!-- Top topics bar chart -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-title">Top Topics</span>
+      <span class="section-sub">By question frequency · meaningful keywords only</span>
+    </div>
+    <div class="chart" id="topics-chart">
+      <div class="skeleton" style="height:14px;width:100%;border-radius:6px;"></div>
+      <div class="skeleton" style="height:14px;width:85%;border-radius:6px;"></div>
+      <div class="skeleton" style="height:14px;width:70%;border-radius:6px;"></div>
+      <div class="skeleton" style="height:14px;width:60%;border-radius:6px;"></div>
+      <div class="skeleton" style="height:14px;width:45%;border-radius:6px;"></div>
+    </div>
+  </div>
+
+  <!-- Channel breakdown -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-title">Channel Breakdown</span>
+      <span class="section-sub">Text chat vs voice mode</span>
+    </div>
+    <div class="channel-grid" id="channel-grid">
+      <div class="channel-card">
+        <div class="channel-name">Text Chat</div>
+        <div class="channel-count skeleton" style="height:36px;width:60px;">&nbsp;</div>
+        <div class="channel-pct skeleton" style="height:14px;width:80px;margin-top:8px;">&nbsp;</div>
+        <div class="channel-bar-track" style="margin-top:14px;">
+          <div class="channel-bar-fill text" style="width:0%"></div>
+        </div>
+      </div>
+      <div class="channel-card">
+        <div class="channel-name">Voice Mode</div>
+        <div class="channel-count skeleton" style="height:36px;width:60px;">&nbsp;</div>
+        <div class="channel-pct skeleton" style="height:14px;width:80px;margin-top:8px;">&nbsp;</div>
+        <div class="channel-bar-track" style="margin-top:14px;">
+          <div class="channel-bar-fill voice" style="width:0%"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent conversations -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-title">Recent Conversations</span>
+      <span class="section-sub">10 most recent · first message shown</span>
+    </div>
+    <div class="feed" id="feed">
+      ${[...Array(5)].map(() => `
+        <div class="feed-item">
+          <div class="feed-avatar">💬</div>
+          <div class="feed-body">
+            <div class="skeleton" style="height:14px;width:80%;border-radius:4px;margin-bottom:6px;"></div>
+            <div class="skeleton" style="height:12px;width:100px;border-radius:4px;"></div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <strong>Powered by AstraLink</strong> · Data updates in real time · All conversations anonymized<br/>
+    IP addresses are hashed and never stored in readable form · No personal data is retained
+  </div>
+
 </div>
 
 <script>
-  const PASS = 'astralink2026';
-  const ANALYTICS_URL = 'https://astralink-v2-production.up.railway.app/mamdani/analytics';
+  const API = 'https://astralink-v2-production.up.railway.app/mamdani/analytics';
 
-  // ── Gate ────────────────────────────────────────────────────────────────────
-  const gateEl   = document.getElementById('gate');
-  const dashEl   = document.getElementById('dash');
-  const inputEl  = document.getElementById('gate-input');
-  const btnEl    = document.getElementById('gate-btn');
-  const errEl    = document.getElementById('gate-error');
-
-  function unlock() {
-    if (inputEl.value.trim() === PASS) {
-      gateEl.style.display = 'none';
-      dashEl.classList.add('visible');
-      loadData();
-    } else {
-      errEl.textContent = 'Incorrect access code';
-      inputEl.value = '';
-      inputEl.focus();
-    }
+  function timeAgo(isoString) {
+    const diff = Date.now() - new Date(isoString).getTime();
+    const m = Math.floor(diff / 60000);
+    const h = Math.floor(diff / 3600000);
+    const d = Math.floor(diff / 86400000);
+    if (m < 1)  return 'just now';
+    if (m < 60) return `${m}m ago`;
+    if (h < 24) return `${h}h ago`;
+    return `${d}d ago`;
   }
-  btnEl.addEventListener('click', unlock);
-  inputEl.addEventListener('keydown', e => { if (e.key === 'Enter') unlock(); });
 
-  // ── Load data ────────────────────────────────────────────────────────────────
+  function removeSkeleton(el) {
+    el.classList.remove('skeleton');
+    el.style.height = '';
+    el.style.width  = '';
+  }
+
   async function loadData() {
-    const loadingEl = document.getElementById('loading');
-    const contentEl = document.getElementById('dash-content');
-    loadingEl.style.display = 'block';
-    contentEl.style.display = 'none';
+    const errEl = document.getElementById('error-banner');
+    errEl.style.display = 'none';
 
     try {
-      const res  = await fetch(ANALYTICS_URL);
+      const res  = await fetch(API);
+      if (!res.ok) throw new Error(`API returned ${res.status}`);
       const data = await res.json();
       render(data);
-      contentEl.style.display = 'flex';
     } catch (e) {
-      loadingEl.textContent = 'Failed to load analytics. Is the backend running?';
-    } finally {
-      loadingEl.style.display = 'none';
+      errEl.textContent = `Could not load data: ${e.message}`;
+      errEl.style.display = 'block';
     }
   }
 
-  document.getElementById('refresh-btn').addEventListener('click', loadData);
-
-  // ── Render ───────────────────────────────────────────────────────────────────
   function render(data) {
-    const total  = data.total_conversations || 0;
-    const avgSec = data.average_session_duration_sec || 0;
-    const voice  = (data.by_channel || {}).voice || 0;
-    const text   = (data.by_channel || {}).text  || 0;
-    const topics = data.top_topics || [];
+    const total    = data.total_conversations  || 0;
+    const avgSec   = data.average_session_duration_sec || 0;
+    const topTopic = data.most_asked_topic     || '—';
+    const topics   = data.top_topics           || [];
+    const voice    = (data.by_channel || {}).voice || 0;
+    const text     = (data.by_channel || {}).text  || 0;
+    const total_ch = voice + text || 1;
+    const recent   = data.recent_conversations || [];
 
-    document.getElementById('stat-total').textContent = total;
-    document.getElementById('stat-avg').textContent   = avgSec + 's';
-    document.getElementById('stat-voice').textContent = voice;
-    document.getElementById('stat-text').textContent  = text;
+    // Stat cards
+    const totalEl = document.getElementById('stat-total');
+    removeSkeleton(totalEl);
+    totalEl.textContent = total.toLocaleString();
 
-    // Bar chart — top topics
+    const avgEl = document.getElementById('stat-avg');
+    removeSkeleton(avgEl);
+    avgEl.textContent = avgSec + 's';
+
+    const topicEl = document.getElementById('stat-topic');
+    removeSkeleton(topicEl);
+    topicEl.textContent = topTopic;
+
+    const splitEl = document.getElementById('stat-split');
+    removeSkeleton(splitEl);
+    const textPct  = Math.round(text  / total_ch * 100);
+    const voicePct = Math.round(voice / total_ch * 100);
+    splitEl.innerHTML = `<span style="color:var(--green)">${textPct}%</span>&thinsp;/&thinsp;<span style="color:#3b82f6">${voicePct}%</span>`;
+    splitEl.style.fontSize = '28px';
+
+    // Bar chart
     const chart = document.getElementById('topics-chart');
     const maxCount = topics.length > 0 ? topics[0].count : 1;
     if (topics.length === 0) {
-      chart.innerHTML = '<div style="color:#555;font-size:13px;">No conversations yet this week.</div>';
+      chart.innerHTML = '<div class="empty-state">No conversations recorded yet this week.</div>';
     } else {
       chart.innerHTML = topics.map(({ word, count }) => `
         <div class="bar-row">
@@ -299,30 +510,53 @@
       `).join('');
     }
 
-    // Channel split
-    const channelEl = document.getElementById('channel-split');
-    const totalCh   = voice + text || 1;
-    const textPct   = Math.round(text  / totalCh * 100);
-    const voicePct  = Math.round(voice / totalCh * 100);
-    channelEl.innerHTML = `
-      <div class="channel-item">
-        <div class="channel-label">Text Chat</div>
-        <div class="channel-count">${text}</div>
-        <div class="channel-pct">${textPct}% of total</div>
+    // Channel cards
+    document.getElementById('channel-grid').innerHTML = `
+      <div class="channel-card">
+        <div class="channel-name">Text Chat</div>
+        <div class="channel-count">${text.toLocaleString()}</div>
+        <div class="channel-pct">${textPct}% of conversations</div>
         <div class="channel-bar-track">
           <div class="channel-bar-fill text" style="width:${textPct}%"></div>
         </div>
       </div>
-      <div class="channel-item">
-        <div class="channel-label">Voice</div>
-        <div class="channel-count">${voice}</div>
-        <div class="channel-pct">${voicePct}% of total</div>
+      <div class="channel-card">
+        <div class="channel-name">Voice Mode</div>
+        <div class="channel-count">${voice.toLocaleString()}</div>
+        <div class="channel-pct">${voicePct}% of conversations</div>
         <div class="channel-bar-track">
           <div class="channel-bar-fill voice" style="width:${voicePct}%"></div>
         </div>
       </div>
     `;
+
+    // Recent conversations feed
+    const feed = document.getElementById('feed');
+    if (recent.length === 0) {
+      feed.innerHTML = '<div class="empty-state">No conversations yet.</div>';
+    } else {
+      feed.innerHTML = recent.map(({ message, timestamp }) => `
+        <div class="feed-item">
+          <div class="feed-avatar">💬</div>
+          <div class="feed-body">
+            <div class="feed-message">${escapeHtml(message)}</div>
+            <div class="feed-time">${timeAgo(timestamp)}</div>
+          </div>
+        </div>
+      `).join('');
+    }
   }
+
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;');
+  }
+
+  document.getElementById('refresh-btn').addEventListener('click', loadData);
+  loadData();
 </script>
 </body>
 </html>
