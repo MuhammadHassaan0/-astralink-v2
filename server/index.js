@@ -1420,9 +1420,12 @@ app.get('/mamdani/analytics', async (req, res) => {
 
 // ── One-time seed endpoint — remove after use ─────────────────────────────────
 app.post('/mamdani/seed', async (req, res) => {
+  console.log('[seed] hit — key header:', req.headers['x-seed-key'] || '(none)');
   if (req.headers['x-seed-key'] !== 'seedmamdani2026') {
+    console.log('[seed] rejected — wrong key');
     return res.status(403).json({ error: 'forbidden' });
   }
+  console.log('[seed] auth passed, starting insert...');
 
   const now = Date.now();
   const day = 24 * 60 * 60 * 1000;
