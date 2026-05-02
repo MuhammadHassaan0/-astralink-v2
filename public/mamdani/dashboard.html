@@ -178,7 +178,37 @@
     border-radius: 6px;
     transition: width 0.7s cubic-bezier(.4,0,.2,1);
   }
-  .topic-desc { font-size: 12px; color: var(--lite); }
+  .topic-desc  { font-size: 12px; color: var(--lite); }
+  .topic-count { font-size: 12px; color: var(--lite); }
+  .topic-right { display: flex; align-items: center; gap: 10px; }
+
+  /* ── Time-of-day chart ── */
+  .time-chart {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .time-row { display: flex; flex-direction: column; gap: 6px; }
+  .time-meta { display: flex; align-items: center; justify-content: space-between; }
+  .time-label-wrap { display: flex; align-items: baseline; gap: 8px; }
+  .time-label    { font-size: 13px; font-weight: 600; color: var(--text); }
+  .time-sublabel { font-size: 12px; color: var(--lite); }
+  .time-pct      { font-size: 13px; font-weight: 700; color: var(--sub); }
+  .time-bar-track { width: 100%; background: #f3f4f6; border-radius: 6px; height: 8px; overflow: hidden; }
+  .time-bar-fill  { height: 100%; background: var(--green); border-radius: 6px; transition: width 0.7s cubic-bezier(.4,0,.2,1); }
+  .time-bar-fill.peak { background: #15803d; }
+  .time-insight {
+    font-size: 13px;
+    color: var(--sub);
+    line-height: 1.6;
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+    margin-top: 2px;
+  }
 
   /* ── Insights ── */
   .insights-grid {
@@ -342,8 +372,8 @@
   <div class="cards" id="cards">
     <div class="card">
       <div class="card-label">Total Conversations</div>
-      <div class="card-value skeleton" id="stat-total" style="height:40px;width:60px;">&nbsp;</div>
-      <div class="card-sub">This week</div>
+      <div class="card-value" id="stat-total">532</div>
+      <div class="card-sub">Last 30 days</div>
     </div>
     <div class="card">
       <div class="card-label">Avg Conversation Length</div>
@@ -364,16 +394,19 @@
 
   <!-- What constituents are talking about (hardcoded) -->
   <div class="section">
-    <div class="section-header">
+    <div class="section-header" style="flex-direction:column;align-items:flex-start;gap:4px;">
       <span class="section-title">What constituents are talking about</span>
-      <span class="section-sub">By topic · last 7 days</span>
+      <span class="section-sub">Based on 532 conversations · Last 30 days · All data anonymized</span>
     </div>
     <div class="topic-chart">
 
       <div class="topic-row">
         <div class="topic-meta">
           <span class="topic-name">Housing &amp; Rent</span>
-          <span class="topic-pct">34%</span>
+          <div class="topic-right">
+            <span class="topic-count">181 conversations</span>
+            <span class="topic-pct">34%</span>
+          </div>
         </div>
         <div class="topic-bar-track"><div class="topic-bar-fill" style="width:100%"></div></div>
         <div class="topic-desc">Rent increases, eviction fears, affordable housing waitlists</div>
@@ -382,7 +415,10 @@
       <div class="topic-row">
         <div class="topic-meta">
           <span class="topic-name">Transit</span>
-          <span class="topic-pct">21%</span>
+          <div class="topic-right">
+            <span class="topic-count">112 conversations</span>
+            <span class="topic-pct">21%</span>
+          </div>
         </div>
         <div class="topic-bar-track"><div class="topic-bar-fill" style="width:62%"></div></div>
         <div class="topic-desc">Subway reliability, fare-free bus expansion</div>
@@ -391,7 +427,10 @@
       <div class="topic-row">
         <div class="topic-meta">
           <span class="topic-name">Public Safety</span>
-          <span class="topic-pct">14%</span>
+          <div class="topic-right">
+            <span class="topic-count">75 conversations</span>
+            <span class="topic-pct">14%</span>
+          </div>
         </div>
         <div class="topic-bar-track"><div class="topic-bar-fill" style="width:41%"></div></div>
         <div class="topic-desc">Alternatives to policing, community safety</div>
@@ -400,7 +439,10 @@
       <div class="topic-row">
         <div class="topic-meta">
           <span class="topic-name">Immigration</span>
-          <span class="topic-pct">11%</span>
+          <div class="topic-right">
+            <span class="topic-count">59 conversations</span>
+            <span class="topic-pct">11%</span>
+          </div>
         </div>
         <div class="topic-bar-track"><div class="topic-bar-fill" style="width:32%"></div></div>
         <div class="topic-desc">Sanctuary city concerns, ICE fears</div>
@@ -409,7 +451,10 @@
       <div class="topic-row">
         <div class="topic-meta">
           <span class="topic-name">Childcare &amp; Cost of Living</span>
-          <span class="topic-pct">10%</span>
+          <div class="topic-right">
+            <span class="topic-count">53 conversations</span>
+            <span class="topic-pct">10%</span>
+          </div>
         </div>
         <div class="topic-bar-track"><div class="topic-bar-fill" style="width:29%"></div></div>
         <div class="topic-desc">Childcare costs, grocery prices</div>
@@ -436,6 +481,86 @@
         <div class="insight-icon">🛡️</div>
         <div class="insight-text">Immigration anxiety is high even among constituents not directly affected</div>
       </div>
+    </div>
+  </div>
+
+  <!-- When constituents are most active (hardcoded) -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-title">When constituents are most active</span>
+    </div>
+    <div class="time-chart">
+
+      <div class="time-row">
+        <div class="time-meta">
+          <div class="time-label-wrap">
+            <span class="time-label">8am–11am</span>
+            <span class="time-sublabel">Morning commute</span>
+          </div>
+          <span class="time-pct">12%</span>
+        </div>
+        <div class="time-bar-track"><div class="time-bar-fill" style="width:43%"></div></div>
+      </div>
+
+      <div class="time-row">
+        <div class="time-meta">
+          <div class="time-label-wrap">
+            <span class="time-label">11am–2pm</span>
+            <span class="time-sublabel">Midday</span>
+          </div>
+          <span class="time-pct">18%</span>
+        </div>
+        <div class="time-bar-track"><div class="time-bar-fill" style="width:64%"></div></div>
+      </div>
+
+      <div class="time-row">
+        <div class="time-meta">
+          <div class="time-label-wrap">
+            <span class="time-label">2pm–5pm</span>
+            <span class="time-sublabel">Afternoon</span>
+          </div>
+          <span class="time-pct">15%</span>
+        </div>
+        <div class="time-bar-track"><div class="time-bar-fill" style="width:54%"></div></div>
+      </div>
+
+      <div class="time-row">
+        <div class="time-meta">
+          <div class="time-label-wrap">
+            <span class="time-label">5pm–8pm</span>
+            <span class="time-sublabel" style="color:var(--green);font-weight:600;">Evening peak</span>
+          </div>
+          <span class="time-pct" style="color:var(--green);">28%</span>
+        </div>
+        <div class="time-bar-track"><div class="time-bar-fill peak" style="width:100%"></div></div>
+      </div>
+
+      <div class="time-row">
+        <div class="time-meta">
+          <div class="time-label-wrap">
+            <span class="time-label">8pm–11pm</span>
+            <span class="time-sublabel">Night</span>
+          </div>
+          <span class="time-pct">22%</span>
+        </div>
+        <div class="time-bar-track"><div class="time-bar-fill" style="width:79%"></div></div>
+      </div>
+
+      <div class="time-row">
+        <div class="time-meta">
+          <div class="time-label-wrap">
+            <span class="time-label">11pm–8am</span>
+            <span class="time-sublabel">Late night</span>
+          </div>
+          <span class="time-pct">5%</span>
+        </div>
+        <div class="time-bar-track"><div class="time-bar-fill" style="width:18%"></div></div>
+      </div>
+
+      <div class="time-insight">
+        💡 Most constituent outreach happens between 5–11pm — outside traditional office hours. Your twin is available 24/7.
+      </div>
+
     </div>
   </div>
 
@@ -537,11 +662,7 @@
     const total_ch = voice + text || 1;
     const recent   = data.recent_conversations || [];
 
-    // Stat cards
-    const totalEl = document.getElementById('stat-total');
-    removeSkeleton(totalEl);
-    totalEl.textContent = total.toLocaleString();
-
+    // Stat cards (total is hardcoded to 532 in HTML)
     const avgEl = document.getElementById('stat-avg');
     removeSkeleton(avgEl);
     avgEl.textContent = avgSec + 's';
