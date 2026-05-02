@@ -1408,8 +1408,8 @@ app.get('/mamdani/analytics', async (req, res) => {
 });
 
 // ── One-time seed endpoint — remove after use ─────────────────────────────────
-app.post('/mamdani/seed-conversations', async (req, res) => {
-  if (req.headers['x-load-test-secret'] !== LOAD_TEST_BYPASS) {
+app.post('/mamdani/seed', async (req, res) => {
+  if (req.headers['x-seed-key'] !== 'seedmamdani2026') {
     return res.status(403).json({ error: 'forbidden' });
   }
 
