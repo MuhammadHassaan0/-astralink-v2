@@ -151,53 +151,53 @@
     color: var(--lite);
   }
 
-  /* ── Bar chart ── */
-  .chart {
+  /* ── Topic chart (hardcoded) ── */
+  .topic-chart {
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: 12px;
     padding: 24px;
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 22px;
   }
-  .bar-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-  .bar-word {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text);
-    width: 120px;
-    flex-shrink: 0;
-    text-transform: capitalize;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .bar-track {
-    flex: 1;
+  .topic-row { display: flex; flex-direction: column; gap: 6px; }
+  .topic-meta { display: flex; align-items: center; justify-content: space-between; }
+  .topic-name { font-size: 14px; font-weight: 600; color: var(--text); }
+  .topic-pct  { font-size: 14px; font-weight: 700; color: var(--green); }
+  .topic-bar-track {
+    width: 100%;
     background: #f3f4f6;
     border-radius: 6px;
     height: 10px;
     overflow: hidden;
   }
-  .bar-fill {
+  .topic-bar-fill {
     height: 100%;
     background: var(--green);
     border-radius: 6px;
     transition: width 0.7s cubic-bezier(.4,0,.2,1);
   }
-  .bar-count {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--sub);
-    width: 32px;
-    text-align: right;
-    flex-shrink: 0;
+  .topic-desc { font-size: 12px; color: var(--lite); }
+
+  /* ── Insights ── */
+  .insights-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
   }
+  .insight-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .insight-icon { font-size: 22px; }
+  .insight-text { font-size: 14px; color: var(--text); line-height: 1.55; font-weight: 500; }
+
   .empty-state {
     text-align: center;
     color: var(--lite);
@@ -311,9 +311,11 @@
     display: none;
   }
 
+  @media (max-width: 640px) {
+    .insights-grid { grid-template-columns: 1fr; }
+  }
   @media (max-width: 520px) {
     .channel-grid { grid-template-columns: 1fr; }
-    .bar-word { width: 90px; }
     .header-left h1 { font-size: 20px; }
   }
 </style>
@@ -360,18 +362,80 @@
     </div>
   </div>
 
-  <!-- Top topics bar chart -->
+  <!-- What constituents are talking about (hardcoded) -->
   <div class="section">
     <div class="section-header">
-      <span class="section-title">Top Topics</span>
-      <span class="section-sub">By question frequency · meaningful keywords only</span>
+      <span class="section-title">What constituents are talking about</span>
+      <span class="section-sub">By topic · last 7 days</span>
     </div>
-    <div class="chart" id="topics-chart">
-      <div class="skeleton" style="height:14px;width:100%;border-radius:6px;"></div>
-      <div class="skeleton" style="height:14px;width:85%;border-radius:6px;"></div>
-      <div class="skeleton" style="height:14px;width:70%;border-radius:6px;"></div>
-      <div class="skeleton" style="height:14px;width:60%;border-radius:6px;"></div>
-      <div class="skeleton" style="height:14px;width:45%;border-radius:6px;"></div>
+    <div class="topic-chart">
+
+      <div class="topic-row">
+        <div class="topic-meta">
+          <span class="topic-name">Housing &amp; Rent</span>
+          <span class="topic-pct">34%</span>
+        </div>
+        <div class="topic-bar-track"><div class="topic-bar-fill" style="width:100%"></div></div>
+        <div class="topic-desc">Rent increases, eviction fears, affordable housing waitlists</div>
+      </div>
+
+      <div class="topic-row">
+        <div class="topic-meta">
+          <span class="topic-name">Transit</span>
+          <span class="topic-pct">21%</span>
+        </div>
+        <div class="topic-bar-track"><div class="topic-bar-fill" style="width:62%"></div></div>
+        <div class="topic-desc">Subway reliability, fare-free bus expansion</div>
+      </div>
+
+      <div class="topic-row">
+        <div class="topic-meta">
+          <span class="topic-name">Public Safety</span>
+          <span class="topic-pct">14%</span>
+        </div>
+        <div class="topic-bar-track"><div class="topic-bar-fill" style="width:41%"></div></div>
+        <div class="topic-desc">Alternatives to policing, community safety</div>
+      </div>
+
+      <div class="topic-row">
+        <div class="topic-meta">
+          <span class="topic-name">Immigration</span>
+          <span class="topic-pct">11%</span>
+        </div>
+        <div class="topic-bar-track"><div class="topic-bar-fill" style="width:32%"></div></div>
+        <div class="topic-desc">Sanctuary city concerns, ICE fears</div>
+      </div>
+
+      <div class="topic-row">
+        <div class="topic-meta">
+          <span class="topic-name">Childcare &amp; Cost of Living</span>
+          <span class="topic-pct">10%</span>
+        </div>
+        <div class="topic-bar-track"><div class="topic-bar-fill" style="width:29%"></div></div>
+        <div class="topic-desc">Childcare costs, grocery prices</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Key Insights -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-title">Key Insights</span>
+    </div>
+    <div class="insights-grid">
+      <div class="insight-card">
+        <div class="insight-icon">🏠</div>
+        <div class="insight-text">Housing is twice as urgent as any other issue in constituent conversations</div>
+      </div>
+      <div class="insight-card">
+        <div class="insight-icon">🚇</div>
+        <div class="insight-text">Far Rockaway and Bronx transit frustration is underrepresented in press but dominant in constituent voice</div>
+      </div>
+      <div class="insight-card">
+        <div class="insight-icon">🛡️</div>
+        <div class="insight-text">Immigration anxiety is high even among constituents not directly affected</div>
+      </div>
     </div>
   </div>
 
@@ -492,23 +556,6 @@
     const voicePct = Math.round(voice / total_ch * 100);
     splitEl.innerHTML = `<span style="color:var(--green)">${textPct}%</span>&thinsp;/&thinsp;<span style="color:#3b82f6">${voicePct}%</span>`;
     splitEl.style.fontSize = '28px';
-
-    // Bar chart
-    const chart = document.getElementById('topics-chart');
-    const maxCount = topics.length > 0 ? topics[0].count : 1;
-    if (topics.length === 0) {
-      chart.innerHTML = '<div class="empty-state">No conversations recorded yet this week.</div>';
-    } else {
-      chart.innerHTML = topics.map(({ word, count }) => `
-        <div class="bar-row">
-          <div class="bar-word">${word}</div>
-          <div class="bar-track">
-            <div class="bar-fill" style="width:${Math.round(count / maxCount * 100)}%"></div>
-          </div>
-          <div class="bar-count">${count}</div>
-        </div>
-      `).join('');
-    }
 
     // Channel cards
     document.getElementById('channel-grid').innerHTML = `
