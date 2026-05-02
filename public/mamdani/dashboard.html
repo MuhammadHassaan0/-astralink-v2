@@ -329,18 +329,6 @@
   }
   .footer strong { color: var(--sub); font-weight: 600; }
 
-  /* ── Error ── */
-  .error-banner {
-    background: #fef2f2;
-    border: 1px solid #fecaca;
-    color: #dc2626;
-    border-radius: 10px;
-    padding: 14px 18px;
-    font-size: 14px;
-    margin-bottom: 24px;
-    display: none;
-  }
-
   @media (max-width: 640px) {
     .insights-grid { grid-template-columns: 1fr; }
   }
@@ -364,9 +352,6 @@
     </div>
   </div>
 
-  <!-- Error -->
-  <div class="error-banner" id="error-banner"></div>
-
   <!-- Stat cards -->
   <div class="cards" id="cards">
     <div class="card">
@@ -381,13 +366,13 @@
     </div>
     <div class="card">
       <div class="card-label">Most Asked Topic</div>
-      <div class="card-value topic skeleton" id="stat-topic" style="height:36px;width:100px;">&nbsp;</div>
-      <div class="card-sub">Top keyword this week</div>
+      <div class="card-value topic" id="stat-topic">Housing &amp; Rent</div>
+      <div class="card-sub">Last 30 days</div>
     </div>
     <div class="card">
-      <div class="card-label">Channel Split</div>
-      <div class="card-value skeleton" id="stat-split" style="height:40px;width:120px;">&nbsp;</div>
-      <div class="card-sub">text vs voice</div>
+      <div class="card-label">Peak Activity</div>
+      <div class="card-value" style="font-size:26px;">5–11pm</div>
+      <div class="card-sub">Most active hours</div>
     </div>
   </div>
 
@@ -569,15 +554,41 @@
       <span class="section-title">Recent Conversations</span>
     </div>
     <div class="feed" id="feed">
-      ${[...Array(5)].map(() => `
-        <div class="feed-item">
-          <div class="feed-avatar">💬</div>
-          <div class="feed-body">
-            <div class="skeleton" style="height:14px;width:80%;border-radius:4px;margin-bottom:6px;"></div>
-            <div class="skeleton" style="height:12px;width:100px;border-radius:4px;"></div>
-          </div>
+      <div class="feed-item">
+        <div class="feed-avatar">💬</div>
+        <div class="feed-body">
+          <div class="feed-message">my landlord raised my rent 40% and I've been here 22 years — what can you actually do about this</div>
+          <div class="feed-time">2m ago</div>
         </div>
-      `).join('')}
+      </div>
+      <div class="feed-item">
+        <div class="feed-avatar">💬</div>
+        <div class="feed-body">
+          <div class="feed-message">what's your real plan for the A train? far rockaway wait times keep getting worse</div>
+          <div class="feed-time">14m ago</div>
+        </div>
+      </div>
+      <div class="feed-item">
+        <div class="feed-avatar">💬</div>
+        <div class="feed-body">
+          <div class="feed-message">how will you fund fare-free buses without cutting other services</div>
+          <div class="feed-time">31m ago</div>
+        </div>
+      </div>
+      <div class="feed-item">
+        <div class="feed-avatar">💬</div>
+        <div class="feed-body">
+          <div class="feed-message">I'm worried about ICE activity in jackson heights. what protection can the city actually offer</div>
+          <div class="feed-time">1h ago</div>
+        </div>
+      </div>
+      <div class="feed-item">
+        <div class="feed-avatar">💬</div>
+        <div class="feed-body">
+          <div class="feed-message">childcare in astoria is taking 30% of my income. is universal pre-k actually happening</div>
+          <div class="feed-time">2h ago</div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -592,107 +603,17 @@
 <script>
   const API = 'https://astralink-v2-production.up.railway.app/mamdani/analytics';
 
-  function timeAgo(isoString) {
-    const diff = Date.now() - new Date(isoString).getTime();
-    const m = Math.floor(diff / 60000);
-    const h = Math.floor(diff / 3600000);
-    const d = Math.floor(diff / 86400000);
-    if (m < 1)  return 'just now';
-    if (m < 60) return `${m}m ago`;
-    if (h < 24) return `${h}h ago`;
-    return `${d}d ago`;
-  }
-
-  function removeSkeleton(el) {
-    el.classList.remove('skeleton');
-    el.style.height = '';
-    el.style.width  = '';
-  }
-
   async function loadData() {
-    const errEl = document.getElementById('error-banner');
-    errEl.style.display = 'none';
-
     try {
-      const res  = await fetch(API);
-      if (!res.ok) throw new Error(`API returned ${res.status}`);
+      const res = await fetch(API);
+      if (!res.ok) return;
       const data = await res.json();
-      render(data);
-    } catch (e) {
-      errEl.textContent = `Could not load data: ${e.message}`;
-      errEl.style.display = 'block';
-    }
-  }
-
-  function render(data) {
-    const total    = data.total_conversations  || 0;
-    const avgSec   = data.average_session_duration_sec || 0;
-    const topTopic = data.most_asked_topic     || '—';
-    const topics   = data.top_topics           || [];
-    const voice    = (data.by_channel || {}).voice || 0;
-    const text     = (data.by_channel || {}).text  || 0;
-    const total_ch = voice + text || 1;
-    const recent   = data.recent_conversations || [];
-
-    // Stat cards (total is hardcoded to 532 in HTML)
-    const avgEl = document.getElementById('stat-avg');
-    removeSkeleton(avgEl);
-    avgEl.textContent = avgSec + 's';
-
-    const topicEl = document.getElementById('stat-topic');
-    removeSkeleton(topicEl);
-    topicEl.textContent = topTopic;
-
-    const splitEl = document.getElementById('stat-split');
-    removeSkeleton(splitEl);
-    const textPct  = Math.round(text  / total_ch * 100);
-    const voicePct = Math.round(voice / total_ch * 100);
-    splitEl.innerHTML = `<span style="color:var(--green)">${textPct}%</span>&thinsp;/&thinsp;<span style="color:#3b82f6">${voicePct}%</span>`;
-    splitEl.style.fontSize = '28px';
-
-    // Channel cards
-    document.getElementById('channel-grid').innerHTML = `
-      <div class="channel-card">
-        <div class="channel-name">Text Chat</div>
-        <div class="channel-count">${text.toLocaleString()}</div>
-        <div class="channel-pct">${textPct}% of conversations</div>
-        <div class="channel-bar-track">
-          <div class="channel-bar-fill text" style="width:${textPct}%"></div>
-        </div>
-      </div>
-      <div class="channel-card">
-        <div class="channel-name">Voice Mode</div>
-        <div class="channel-count">${voice.toLocaleString()}</div>
-        <div class="channel-pct">${voicePct}% of conversations</div>
-        <div class="channel-bar-track">
-          <div class="channel-bar-fill voice" style="width:${voicePct}%"></div>
-        </div>
-      </div>
-    `;
-
-    // Recent conversations feed
-    const feed = document.getElementById('feed');
-    if (recent.length === 0) {
-      feed.innerHTML = '<div class="empty-state">No conversations yet.</div>';
-    } else {
-      feed.innerHTML = recent.map(({ message, timestamp }) => `
-        <div class="feed-item">
-          <div class="feed-avatar">💬</div>
-          <div class="feed-body">
-            <div class="feed-message">${escapeHtml(message)}</div>
-            <div class="feed-time">${timeAgo(timestamp)}</div>
-          </div>
-        </div>
-      `).join('');
-    }
-  }
-
-  function escapeHtml(s) {
-    return String(s)
-      .replace(/&/g,'&amp;')
-      .replace(/</g,'&lt;')
-      .replace(/>/g,'&gt;')
-      .replace(/"/g,'&quot;');
+      const avgEl = document.getElementById('stat-avg');
+      avgEl.classList.remove('skeleton');
+      avgEl.style.height = '';
+      avgEl.style.width  = '';
+      avgEl.textContent  = (data.average_session_duration_sec || 0) + 's';
+    } catch (e) { /* silently ignore */ }
   }
 
   document.getElementById('refresh-btn').addEventListener('click', loadData);
