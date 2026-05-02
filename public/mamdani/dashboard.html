@@ -357,7 +357,6 @@
   <div class="header">
     <div class="header-left">
       <h1>What your constituents are asking</h1>
-      <p>Mamdani Digital Twin · Last 7 days · All data anonymized</p>
     </div>
     <div class="header-right">
       <div class="live-badge"><div class="live-dot"></div> Live</div>
@@ -396,7 +395,7 @@
   <div class="section">
     <div class="section-header" style="flex-direction:column;align-items:flex-start;gap:4px;">
       <span class="section-title">What constituents are talking about</span>
-      <span class="section-sub">Based on 532 conversations · Last 30 days · All data anonymized</span>
+      <span style="font-size:12px;color:var(--lite);">Based on 532 conversations · Last 30 days · All data anonymized</span>
     </div>
     <div class="topic-chart">
 
@@ -564,37 +563,10 @@
     </div>
   </div>
 
-  <!-- Channel breakdown -->
-  <div class="section">
-    <div class="section-header">
-      <span class="section-title">Channel Breakdown</span>
-      <span class="section-sub">Text chat vs voice mode</span>
-    </div>
-    <div class="channel-grid" id="channel-grid">
-      <div class="channel-card">
-        <div class="channel-name">Text Chat</div>
-        <div class="channel-count skeleton" style="height:36px;width:60px;">&nbsp;</div>
-        <div class="channel-pct skeleton" style="height:14px;width:80px;margin-top:8px;">&nbsp;</div>
-        <div class="channel-bar-track" style="margin-top:14px;">
-          <div class="channel-bar-fill text" style="width:0%"></div>
-        </div>
-      </div>
-      <div class="channel-card">
-        <div class="channel-name">Voice Mode</div>
-        <div class="channel-count skeleton" style="height:36px;width:60px;">&nbsp;</div>
-        <div class="channel-pct skeleton" style="height:14px;width:80px;margin-top:8px;">&nbsp;</div>
-        <div class="channel-bar-track" style="margin-top:14px;">
-          <div class="channel-bar-fill voice" style="width:0%"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <!-- Recent conversations -->
   <div class="section">
     <div class="section-header">
       <span class="section-title">Recent Conversations</span>
-      <span class="section-sub">10 most recent · first message shown</span>
     </div>
     <div class="feed" id="feed">
       ${[...Array(5)].map(() => `
