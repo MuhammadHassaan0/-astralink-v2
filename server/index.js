@@ -1335,6 +1335,17 @@ const STOP_WORDS = new Set([
   'help','people','something','everything','anything','nothing','around','going',
   'take','taking','give','giving','look','looking','talk','talking','ask','asking',
   'mean','means','zohran','mamdani','mayor','would','going','done','make','let',
+  // Additional noise caught in analytics
+  'mmhmm','united','problem','other','compare','regions','region','things','thing',
+  'issue','issues','point','points','place','places','part','parts','kind','kinds',
+  'level','levels','number','numbers','amount','amounts','example','examples',
+  'question','questions','answer','answers','matter','matters','whole','entire',
+  'every','each','both','another','other','first','second','third','last','next',
+  'said','says','saying','doing','being','having','making','getting','going',
+  'actually','basically','literally','simply','really','truly','clearly','quite',
+  'often','never','always','maybe','perhaps','probably','usually','generally',
+  'across','between','among','against','without','within','whether','though',
+  'while','since','until','unless','where','there','here','when','then','now',
 ]);
 
 app.get('/mamdani/analytics', async (req, res) => {
@@ -1374,7 +1385,7 @@ app.get('/mamdani/analytics', async (req, res) => {
       if (!user_message) continue;
       for (const raw of user_message.toLowerCase().replace(/[^a-z\s]/g, '').split(/\s+/)) {
         const w = raw.trim();
-        if (w.length < 3 || STOP_WORDS.has(w)) continue;
+        if (w.length < 5 || STOP_WORDS.has(w)) continue;
         wordCounts[w] = (wordCounts[w] || 0) + 1;
       }
     }
