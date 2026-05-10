@@ -480,7 +480,8 @@ const STYLES = `
 `;
 
 const HEADER_HEIGHT = 77;
-// password gate disabled
+const GATE_KEY  = 'mamdani_access';
+const GATE_PASS = 'mamdani2026';
 
 const SUGGESTIONS = [
   "What's your housing policy?",
@@ -575,7 +576,7 @@ const VoiceIcon = ({ size = 16 }) => (
 );
 
 export default function MamdaniPage() {
-  const [unlocked,   setUnlocked]  = useState(true);
+  const [unlocked,   setUnlocked]  = useState(() => sessionStorage.getItem(GATE_KEY) === '1');
   const [messages,   setMessages]  = useState([]);
   const [input,      setInput]     = useState('');
   const [streaming,  setStreaming] = useState(false);
@@ -771,6 +772,8 @@ export default function MamdaniPage() {
     micPhase === 'transcribing' ? 'Transcribing…' :
     streaming                   ? 'Waiting for response…' :
                                   'Ask the Mayor…';
+
+  if (!unlocked) return <PasswordGate onUnlock={() => setUnlocked(true)} />;
 
   return (
     <div className="mp-root">
