@@ -24,6 +24,7 @@ import VintPage from './pages/VintPage.jsx';
 import WozPage from './pages/WozPage.jsx';
 import MamdaniPage from './pages/MamdaniPage.jsx';
 import FaizahPage from './pages/FaizahPage.jsx';
+import ColterPage from './pages/ColterPage.jsx';
 
 export default function App() {
   return (
@@ -52,6 +53,7 @@ export default function App() {
       <Route path="/woz" element={<WozPage />} />
       <Route path="/mamdani" element={<MamdaniPage />} />
       <Route path="/faizah" element={<FaizahPage />} />
+      <Route path="/colter" element={<ColterPage />} />
     </Routes>
   );
 }

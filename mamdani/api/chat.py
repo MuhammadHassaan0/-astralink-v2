@@ -666,6 +666,172 @@ async def faizah_chat(req: ChatRequest):
     )
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# COLTER CARLISLE — Digital Twin endpoint
+# ══════════════════════════════════════════════════════════════════════════════
+
+COLTER_COLLECTION   = "colter"
+COLTER_PERSONA_FILE = ROOT / "prompts" / "colter_persona.md"
+
+_colter_persona_text: str | None = None
+_colter_retrieve = None
+_colter_classify  = None
+
+
+def get_colter_persona() -> str:
+    global _colter_persona_text
+    if _colter_persona_text is None:
+        try:
+            _colter_persona_text = COLTER_PERSONA_FILE.read_text()
+            log.info("Colter persona loaded (%d chars)", len(_colter_persona_text))
+        except Exception as e:
+            log.error("Colter persona file read failed: %s", e)
+            _colter_persona_text = "You are Colter Carlisle, candidate for LA City Council District 13."
+    return _colter_persona_text
+
+
+def get_colter_retriever():
+    global _colter_retrieve, _colter_classify
+    if _colter_retrieve is None or _colter_classify is None:
+        try:
+            log.info("Importing retrieval.colter_retriever …")
+            from retrieval.colter_retriever import retrieve, classify_query
+            _colter_retrieve = retrieve
+            _colter_classify  = classify_query
+            log.info("retrieval.colter_retriever imported ok")
+        except Exception as e:
+            log.error("retrieval.colter_retriever import failed: %s", e)
+            raise
+    return _colter_retrieve, _colter_classify
+
+
+def build_colter_system_prompt(context: str, intent: str = "complex") -> str:
+    today        = date.today().isoformat()
+    persona_text = get_colter_persona()
+
+    if intent == "simple":
+        length_rule = "Respond in 1–2 sentences. Direct, working-class, human."
+    else:
+        length_rule = "Respond in 2–4 sentences. Conversational but substantive. Lead with the real stakes for renters and working families."
+
+    return f"""You are Colter Carlisle, challenger for LA City Council District 13.
+
+RESPONSE RULES — FOLLOW EXACTLY:
+{length_rule}
+Speak from your documented positions only. Never invent stances beyond what you have publicly stated.
+If you don't know something, say so briefly — "I haven't spoken specifically to that" — then offer what you do know.
+No bullet points, numbered lists, or headers.
+Do not end responses with questions.
+Do not start every sentence with "I".
+Keep responses concise and complete — always finish your final sentence.
+Tone: direct, working-class, anti-establishment. Take clear positions. Don't hedge everything.
+If something is wrong, say so and explain why. No mealy-mouthed language.
+
+---
+
+{persona_text}
+
+---
+
+Today's date: {today}
+
+---
+
+RETRIEVED CONTEXT — from Colter's public record (campaign site, voter guides, neighborhood council activity).
+Use this material to ground your answers. If there is a direct quote, use it accurately.
+
+{context}"""
+
+
+@app.post("/colter/chat")
+async def colter_chat(req: ChatRequest):
+    if not req.messages:
+        raise HTTPException(status_code=400, detail="messages cannot be empty")
+
+    user_messages = [m for m in req.messages if m.role == "user"]
+    if not user_messages:
+        raise HTTPException(status_code=400, detail="no user message found")
+
+    query  = user_messages[-1].content.strip()
+    intent = intent_classify(query)
+    log.info("[colter] intent=%s query=%r", intent, query[:80])
+
+    try:
+        retrieve_fn, classify_fn = get_colter_retriever()
+    except Exception as e:
+        log.error("[colter] get_colter_retriever() failed: %s", e)
+        raise HTTPException(status_code=503, detail=f"Colter retriever unavailable: {e}")
+
+    query_type = classify_fn(query)
+
+    try:
+        chunks = retrieve_fn(query, top_k=TOP_K)
+    except Exception as e:
+        log.error("[colter] retrieve() failed: %s", e)
+        chunks = []
+
+    context       = build_context_block(chunks, max_tokens=MAX_CTX_TOKENS)
+    system_prompt = build_colter_system_prompt(context, intent=intent)
+
+    history = [
+        {"role": m.role, "content": m.content}
+        for m in req.messages[:-1]
+        if m.role in ("user", "assistant")
+    ]
+
+    groq_messages = [
+        {"role": "system", "content": system_prompt},
+        *history,
+        {"role": "user",   "content": query},
+    ]
+
+    async def event_stream():
+        loop  = asyncio.get_event_loop()
+        queue: asyncio.Queue = asyncio.Queue()
+
+        def run_groq_sync():
+            try:
+                groq_client_inst = get_groq()
+                stream = groq_client_inst.chat.completions.create(
+                    model=LLM_MODEL,
+                    messages=groq_messages,
+                    stream=True,
+                    max_tokens=400,
+                    temperature=0.80,
+                )
+                for chunk in stream:
+                    token = chunk.choices[0].delta.content or ""
+                    if token:
+                        loop.call_soon_threadsafe(queue.put_nowait, ("token", token))
+            except Exception as exc:
+                loop.call_soon_threadsafe(queue.put_nowait, ("error", str(exc)))
+            finally:
+                loop.call_soon_threadsafe(queue.put_nowait, ("done", None))
+
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        loop.run_in_executor(executor, run_groq_sync)
+
+        while True:
+            kind, payload = await queue.get()
+            if kind == "token":
+                yield sse_event({"type": "token", "content": payload})
+                await asyncio.sleep(0)
+            elif kind == "error":
+                log.error("[colter] Groq stream error: %s", payload)
+                yield sse_event({"type": "error", "message": payload})
+                break
+            elif kind == "done":
+                break
+
+        yield sse_event({"type": "done"})
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
 # ── Health check — always returns 200 ────────────────────────────────────────
 
 @app.get("/healthz")
