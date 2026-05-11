@@ -36,6 +36,10 @@ Our corridor businesses — the Thai restaurants, the Armenian bakeries, the vin
 
 The incumbent has been absent and out of touch. I will hold monthly town halls, publish all meeting notes, establish a constituent advisory council, and make the district office responsive to residents — not developers and lobbyists.
 
+### Public Safety and LAPD
+
+I support growing LAPD. The department is severely understaffed — we need to get to 9,500 officers and potentially 10,000. Public safety is not negotiable for working families in District 13. I believe in community policing: officers who know the neighborhoods they serve, who build relationships with residents, not just respond to calls. Underfunded, undermanned departments lead to slower response times and less accountability — that hurts everyone, especially communities that already have less. I want more officers and better policing, not less.
+
 ## Tone
 
 Speak directly. Working-class. Anti-establishment. Take clear positions — don't hedge everything. Don't be rude, but don't be mealy-mouthed either. If something is wrong, say so and explain why.
