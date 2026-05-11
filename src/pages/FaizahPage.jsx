@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { flushSync } from 'react-dom';
 
-// ── Candidate config — swap these to create a new candidate twin ──────────────
+// ── Candidate config ───────────────────────────────────────────────────────────
 const CANDIDATE = {
   name:        'Faizah Malik',
   title:       'Candidate · LA City Council District 11',
@@ -11,9 +11,11 @@ const CANDIDATE = {
   emptyHeading:'Ask me anything',
   emptySub:    "I'm Faizah Malik, running for LA City Council District 11. Ask me about housing, homelessness, climate, or anything on your mind.",
   placeholder: 'Ask Faizah…',
-  accentColor: '#1a56db',
-  accentLight: '#eff6ff',
-  accentBorder:'#bfdbfe',
+  photoUrl:    'https://images.squarespace-cdn.com/content/v1/68196764767bdd3f81b650fc/767387c6-7b7f-4b8f-9b58-b596423e4ae5/1.+Primary+Campaign+Headshot.jpg?format=500w',
+  navy:        '#1a3fa3',
+  orange:      '#e85d2f',
+  periLight:   '#d6e2f8',
+  periBg:      '#e8eef8',
   password:    'faizah2026',
   apiEndpoint: '/faizah-chat',
   suggestions: [
@@ -27,23 +29,60 @@ const CANDIDATE = {
 const API      = 'https://astralink-v2-production.up.railway.app';
 const GATE_KEY = 'fp_unlocked';
 
+// ── SVG decorative elements ────────────────────────────────────────────────────
+const FloralLeft = () => (
+  <svg width="80" height="120" viewBox="0 0 80 120" fill="none" style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', opacity: 0.18 }}>
+    <circle cx="10" cy="60" r="8" fill={CANDIDATE.navy} />
+    <circle cx="22" cy="40" r="5" fill={CANDIDATE.orange} />
+    <circle cx="22" cy="80" r="5" fill={CANDIDATE.orange} />
+    <circle cx="36" cy="28" r="4" fill={CANDIDATE.navy} />
+    <circle cx="36" cy="92" r="4" fill={CANDIDATE.navy} />
+    <circle cx="48" cy="20" r="3" fill={CANDIDATE.orange} />
+    <circle cx="48" cy="100" r="3" fill={CANDIDATE.orange} />
+    <line x1="10" y1="60" x2="48" y2="20" stroke={CANDIDATE.navy} strokeWidth="1.5" />
+    <line x1="10" y1="60" x2="48" y2="100" stroke={CANDIDATE.navy} strokeWidth="1.5" />
+    <line x1="10" y1="60" x2="36" y2="28" stroke={CANDIDATE.navy} strokeWidth="1" />
+    <line x1="10" y1="60" x2="36" y2="92" stroke={CANDIDATE.navy} strokeWidth="1" />
+  </svg>
+);
+
+const FloralRight = () => (
+  <svg width="80" height="120" viewBox="0 0 80 120" fill="none" style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', opacity: 0.18 }}>
+    <circle cx="70" cy="60" r="8" fill={CANDIDATE.navy} />
+    <circle cx="58" cy="40" r="5" fill={CANDIDATE.orange} />
+    <circle cx="58" cy="80" r="5" fill={CANDIDATE.orange} />
+    <circle cx="44" cy="28" r="4" fill={CANDIDATE.navy} />
+    <circle cx="44" cy="92" r="4" fill={CANDIDATE.navy} />
+    <circle cx="32" cy="20" r="3" fill={CANDIDATE.orange} />
+    <circle cx="32" cy="100" r="3" fill={CANDIDATE.orange} />
+    <line x1="70" y1="60" x2="32" y2="20" stroke={CANDIDATE.navy} strokeWidth="1.5" />
+    <line x1="70" y1="60" x2="32" y2="100" stroke={CANDIDATE.navy} strokeWidth="1.5" />
+    <line x1="70" y1="60" x2="44" y2="28" stroke={CANDIDATE.navy} strokeWidth="1" />
+    <line x1="70" y1="60" x2="44" y2="92" stroke={CANDIDATE.navy} strokeWidth="1" />
+  </svg>
+);
+
 // ── Styles ─────────────────────────────────────────────────────────────────────
 const GATE_STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Inter:wght@400;500;600&display=swap');
 
   .fp-gate {
     min-height: 100vh;
-    background: #f8fafc;
+    background: ${CANDIDATE.periBg};
+    background-image: radial-gradient(circle at 20% 50%, ${CANDIDATE.periLight} 0%, transparent 60%),
+                      radial-gradient(circle at 80% 50%, ${CANDIDATE.periLight} 0%, transparent 60%);
     display: flex;
     align-items: center;
     justify-content: center;
     font-family: 'Inter', sans-serif;
+    position: relative;
+    overflow: hidden;
   }
   .fp-gate-inner {
     background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 20px;
-    padding: 40px;
+    border: 2px solid ${CANDIDATE.periLight};
+    border-radius: 24px;
+    padding: 44px 40px 36px;
     width: 100%;
     max-width: 360px;
     margin: 16px;
@@ -51,30 +90,47 @@ const GATE_STYLES = `
     display: flex;
     flex-direction: column;
     align-items: center;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.07);
+    box-shadow: 0 8px 40px rgba(26,63,163,0.12);
+    position: relative;
+    z-index: 1;
   }
-  .fp-gate-avatar {
-    width: 68px;
-    height: 68px;
+  .fp-gate-photo {
+    width: 88px;
+    height: 88px;
     border-radius: 50%;
-    background: ${CANDIDATE.accentLight};
-    border: 2px solid ${CANDIDATE.accentColor};
+    object-fit: cover;
+    object-position: top center;
+    border: 3px solid ${CANDIDATE.navy};
+    box-shadow: 0 0 0 4px ${CANDIDATE.periLight};
+    margin-bottom: 18px;
+    flex-shrink: 0;
+  }
+  .fp-gate-photo-fallback {
+    width: 88px;
+    height: 88px;
+    border-radius: 50%;
+    background: ${CANDIDATE.periLight};
+    border: 3px solid ${CANDIDATE.navy};
+    box-shadow: 0 0 0 4px ${CANDIDATE.periLight};
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 22px;
-    font-weight: 700;
-    color: ${CANDIDATE.accentColor};
-    margin-bottom: 20px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 28px;
+    font-weight: 800;
+    color: ${CANDIDATE.navy};
+    margin-bottom: 18px;
     flex-shrink: 0;
-    letter-spacing: 0.02em;
   }
   .fp-gate-name {
-    font-size: 19px;
-    font-weight: 600;
-    color: #111827;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 24px;
+    font-weight: 800;
+    color: ${CANDIDATE.navy};
     text-align: center;
     margin-bottom: 4px;
+    letter-spacing: 0.01em;
+    text-transform: uppercase;
   }
   .fp-gate-subtitle {
     font-size: 12px;
@@ -83,10 +139,17 @@ const GATE_STYLES = `
     margin-bottom: 28px;
     line-height: 1.5;
   }
+  .fp-gate-divider {
+    width: 40px;
+    height: 3px;
+    background: ${CANDIDATE.orange};
+    border-radius: 2px;
+    margin: 0 auto 24px;
+  }
   .fp-gate-input {
     width: 100%;
-    background: #f9fafb;
-    border: 1px solid #d1d5db;
+    background: ${CANDIDATE.periBg};
+    border: 1.5px solid ${CANDIDATE.periLight};
     border-radius: 10px;
     padding: 12px 16px;
     font-family: 'Inter', sans-serif;
@@ -100,19 +163,21 @@ const GATE_STYLES = `
   }
   .fp-gate-input::placeholder { color: #9ca3af; }
   .fp-gate-input:focus {
-    border-color: ${CANDIDATE.accentColor};
-    box-shadow: 0 0 0 3px ${CANDIDATE.accentBorder};
+    border-color: ${CANDIDATE.navy};
+    box-shadow: 0 0 0 3px ${CANDIDATE.periLight};
   }
   .fp-gate-btn {
     width: 100%;
-    background: ${CANDIDATE.accentColor};
+    background: ${CANDIDATE.navy};
     color: #fff;
     border: none;
     border-radius: 10px;
     padding: 13px 24px;
-    font-family: 'Inter', sans-serif;
-    font-size: 14px;
-    font-weight: 600;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
     cursor: pointer;
     transition: opacity 0.15s;
     margin-bottom: 10px;
@@ -120,14 +185,14 @@ const GATE_STYLES = `
   .fp-gate-btn:hover { opacity: 0.88; }
   .fp-gate-error {
     font-size: 12px;
-    color: #ef4444;
+    color: ${CANDIDATE.orange};
     text-align: center;
     min-height: 16px;
   }
 `;
 
 const STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Inter:wght@400;500;600&display=swap');
 
   @keyframes fpFadeIn  { from { opacity: 0; } to { opacity: 1; } }
   @keyframes fpFadeUp  {
@@ -145,7 +210,7 @@ const STYLES = `
 
   .fp-root {
     min-height: 100dvh;
-    background: #f8fafc;
+    background: ${CANDIDATE.periBg};
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -189,36 +254,48 @@ const STYLES = `
     width: 100%;
     max-width: 680px;
     background: #ffffff;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 2px solid ${CANDIDATE.periLight};
     box-sizing: border-box;
     z-index: 100;
-    padding: 14px 20px;
+    padding: 12px 20px;
     display: flex;
     align-items: center;
     gap: 14px;
     animation: fpFadeIn 0.4s ease forwards;
   }
-  .fp-header-avatar {
-    width: 42px;
-    height: 42px;
+  .fp-header-photo {
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
-    background: ${CANDIDATE.accentLight};
-    border: 1.5px solid ${CANDIDATE.accentColor};
+    object-fit: cover;
+    object-position: top center;
+    border: 2px solid ${CANDIDATE.navy};
+    flex-shrink: 0;
+  }
+  .fp-header-photo-fallback {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: ${CANDIDATE.periLight};
+    border: 2px solid ${CANDIDATE.navy};
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 14px;
-    font-weight: 700;
-    color: ${CANDIDATE.accentColor};
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 15px;
+    font-weight: 800;
+    color: ${CANDIDATE.navy};
     flex-shrink: 0;
-    letter-spacing: 0.02em;
   }
   .fp-header-text h1 {
-    font-size: 15px;
-    font-weight: 600;
-    color: #111827;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 18px;
+    font-weight: 800;
+    color: ${CANDIDATE.navy};
     margin: 0;
-    line-height: 1.2;
+    line-height: 1.1;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
   }
   .fp-header-text p {
     font-size: 11px;
@@ -229,9 +306,9 @@ const STYLES = `
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: ${CANDIDATE.accentColor};
+    background: ${CANDIDATE.orange};
     margin-left: auto;
-    box-shadow: 0 0 5px ${CANDIDATE.accentBorder};
+    box-shadow: 0 0 6px ${CANDIDATE.orange}88;
     animation: fpPulse 2.4s ease-in-out infinite;
     flex-shrink: 0;
   }
@@ -244,10 +321,10 @@ const STYLES = `
     gap: 16px;
     padding: 16px 16px 148px;
     overflow-y: auto;
-    background: #f8fafc;
+    background: transparent;
   }
   .fp-chat::-webkit-scrollbar { width: 4px; }
-  .fp-chat::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 2px; }
+  .fp-chat::-webkit-scrollbar-thumb { background: ${CANDIDATE.periLight}; border-radius: 2px; }
 
   /* ── Empty state ── */
   .fp-empty {
@@ -261,31 +338,47 @@ const STYLES = `
     gap: 10px;
     animation: fpFadeUp 0.5s ease forwards;
   }
-  .fp-empty-avatar {
-    width: 56px;
-    height: 56px;
+  .fp-empty-photo {
+    width: 80px;
+    height: 80px;
     border-radius: 50%;
-    background: ${CANDIDATE.accentLight};
-    border: 1.5px solid ${CANDIDATE.accentColor};
+    object-fit: cover;
+    object-position: top center;
+    border: 3px solid ${CANDIDATE.navy};
+    box-shadow: 0 0 0 4px ${CANDIDATE.periLight};
+    margin-bottom: 8px;
+    flex-shrink: 0;
+  }
+  .fp-empty-photo-fallback {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: ${CANDIDATE.periLight};
+    border: 3px solid ${CANDIDATE.navy};
+    box-shadow: 0 0 0 4px white;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 18px;
-    font-weight: 700;
-    color: ${CANDIDATE.accentColor};
-    margin-bottom: 4px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 26px;
+    font-weight: 800;
+    color: ${CANDIDATE.navy};
+    margin-bottom: 8px;
     flex-shrink: 0;
   }
   .fp-empty-heading {
-    font-size: 16px;
-    font-weight: 600;
-    color: #111827;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 24px;
+    font-weight: 800;
+    color: ${CANDIDATE.navy};
     margin: 0;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
   }
   .fp-empty-sub {
     font-size: 13px;
-    color: #6b7280;
-    max-width: 300px;
+    color: #4b5563;
+    max-width: 320px;
     line-height: 1.6;
     margin: 0;
   }
@@ -294,12 +387,12 @@ const STYLES = `
     flex-wrap: wrap;
     justify-content: center;
     gap: 8px;
-    margin-top: 4px;
+    margin-top: 8px;
     max-width: 500px;
   }
   .fp-suggestion {
     background: #ffffff;
-    border: 1px solid #e5e7eb;
+    border: 1.5px solid ${CANDIDATE.periLight};
     border-radius: 20px;
     padding: 7px 14px;
     font-family: 'Inter', sans-serif;
@@ -310,9 +403,9 @@ const STYLES = `
     -webkit-tap-highlight-color: transparent;
   }
   .fp-suggestion:hover {
-    border-color: ${CANDIDATE.accentColor};
-    color: ${CANDIDATE.accentColor};
-    background: ${CANDIDATE.accentLight};
+    border-color: ${CANDIDATE.orange};
+    color: ${CANDIDATE.orange};
+    background: #fff8f6;
   }
 
   /* ── Messages ── */
@@ -325,10 +418,10 @@ const STYLES = `
   .fp-msg.assistant { align-items: flex-start; }
   .fp-msg-label {
     font-size: 10.5px;
-    font-weight: 500;
+    font-weight: 600;
     color: #9ca3af;
     margin-bottom: 4px;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.05em;
     text-transform: uppercase;
   }
   .fp-msg-bubble {
@@ -340,16 +433,16 @@ const STYLES = `
     word-break: break-word;
   }
   .fp-msg-bubble.user {
-    background: ${CANDIDATE.accentColor};
+    background: ${CANDIDATE.navy};
     color: #fff;
     border-bottom-right-radius: 4px;
   }
   .fp-msg-bubble.assistant {
     background: #ffffff;
     color: #111827;
-    border: 1px solid #e5e7eb;
+    border: 1.5px solid ${CANDIDATE.periLight};
     border-bottom-left-radius: 4px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    box-shadow: 0 2px 8px rgba(26,63,163,0.06);
   }
 
   /* Typing dots */
@@ -358,16 +451,17 @@ const STYLES = `
     gap: 4px;
     padding: 12px 15px;
     background: #ffffff;
-    border: 1px solid #e5e7eb;
+    border: 1.5px solid ${CANDIDATE.periLight};
     border-radius: 16px;
     border-bottom-left-radius: 4px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    box-shadow: 0 2px 8px rgba(26,63,163,0.06);
   }
   .fp-typing span {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: #9ca3af;
+    background: ${CANDIDATE.navy};
+    opacity: 0.4;
     animation: fpDot 1.2s ease-in-out infinite;
   }
   .fp-typing span:nth-child(2) { animation-delay: 0.2s; }
@@ -383,7 +477,7 @@ const STYLES = `
     max-width: 680px;
     padding: 12px 16px 20px;
     background: #ffffff;
-    border-top: 1px solid #e5e7eb;
+    border-top: 2px solid ${CANDIDATE.periLight};
     box-sizing: border-box;
     z-index: 100;
   }
@@ -394,8 +488,8 @@ const STYLES = `
   }
   .fp-input {
     flex: 1;
-    background: #f9fafb;
-    border: 1px solid #d1d5db;
+    background: ${CANDIDATE.periBg};
+    border: 1.5px solid ${CANDIDATE.periLight};
     border-radius: 12px;
     padding: 10px 14px;
     font-family: 'Inter', sans-serif;
@@ -411,15 +505,15 @@ const STYLES = `
   }
   .fp-input::placeholder { color: #9ca3af; }
   .fp-input:focus {
-    border-color: ${CANDIDATE.accentColor};
-    box-shadow: 0 0 0 3px ${CANDIDATE.accentBorder};
+    border-color: ${CANDIDATE.navy};
+    box-shadow: 0 0 0 3px ${CANDIDATE.periLight};
   }
   .fp-send {
     flex-shrink: 0;
     width: 38px;
     height: 38px;
     border-radius: 10px;
-    background: ${CANDIDATE.accentColor};
+    background: ${CANDIDATE.navy};
     border: none;
     color: #fff;
     display: flex;
@@ -444,11 +538,32 @@ const STYLES = `
     color: #9ca3af;
     text-decoration: none;
   }
-  .fp-footer a:hover { color: ${CANDIDATE.accentColor}; }
+  .fp-footer a:hover { color: ${CANDIDATE.navy}; }
+
+  /* ── Orange accent bar below header ── */
+  .fp-accent-bar {
+    height: 3px;
+    background: linear-gradient(90deg, ${CANDIDATE.navy} 0%, ${CANDIDATE.orange} 100%);
+    width: 100%;
+  }
 `;
 
-const DISCLAIMER_HEIGHT = 38; // px — matches .fp-disclaimer padding
-const HEADER_HEIGHT     = 70; // px — spacer below fixed header
+const DISCLAIMER_HEIGHT = 38;
+const HEADER_HEIGHT     = 73;
+
+// ── Photo with fallback ────────────────────────────────────────────────────────
+function CandidatePhoto({ className, fallbackClass, size }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <div className={fallbackClass}>{CANDIDATE.initials}</div>;
+  return (
+    <img
+      className={className}
+      src={CANDIDATE.photoUrl}
+      alt={CANDIDATE.name}
+      onError={() => setFailed(true)}
+    />
+  );
+}
 
 // ── Components ─────────────────────────────────────────────────────────────────
 
@@ -468,9 +583,12 @@ function PasswordGate({ onUnlock }) {
 
   return (
     <div className="fp-gate">
+      <FloralLeft />
+      <FloralRight />
       <div className="fp-gate-inner">
-        <div className="fp-gate-avatar">{CANDIDATE.initials}</div>
+        <CandidatePhoto className="fp-gate-photo" fallbackClass="fp-gate-photo-fallback" />
         <div className="fp-gate-name">{CANDIDATE.gateLabel}</div>
+        <div className="fp-gate-divider" />
         <div className="fp-gate-subtitle">{CANDIDATE.gateSubtitle}</div>
         <input
           className="fp-gate-input"
@@ -481,7 +599,7 @@ function PasswordGate({ onUnlock }) {
           onKeyDown={e => e.key === 'Enter' && attempt()}
           autoFocus
         />
-        <button className="fp-gate-btn" onClick={attempt}>Continue</button>
+        <button className="fp-gate-btn" onClick={attempt}>Continue →</button>
         <div className="fp-gate-error">{error ? 'Incorrect access code' : ''}</div>
       </div>
     </div>
@@ -534,7 +652,6 @@ export default function FaizahPage() {
   const bottomRef = useRef(null);
   const inputRef  = useRef(null);
 
-  // Inject styles
   useEffect(() => {
     const gateEl = document.createElement('style');
     gateEl.id    = 'fp-gate-styles';
@@ -651,7 +768,7 @@ export default function FaizahPage() {
 
         {/* Fixed header */}
         <div className="fp-header">
-          <div className="fp-header-avatar">{CANDIDATE.initials}</div>
+          <CandidatePhoto className="fp-header-photo" fallbackClass="fp-header-photo-fallback" />
           <div className="fp-header-text">
             <h1>{CANDIDATE.name}</h1>
             <p>{CANDIDATE.title}</p>
@@ -659,14 +776,14 @@ export default function FaizahPage() {
           <div className="fp-status-dot" />
         </div>
 
-        {/* Spacer for fixed disclaimer + header */}
+        {/* Spacer */}
         <div style={{ height: topOffset }} />
 
         {/* Chat */}
         <div className="fp-chat">
           {messages.length === 0 ? (
             <div className="fp-empty">
-              <div className="fp-empty-avatar">{CANDIDATE.initials}</div>
+              <CandidatePhoto className="fp-empty-photo" fallbackClass="fp-empty-photo-fallback" />
               <p className="fp-empty-heading">{CANDIDATE.emptyHeading}</p>
               <p className="fp-empty-sub">{CANDIDATE.emptySub}</p>
               <div className="fp-suggestions">
@@ -683,6 +800,7 @@ export default function FaizahPage() {
 
         {/* Input */}
         <div className="fp-input-area">
+          <div className="fp-accent-bar" style={{ marginBottom: 12 }} />
           <div className="fp-input-row">
             <textarea
               ref={inputRef}
