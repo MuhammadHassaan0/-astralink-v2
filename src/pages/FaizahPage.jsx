@@ -64,7 +64,7 @@ const VineRight = ({ color = '#1e38c0', opacity = 0.22 }) => (
 
 // ── Styles ─────────────────────────────────────────────────────────────────────
 const GATE_STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,900&family=Inter:wght@400;500;600&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600&display=swap');
 
   .fp-gate {
     min-height: 100vh;
@@ -124,16 +124,13 @@ const GATE_STYLES = `
     display: block;
   }
   .fp-gate-name {
-    font-family: 'Playfair Display', serif;
-    font-weight: 900;
-    font-style: italic;
-    font-size: 48px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 52px;
     line-height: 0.9;
     color: ${CANDIDATE.cobalt};
     text-align: center;
-    text-transform: uppercase;
     margin-bottom: 0;
-    letter-spacing: 0.01em;
+    letter-spacing: 0.04em;
   }
   .fp-gate-tagline-row {
     display: flex;
@@ -220,7 +217,7 @@ const GATE_STYLES = `
 `;
 
 const STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,900&family=Inter:wght@400;500;600&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600&display=swap');
 
   @keyframes fpFadeIn  { from { opacity: 0; } to { opacity: 1; } }
   @keyframes fpFadeUp  {
@@ -315,12 +312,9 @@ const STYLES = `
     display: block;
   }
   .fp-header-text h1 {
-    font-family: 'Playfair Display', serif;
-    font-weight: 900;
-    font-style: italic;
-    font-size: 20px;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 0.06em;
     color: #ffffff;
     margin: 0;
     line-height: 1;
@@ -381,12 +375,9 @@ const STYLES = `
     display: block;
   }
   .fp-empty-heading {
-    font-family: 'Playfair Display', serif;
-    font-weight: 900;
-    font-style: italic;
-    font-size: 30px;
-    letter-spacing: 0.01em;
-    text-transform: uppercase;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 32px;
+    letter-spacing: 0.06em;
     color: ${CANDIDATE.cobalt};
     margin: 0;
   }
@@ -550,9 +541,27 @@ const STYLES = `
     text-align: center;
     padding: 7px 0 0;
     letter-spacing: 0.03em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
   }
   .fp-footer a { color: inherit; text-decoration: none; }
   .fp-footer a:hover { opacity: 1; color: #ffffff; }
+  .fp-voice-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 20px;
+    padding: 2px 8px;
+    font-size: 10px;
+    color: ${CANDIDATE.skyBg};
+    opacity: 0.8;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
 `;
 
 const DISCLAIMER_HEIGHT = 36;
@@ -838,7 +847,8 @@ export default function FaizahPage() {
             </button>
           </div>
           <div className="fp-footer">
-            Powered by <a href="https://astralink.life" target="_blank" rel="noreferrer">AstraLink</a> · astralink.life
+            <span>Powered by <a href="https://astralink.life" target="_blank" rel="noreferrer">AstraLink</a> · astralink.life</span>
+            <span className="fp-voice-badge">🎙 Voice coming soon</span>
           </div>
         </div>
 
