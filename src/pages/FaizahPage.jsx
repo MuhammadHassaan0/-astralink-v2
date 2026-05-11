@@ -6,16 +6,18 @@ const CANDIDATE = {
   name:        'Faizah Malik',
   title:       'Candidate · LA City Council District 11',
   initials:    'FM',
-  gateLabel:   'Talk to Faizah Malik',
-  gateSubtitle:'LA City Council District 11 · Digital Twin',
+  gateLabel:   'Faizah',
+  gateSubtitle:'for LA City Council',
+  tagline:     'A Westside Where Everyone Has a Future.',
   emptyHeading:'Ask me anything',
   emptySub:    "I'm Faizah Malik, running for LA City Council District 11. Ask me about housing, homelessness, climate, or anything on your mind.",
   placeholder: 'Ask Faizah…',
-  photoUrl:    'https://images.squarespace-cdn.com/content/v1/68196764767bdd3f81b650fc/767387c6-7b7f-4b8f-9b58-b596423e4ae5/1.+Primary+Campaign+Headshot.jpg?format=500w',
-  navy:        '#1a3fa3',
-  orange:      '#e85d2f',
-  periLight:   '#d6e2f8',
-  periBg:      '#e8eef8',
+  // Colors sampled directly from campaign screenshot
+  cobalt:      '#1e38c0',   // deep royal blue — "FAIZAH" logo text
+  skyBg:       '#c2d9f4',   // powder sky blue — hero background
+  skyMid:      '#a8c8f0',   // slightly deeper blue for accents
+  red:         '#d44c2a',   // warm red-orange — floral accents & donate btn
+  darkNavy:    '#0f1e6e',   // near-black navy for body/subtext contrast
   password:    'faizah2026',
   apiEndpoint: '/faizah-chat',
   suggestions: [
@@ -29,48 +31,44 @@ const CANDIDATE = {
 const API      = 'https://astralink-v2-production.up.railway.app';
 const GATE_KEY = 'fp_unlocked';
 
-// ── SVG decorative elements ────────────────────────────────────────────────────
-const FloralLeft = () => (
-  <svg width="80" height="120" viewBox="0 0 80 120" fill="none" style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', opacity: 0.18 }}>
-    <circle cx="10" cy="60" r="8" fill={CANDIDATE.navy} />
-    <circle cx="22" cy="40" r="5" fill={CANDIDATE.orange} />
-    <circle cx="22" cy="80" r="5" fill={CANDIDATE.orange} />
-    <circle cx="36" cy="28" r="4" fill={CANDIDATE.navy} />
-    <circle cx="36" cy="92" r="4" fill={CANDIDATE.navy} />
-    <circle cx="48" cy="20" r="3" fill={CANDIDATE.orange} />
-    <circle cx="48" cy="100" r="3" fill={CANDIDATE.orange} />
-    <line x1="10" y1="60" x2="48" y2="20" stroke={CANDIDATE.navy} strokeWidth="1.5" />
-    <line x1="10" y1="60" x2="48" y2="100" stroke={CANDIDATE.navy} strokeWidth="1.5" />
-    <line x1="10" y1="60" x2="36" y2="28" stroke={CANDIDATE.navy} strokeWidth="1" />
-    <line x1="10" y1="60" x2="36" y2="92" stroke={CANDIDATE.navy} strokeWidth="1" />
+// ── Campaign-style SVG decorations ────────────────────────────────────────────
+// Matches the 4-petal rosette corner motifs from faizahforla.com
+const Rosette = ({ size = 22, color = '#d44c2a' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <ellipse cx="12" cy="6"  rx="3.2" ry="5.5" fill={color} />
+    <ellipse cx="12" cy="18" rx="3.2" ry="5.5" fill={color} />
+    <ellipse cx="6"  cy="12" rx="5.5" ry="3.2" fill={color} />
+    <ellipse cx="18" cy="12" rx="5.5" ry="3.2" fill={color} />
+    <circle  cx="12" cy="12" r="3"    fill={color} />
   </svg>
 );
 
-const FloralRight = () => (
-  <svg width="80" height="120" viewBox="0 0 80 120" fill="none" style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', opacity: 0.18 }}>
-    <circle cx="70" cy="60" r="8" fill={CANDIDATE.navy} />
-    <circle cx="58" cy="40" r="5" fill={CANDIDATE.orange} />
-    <circle cx="58" cy="80" r="5" fill={CANDIDATE.orange} />
-    <circle cx="44" cy="28" r="4" fill={CANDIDATE.navy} />
-    <circle cx="44" cy="92" r="4" fill={CANDIDATE.navy} />
-    <circle cx="32" cy="20" r="3" fill={CANDIDATE.orange} />
-    <circle cx="32" cy="100" r="3" fill={CANDIDATE.orange} />
-    <line x1="70" y1="60" x2="32" y2="20" stroke={CANDIDATE.navy} strokeWidth="1.5" />
-    <line x1="70" y1="60" x2="32" y2="100" stroke={CANDIDATE.navy} strokeWidth="1.5" />
-    <line x1="70" y1="60" x2="44" y2="28" stroke={CANDIDATE.navy} strokeWidth="1" />
-    <line x1="70" y1="60" x2="44" y2="92" stroke={CANDIDATE.navy} strokeWidth="1" />
+// Vine branch — matches the flanking vine decorations around "for LA CITY COUNCIL"
+const VineLeft = ({ color = '#1e38c0', opacity = 0.22 }) => (
+  <svg width="60" height="28" viewBox="0 0 60 28" fill="none" style={{ opacity }}>
+    <path d="M58 14 Q44 6 28 12 Q16 16 4 10" stroke={color} strokeWidth="2" fill="none" strokeLinecap="round" />
+    <ellipse cx="52" cy="10" rx="4" ry="2.5" fill={color} transform="rotate(-20 52 10)" />
+    <ellipse cx="36" cy="8"  rx="3.5" ry="2" fill={color} transform="rotate(-10 36 8)" />
+    <ellipse cx="20" cy="13" rx="3.5" ry="2" fill={color} transform="rotate(10 20 13)" />
+  </svg>
+);
+
+const VineRight = ({ color = '#1e38c0', opacity = 0.22 }) => (
+  <svg width="60" height="28" viewBox="0 0 60 28" fill="none" style={{ opacity }}>
+    <path d="M2 14 Q16 6 32 12 Q44 16 56 10" stroke={color} strokeWidth="2" fill="none" strokeLinecap="round" />
+    <ellipse cx="8"  cy="10" rx="4"   ry="2.5" fill={color} transform="rotate(20 8 10)" />
+    <ellipse cx="24" cy="8"  rx="3.5" ry="2"   fill={color} transform="rotate(10 24 8)" />
+    <ellipse cx="40" cy="13" rx="3.5" ry="2"   fill={color} transform="rotate(-10 40 13)" />
   </svg>
 );
 
 // ── Styles ─────────────────────────────────────────────────────────────────────
 const GATE_STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Inter:wght@400;500;600&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600&display=swap');
 
   .fp-gate {
     min-height: 100vh;
-    background: ${CANDIDATE.periBg};
-    background-image: radial-gradient(circle at 20% 50%, ${CANDIDATE.periLight} 0%, transparent 60%),
-                      radial-gradient(circle at 80% 50%, ${CANDIDATE.periLight} 0%, transparent 60%);
+    background: ${CANDIDATE.skyBg};
     display: flex;
     align-items: center;
     justify-content: center;
@@ -78,121 +76,153 @@ const GATE_STYLES = `
     position: relative;
     overflow: hidden;
   }
+  /* Subtle dot-grid texture like campaign site's hero */
+  .fp-gate::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle, ${CANDIDATE.skyMid}55 1px, transparent 1px);
+    background-size: 28px 28px;
+    pointer-events: none;
+  }
   .fp-gate-inner {
     background: #ffffff;
-    border: 2px solid ${CANDIDATE.periLight};
-    border-radius: 24px;
-    padding: 44px 40px 36px;
+    border: 3px solid ${CANDIDATE.cobalt};
+    border-radius: 6px;
+    padding: 40px 36px 32px;
     width: 100%;
-    max-width: 360px;
+    max-width: 340px;
     margin: 16px;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
     align-items: center;
-    box-shadow: 0 8px 40px rgba(26,63,163,0.12);
+    box-shadow: 6px 6px 0 ${CANDIDATE.cobalt};
     position: relative;
     z-index: 1;
   }
-  .fp-gate-photo {
-    width: 88px;
-    height: 88px;
-    border-radius: 50%;
-    object-fit: cover;
-    object-position: top center;
-    border: 3px solid ${CANDIDATE.navy};
-    box-shadow: 0 0 0 4px ${CANDIDATE.periLight};
-    margin-bottom: 18px;
-    flex-shrink: 0;
+  /* Corner rosettes */
+  .fp-gate-corner {
+    position: absolute;
+    line-height: 0;
   }
-  .fp-gate-photo-fallback {
-    width: 88px;
-    height: 88px;
+  .fp-gate-corner.tl { top: -13px;  left: -13px;  }
+  .fp-gate-corner.tr { top: -13px;  right: -13px; }
+  .fp-gate-corner.bl { bottom: -13px; left: -13px; }
+  .fp-gate-corner.br { bottom: -13px; right: -13px; }
+
+  .fp-gate-avatar {
+    width: 80px;
+    height: 80px;
     border-radius: 50%;
-    background: ${CANDIDATE.periLight};
-    border: 3px solid ${CANDIDATE.navy};
-    box-shadow: 0 0 0 4px ${CANDIDATE.periLight};
+    background: ${CANDIDATE.cobalt};
+    border: 3px solid ${CANDIDATE.red};
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 28px;
-    font-weight: 800;
-    color: ${CANDIDATE.navy};
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 30px;
+    letter-spacing: 0.04em;
+    color: #ffffff;
     margin-bottom: 18px;
     flex-shrink: 0;
+    box-shadow: 3px 3px 0 ${CANDIDATE.darkNavy};
   }
   .fp-gate-name {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 24px;
-    font-weight: 800;
-    color: ${CANDIDATE.navy};
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 48px;
+    line-height: 0.9;
+    color: ${CANDIDATE.cobalt};
     text-align: center;
-    margin-bottom: 4px;
-    letter-spacing: 0.01em;
-    text-transform: uppercase;
+    margin-bottom: 0;
+    letter-spacing: 0.03em;
+  }
+  .fp-gate-tagline-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 4px 0 6px;
+  }
+  .fp-gate-for {
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-style: italic;
+    font-weight: 500;
+    color: ${CANDIDATE.red};
+    letter-spacing: 0.02em;
   }
   .fp-gate-subtitle {
-    font-size: 12px;
-    color: #6b7280;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    color: ${CANDIDATE.cobalt};
+  }
+  .fp-gate-district {
+    font-size: 11px;
+    color: ${CANDIDATE.darkNavy};
+    opacity: 0.6;
     text-align: center;
-    margin-bottom: 28px;
-    line-height: 1.5;
+    margin-bottom: 22px;
+    letter-spacing: 0.04em;
   }
   .fp-gate-divider {
-    width: 40px;
-    height: 3px;
-    background: ${CANDIDATE.orange};
-    border-radius: 2px;
-    margin: 0 auto 24px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 20px;
+    width: 100%;
+    justify-content: center;
+  }
+  .fp-gate-divider-line {
+    height: 1.5px;
+    flex: 1;
+    background: ${CANDIDATE.skyMid};
+    max-width: 60px;
   }
   .fp-gate-input {
     width: 100%;
-    background: ${CANDIDATE.periBg};
-    border: 1.5px solid ${CANDIDATE.periLight};
-    border-radius: 10px;
-    padding: 12px 16px;
+    background: ${CANDIDATE.skyBg};
+    border: 2px solid ${CANDIDATE.skyMid};
+    border-radius: 4px;
+    padding: 11px 16px;
     font-family: 'Inter', sans-serif;
     font-size: 15px;
-    color: #111827;
+    color: ${CANDIDATE.darkNavy};
     outline: none;
     box-sizing: border-box;
     text-align: center;
-    transition: border-color 0.15s, box-shadow 0.15s;
-    margin-bottom: 12px;
+    transition: border-color 0.15s;
+    margin-bottom: 10px;
   }
-  .fp-gate-input::placeholder { color: #9ca3af; }
-  .fp-gate-input:focus {
-    border-color: ${CANDIDATE.navy};
-    box-shadow: 0 0 0 3px ${CANDIDATE.periLight};
-  }
+  .fp-gate-input::placeholder { color: #7a9cc0; }
+  .fp-gate-input:focus { border-color: ${CANDIDATE.cobalt}; }
   .fp-gate-btn {
     width: 100%;
-    background: ${CANDIDATE.navy};
+    background: ${CANDIDATE.red};
     color: #fff;
     border: none;
-    border-radius: 10px;
+    border-radius: 4px;
     padding: 13px 24px;
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 17px;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    letter-spacing: 0.12em;
     cursor: pointer;
     transition: opacity 0.15s;
     margin-bottom: 10px;
+    box-shadow: 3px 3px 0 ${CANDIDATE.darkNavy};
   }
-  .fp-gate-btn:hover { opacity: 0.88; }
+  .fp-gate-btn:hover { opacity: 0.9; }
   .fp-gate-error {
     font-size: 12px;
-    color: ${CANDIDATE.orange};
+    color: ${CANDIDATE.red};
     text-align: center;
     min-height: 16px;
+    font-weight: 500;
   }
 `;
 
 const STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Inter:wght@400;500;600&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600&display=swap');
 
   @keyframes fpFadeIn  { from { opacity: 0; } to { opacity: 1; } }
   @keyframes fpFadeUp  {
@@ -210,12 +240,22 @@ const STYLES = `
 
   .fp-root {
     min-height: 100dvh;
-    background: ${CANDIDATE.periBg};
+    background: ${CANDIDATE.skyBg};
     display: flex;
     flex-direction: column;
     align-items: center;
     font-family: 'Inter', sans-serif;
     -webkit-font-smoothing: antialiased;
+  }
+  /* Dot-grid texture */
+  .fp-root::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: radial-gradient(circle, ${CANDIDATE.skyMid}44 1px, transparent 1px);
+    background-size: 28px 28px;
+    pointer-events: none;
+    z-index: 0;
   }
   .fp-inner {
     width: 100%;
@@ -224,13 +264,15 @@ const STYLES = `
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
+    position: relative;
+    z-index: 1;
   }
 
   /* ── Disclaimer banner ── */
   .fp-disclaimer {
     background: #fffbeb;
     border-bottom: 1px solid #fde68a;
-    padding: 10px 20px;
+    padding: 9px 20px;
     font-size: 11.5px;
     color: #92400e;
     text-align: center;
@@ -248,67 +290,58 @@ const STYLES = `
   /* ── Header ── */
   .fp-header {
     position: fixed;
-    top: 38px;
+    top: 36px;
     left: 50%;
     transform: translateX(-50%);
     width: 100%;
     max-width: 680px;
-    background: #ffffff;
-    border-bottom: 2px solid ${CANDIDATE.periLight};
+    background: ${CANDIDATE.cobalt};
+    border-bottom: 3px solid ${CANDIDATE.darkNavy};
     box-sizing: border-box;
     z-index: 100;
-    padding: 12px 20px;
+    padding: 10px 20px;
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 12px;
     animation: fpFadeIn 0.4s ease forwards;
   }
-  .fp-header-photo {
-    width: 44px;
-    height: 44px;
+  .fp-header-avatar {
+    width: 38px;
+    height: 38px;
     border-radius: 50%;
-    object-fit: cover;
-    object-position: top center;
-    border: 2px solid ${CANDIDATE.navy};
-    flex-shrink: 0;
-  }
-  .fp-header-photo-fallback {
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    background: ${CANDIDATE.periLight};
-    border: 2px solid ${CANDIDATE.navy};
+    background: #ffffff;
+    border: 2px solid ${CANDIDATE.red};
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 15px;
-    font-weight: 800;
-    color: ${CANDIDATE.navy};
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 16px;
+    letter-spacing: 0.04em;
+    color: ${CANDIDATE.cobalt};
     flex-shrink: 0;
   }
   .fp-header-text h1 {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 18px;
-    font-weight: 800;
-    color: ${CANDIDATE.navy};
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 0.06em;
+    color: #ffffff;
     margin: 0;
-    line-height: 1.1;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
+    line-height: 1;
   }
   .fp-header-text p {
-    font-size: 11px;
-    color: #6b7280;
+    font-size: 10.5px;
+    color: ${CANDIDATE.skyBg};
     margin: 2px 0 0;
+    opacity: 0.85;
+    letter-spacing: 0.03em;
   }
   .fp-status-dot {
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: ${CANDIDATE.orange};
+    background: ${CANDIDATE.red};
     margin-left: auto;
-    box-shadow: 0 0 6px ${CANDIDATE.orange}88;
+    box-shadow: 0 0 6px ${CANDIDATE.red};
     animation: fpPulse 2.4s ease-in-out infinite;
     flex-shrink: 0;
   }
@@ -324,7 +357,7 @@ const STYLES = `
     background: transparent;
   }
   .fp-chat::-webkit-scrollbar { width: 4px; }
-  .fp-chat::-webkit-scrollbar-thumb { background: ${CANDIDATE.periLight}; border-radius: 2px; }
+  .fp-chat::-webkit-scrollbar-thumb { background: ${CANDIDATE.skyMid}; border-radius: 2px; }
 
   /* ── Empty state ── */
   .fp-empty {
@@ -338,74 +371,64 @@ const STYLES = `
     gap: 10px;
     animation: fpFadeUp 0.5s ease forwards;
   }
-  .fp-empty-photo {
+  .fp-empty-avatar {
     width: 80px;
     height: 80px;
     border-radius: 50%;
-    object-fit: cover;
-    object-position: top center;
-    border: 3px solid ${CANDIDATE.navy};
-    box-shadow: 0 0 0 4px ${CANDIDATE.periLight};
-    margin-bottom: 8px;
-    flex-shrink: 0;
-  }
-  .fp-empty-photo-fallback {
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    background: ${CANDIDATE.periLight};
-    border: 3px solid ${CANDIDATE.navy};
-    box-shadow: 0 0 0 4px white;
+    background: ${CANDIDATE.cobalt};
+    border: 3px solid ${CANDIDATE.red};
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 26px;
-    font-weight: 800;
-    color: ${CANDIDATE.navy};
-    margin-bottom: 8px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 0.04em;
+    color: #ffffff;
+    margin-bottom: 6px;
     flex-shrink: 0;
+    box-shadow: 4px 4px 0 ${CANDIDATE.darkNavy};
   }
   .fp-empty-heading {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 24px;
-    font-weight: 800;
-    color: ${CANDIDATE.navy};
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 30px;
+    letter-spacing: 0.06em;
+    color: ${CANDIDATE.cobalt};
     margin: 0;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
   }
   .fp-empty-sub {
     font-size: 13px;
-    color: #4b5563;
+    color: ${CANDIDATE.darkNavy};
     max-width: 320px;
     line-height: 1.6;
     margin: 0;
+    opacity: 0.8;
   }
   .fp-suggestions {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
     gap: 8px;
-    margin-top: 8px;
+    margin-top: 10px;
     max-width: 500px;
   }
   .fp-suggestion {
     background: #ffffff;
-    border: 1.5px solid ${CANDIDATE.periLight};
-    border-radius: 20px;
+    border: 2px solid ${CANDIDATE.cobalt};
+    border-radius: 4px;
     padding: 7px 14px;
     font-family: 'Inter', sans-serif;
     font-size: 12.5px;
-    color: #374151;
+    color: ${CANDIDATE.cobalt};
     cursor: pointer;
-    transition: border-color 0.15s, color 0.15s, background 0.15s;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
     -webkit-tap-highlight-color: transparent;
+    font-weight: 500;
+    box-shadow: 2px 2px 0 ${CANDIDATE.skyMid};
   }
   .fp-suggestion:hover {
-    border-color: ${CANDIDATE.orange};
-    color: ${CANDIDATE.orange};
-    background: #fff8f6;
+    background: ${CANDIDATE.cobalt};
+    color: #ffffff;
+    border-color: ${CANDIDATE.cobalt};
   }
 
   /* ── Messages ── */
@@ -414,35 +437,36 @@ const STYLES = `
     flex-direction: column;
     animation: fpFadeUp 0.25s ease forwards;
   }
-  .fp-msg.user  { align-items: flex-end; }
+  .fp-msg.user     { align-items: flex-end; }
   .fp-msg.assistant { align-items: flex-start; }
   .fp-msg-label {
-    font-size: 10.5px;
-    font-weight: 600;
-    color: #9ca3af;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: ${CANDIDATE.cobalt};
+    opacity: 0.55;
     margin-bottom: 4px;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
   }
   .fp-msg-bubble {
     max-width: 78%;
     padding: 11px 15px;
-    border-radius: 16px;
+    border-radius: 4px;
     font-size: 14px;
     line-height: 1.65;
     word-break: break-word;
   }
   .fp-msg-bubble.user {
-    background: ${CANDIDATE.navy};
-    color: #fff;
-    border-bottom-right-radius: 4px;
+    background: ${CANDIDATE.cobalt};
+    color: #ffffff;
+    border-bottom-right-radius: 2px;
+    box-shadow: 3px 3px 0 ${CANDIDATE.darkNavy};
   }
   .fp-msg-bubble.assistant {
     background: #ffffff;
-    color: #111827;
-    border: 1.5px solid ${CANDIDATE.periLight};
-    border-bottom-left-radius: 4px;
-    box-shadow: 0 2px 8px rgba(26,63,163,0.06);
+    color: ${CANDIDATE.darkNavy};
+    border: 2px solid ${CANDIDATE.skyMid};
+    border-bottom-left-radius: 2px;
+    box-shadow: 3px 3px 0 ${CANDIDATE.skyMid};
   }
 
   /* Typing dots */
@@ -451,17 +475,16 @@ const STYLES = `
     gap: 4px;
     padding: 12px 15px;
     background: #ffffff;
-    border: 1.5px solid ${CANDIDATE.periLight};
-    border-radius: 16px;
-    border-bottom-left-radius: 4px;
-    box-shadow: 0 2px 8px rgba(26,63,163,0.06);
+    border: 2px solid ${CANDIDATE.skyMid};
+    border-radius: 4px;
+    border-bottom-left-radius: 2px;
+    box-shadow: 3px 3px 0 ${CANDIDATE.skyMid};
   }
   .fp-typing span {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: ${CANDIDATE.navy};
-    opacity: 0.4;
+    background: ${CANDIDATE.cobalt};
     animation: fpDot 1.2s ease-in-out infinite;
   }
   .fp-typing span:nth-child(2) { animation-delay: 0.2s; }
@@ -475,9 +498,9 @@ const STYLES = `
     transform: translateX(-50%);
     width: 100%;
     max-width: 680px;
-    padding: 12px 16px 20px;
-    background: #ffffff;
-    border-top: 2px solid ${CANDIDATE.periLight};
+    padding: 12px 16px 18px;
+    background: ${CANDIDATE.cobalt};
+    border-top: 3px solid ${CANDIDATE.darkNavy};
     box-sizing: border-box;
     z-index: 100;
   }
@@ -488,32 +511,29 @@ const STYLES = `
   }
   .fp-input {
     flex: 1;
-    background: ${CANDIDATE.periBg};
-    border: 1.5px solid ${CANDIDATE.periLight};
-    border-radius: 12px;
+    background: #ffffff;
+    border: 2px solid ${CANDIDATE.skyMid};
+    border-radius: 4px;
     padding: 10px 14px;
     font-family: 'Inter', sans-serif;
     font-size: 14px;
-    color: #111827;
+    color: ${CANDIDATE.darkNavy};
     outline: none;
     resize: none;
     line-height: 1.5;
     max-height: 120px;
     overflow-y: auto;
-    transition: border-color 0.15s, box-shadow 0.15s;
+    transition: border-color 0.15s;
     box-sizing: border-box;
   }
-  .fp-input::placeholder { color: #9ca3af; }
-  .fp-input:focus {
-    border-color: ${CANDIDATE.navy};
-    box-shadow: 0 0 0 3px ${CANDIDATE.periLight};
-  }
+  .fp-input::placeholder { color: #7a9cc0; }
+  .fp-input:focus { border-color: ${CANDIDATE.cobalt}; }
   .fp-send {
     flex-shrink: 0;
     width: 38px;
     height: 38px;
-    border-radius: 10px;
-    background: ${CANDIDATE.navy};
+    border-radius: 4px;
+    background: ${CANDIDATE.red};
     border: none;
     color: #fff;
     display: flex;
@@ -522,48 +542,26 @@ const STYLES = `
     cursor: pointer;
     transition: opacity 0.15s;
     -webkit-tap-highlight-color: transparent;
+    box-shadow: 2px 2px 0 ${CANDIDATE.darkNavy};
   }
-  .fp-send:hover { opacity: 0.88; }
-  .fp-send:disabled { opacity: 0.3; pointer-events: none; }
+  .fp-send:hover { opacity: 0.9; }
+  .fp-send:disabled { opacity: 0.35; pointer-events: none; }
 
   /* ── Footer ── */
   .fp-footer {
     font-size: 10px;
-    color: #9ca3af;
+    color: ${CANDIDATE.skyBg};
+    opacity: 0.7;
     text-align: center;
-    padding: 8px 0 0;
-    letter-spacing: 0.02em;
+    padding: 7px 0 0;
+    letter-spacing: 0.03em;
   }
-  .fp-footer a {
-    color: #9ca3af;
-    text-decoration: none;
-  }
-  .fp-footer a:hover { color: ${CANDIDATE.navy}; }
-
-  /* ── Orange accent bar below header ── */
-  .fp-accent-bar {
-    height: 3px;
-    background: linear-gradient(90deg, ${CANDIDATE.navy} 0%, ${CANDIDATE.orange} 100%);
-    width: 100%;
-  }
+  .fp-footer a { color: inherit; text-decoration: none; }
+  .fp-footer a:hover { opacity: 1; color: #ffffff; }
 `;
 
-const DISCLAIMER_HEIGHT = 38;
-const HEADER_HEIGHT     = 73;
-
-// ── Photo with fallback ────────────────────────────────────────────────────────
-function CandidatePhoto({ className, fallbackClass, size }) {
-  const [failed, setFailed] = useState(false);
-  if (failed) return <div className={fallbackClass}>{CANDIDATE.initials}</div>;
-  return (
-    <img
-      className={className}
-      src={CANDIDATE.photoUrl}
-      alt={CANDIDATE.name}
-      onError={() => setFailed(true)}
-    />
-  );
-}
+const DISCLAIMER_HEIGHT = 36;
+const HEADER_HEIGHT     = 68;
 
 // ── Components ─────────────────────────────────────────────────────────────────
 
@@ -583,13 +581,33 @@ function PasswordGate({ onUnlock }) {
 
   return (
     <div className="fp-gate">
-      <FloralLeft />
-      <FloralRight />
       <div className="fp-gate-inner">
-        <CandidatePhoto className="fp-gate-photo" fallbackClass="fp-gate-photo-fallback" />
+        {/* Corner rosettes matching campaign site */}
+        <span className="fp-gate-corner tl"><Rosette size={26} /></span>
+        <span className="fp-gate-corner tr"><Rosette size={26} /></span>
+        <span className="fp-gate-corner bl"><Rosette size={26} /></span>
+        <span className="fp-gate-corner br"><Rosette size={26} /></span>
+
+        <div className="fp-gate-avatar">{CANDIDATE.initials}</div>
+
         <div className="fp-gate-name">{CANDIDATE.gateLabel}</div>
-        <div className="fp-gate-divider" />
-        <div className="fp-gate-subtitle">{CANDIDATE.gateSubtitle}</div>
+
+        {/* "for LA CITY COUNCIL" row with vines */}
+        <div className="fp-gate-tagline-row">
+          <VineLeft />
+          <span className="fp-gate-for">for</span>
+          <span className="fp-gate-subtitle">LA CITY COUNCIL</span>
+          <VineRight />
+        </div>
+
+        <div className="fp-gate-district">District 11 · Digital Twin</div>
+
+        <div className="fp-gate-divider">
+          <div className="fp-gate-divider-line" />
+          <Rosette size={14} color={CANDIDATE.red} />
+          <div className="fp-gate-divider-line" />
+        </div>
+
         <input
           className="fp-gate-input"
           type="password"
@@ -599,7 +617,7 @@ function PasswordGate({ onUnlock }) {
           onKeyDown={e => e.key === 'Enter' && attempt()}
           autoFocus
         />
-        <button className="fp-gate-btn" onClick={attempt}>Continue →</button>
+        <button className="fp-gate-btn" onClick={attempt}>ENTER →</button>
         <div className="fp-gate-error">{error ? 'Incorrect access code' : ''}</div>
       </div>
     </div>
@@ -761,17 +779,17 @@ export default function FaizahPage() {
     <div className="fp-root">
       <div className="fp-inner">
 
-        {/* Disclaimer banner */}
+        {/* Disclaimer */}
         <div className="fp-disclaimer">
           Unofficial prototype built from Faizah Malik's public record by AstraLink. Not affiliated with the campaign.
         </div>
 
-        {/* Fixed header */}
+        {/* Fixed header — cobalt blue bar like campaign nav */}
         <div className="fp-header">
-          <CandidatePhoto className="fp-header-photo" fallbackClass="fp-header-photo-fallback" />
+          <div className="fp-header-avatar">{CANDIDATE.initials}</div>
           <div className="fp-header-text">
-            <h1>{CANDIDATE.name}</h1>
-            <p>{CANDIDATE.title}</p>
+            <h1>FAIZAH MALIK</h1>
+            <p>for LA City Council District 11</p>
           </div>
           <div className="fp-status-dot" />
         </div>
@@ -783,7 +801,7 @@ export default function FaizahPage() {
         <div className="fp-chat">
           {messages.length === 0 ? (
             <div className="fp-empty">
-              <CandidatePhoto className="fp-empty-photo" fallbackClass="fp-empty-photo-fallback" />
+              <div className="fp-empty-avatar">{CANDIDATE.initials}</div>
               <p className="fp-empty-heading">{CANDIDATE.emptyHeading}</p>
               <p className="fp-empty-sub">{CANDIDATE.emptySub}</p>
               <div className="fp-suggestions">
@@ -798,9 +816,8 @@ export default function FaizahPage() {
           <div ref={bottomRef} />
         </div>
 
-        {/* Input */}
+        {/* Input — cobalt footer bar */}
         <div className="fp-input-area">
-          <div className="fp-accent-bar" style={{ marginBottom: 12 }} />
           <div className="fp-input-row">
             <textarea
               ref={inputRef}
