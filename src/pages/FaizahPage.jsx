@@ -64,7 +64,14 @@ const VineRight = ({ color = '#1e38c0', opacity = 0.22 }) => (
 
 // ── Styles ─────────────────────────────────────────────────────────────────────
 const GATE_STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
+  @font-face {
+    font-family: 'FTY Skorzhen';
+    src: url('/fonts/FTY_SKORZHEN_NCV.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+  }
 
   .fp-gate {
     min-height: 100vh;
@@ -124,7 +131,7 @@ const GATE_STYLES = `
     display: block;
   }
   .fp-gate-name {
-    font-family: 'Bebas Neue', sans-serif;
+    font-family: 'FTY Skorzhen', sans-serif;
     font-size: 52px;
     line-height: 0.9;
     color: ${CANDIDATE.cobalt};
@@ -147,7 +154,7 @@ const GATE_STYLES = `
     letter-spacing: 0.02em;
   }
   .fp-gate-subtitle {
-    font-family: 'Bebas Neue', sans-serif;
+    font-family: 'FTY Skorzhen', sans-serif;
     font-size: 13px;
     letter-spacing: 0.12em;
     color: ${CANDIDATE.cobalt};
@@ -198,7 +205,7 @@ const GATE_STYLES = `
     border: none;
     border-radius: 4px;
     padding: 13px 24px;
-    font-family: 'Bebas Neue', sans-serif;
+    font-family: 'FTY Skorzhen', sans-serif;
     font-size: 20px;
     letter-spacing: 0.12em;
     cursor: pointer;
@@ -217,7 +224,7 @@ const GATE_STYLES = `
 `;
 
 const STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
 
   @keyframes fpFadeIn  { from { opacity: 0; } to { opacity: 1; } }
   @keyframes fpFadeUp  {
@@ -312,7 +319,7 @@ const STYLES = `
     display: block;
   }
   .fp-header-text h1 {
-    font-family: 'Bebas Neue', sans-serif;
+    font-family: 'FTY Skorzhen', sans-serif;
     font-size: 22px;
     letter-spacing: 0.06em;
     color: #ffffff;
@@ -375,7 +382,7 @@ const STYLES = `
     display: block;
   }
   .fp-empty-heading {
-    font-family: 'Bebas Neue', sans-serif;
+    font-family: 'FTY Skorzhen', sans-serif;
     font-size: 32px;
     letter-spacing: 0.06em;
     color: ${CANDIDATE.cobalt};
@@ -426,7 +433,7 @@ const STYLES = `
   .fp-msg.user     { align-items: flex-end; }
   .fp-msg.assistant { align-items: flex-start; }
   .fp-msg-label {
-    font-family: 'Bebas Neue', sans-serif;
+    font-family: 'FTY Skorzhen', sans-serif;
     font-size: 11px;
     letter-spacing: 0.1em;
     color: ${CANDIDATE.cobalt};
