@@ -13,8 +13,8 @@ const CANDIDATE = {
   emptySub:    "I'm Faizah Malik, running for LA City Council District 11. Ask me about housing, homelessness, climate, or anything on your mind.",
   placeholder: 'Ask Faizah…',
   // Colors sampled directly from campaign screenshot
-  cobalt:      '#1e38c0',   // deep royal blue — "FAIZAH" logo text
-  skyBg:       '#c2d9f4',   // powder sky blue — hero background
+  cobalt:      '#1a35b8',   // deep royal blue — "FAIZAH" logo text
+  skyBg:       '#c8daf5',   // powder sky blue — hero background
   skyMid:      '#a8c8f0',   // slightly deeper blue for accents
   red:         '#d44c2a',   // warm red-orange — floral accents & donate btn
   darkNavy:    '#0f1e6e',   // near-black navy for body/subtext contrast
@@ -64,7 +64,7 @@ const VineRight = ({ color = '#1e38c0', opacity = 0.22 }) => (
 
 // ── Styles ─────────────────────────────────────────────────────────────────────
 const GATE_STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,900&family=Inter:wght@400;500;600&display=swap');
 
   .fp-gate {
     min-height: 100vh;
@@ -112,30 +112,28 @@ const GATE_STYLES = `
   .fp-gate-corner.br { bottom: -13px; right: -13px; }
 
   .fp-gate-avatar {
-    width: 80px;
-    height: 80px;
+    width: 88px;
+    height: 88px;
     border-radius: 50%;
-    background: ${CANDIDATE.cobalt};
-    border: 3px solid ${CANDIDATE.red};
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 30px;
-    letter-spacing: 0.04em;
-    color: #ffffff;
+    border: 3px solid ${CANDIDATE.cobalt};
+    box-shadow: 0 0 0 3px ${CANDIDATE.red}, 3px 3px 0 ${CANDIDATE.darkNavy};
+    object-fit: cover;
+    object-position: top center;
     margin-bottom: 18px;
     flex-shrink: 0;
-    box-shadow: 3px 3px 0 ${CANDIDATE.darkNavy};
+    display: block;
   }
   .fp-gate-name {
-    font-family: 'Bebas Neue', sans-serif;
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    font-style: italic;
     font-size: 48px;
     line-height: 0.9;
     color: ${CANDIDATE.cobalt};
     text-align: center;
+    text-transform: uppercase;
     margin-bottom: 0;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.01em;
   }
   .fp-gate-tagline-row {
     display: flex;
@@ -222,7 +220,7 @@ const GATE_STYLES = `
 `;
 
 const STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,900&family=Inter:wght@400;500;600&display=swap');
 
   @keyframes fpFadeIn  { from { opacity: 0; } to { opacity: 1; } }
   @keyframes fpFadeUp  {
@@ -306,24 +304,23 @@ const STYLES = `
     animation: fpFadeIn 0.4s ease forwards;
   }
   .fp-header-avatar {
-    width: 38px;
-    height: 38px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
-    background: #ffffff;
-    border: 2px solid ${CANDIDATE.red};
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 16px;
-    letter-spacing: 0.04em;
-    color: ${CANDIDATE.cobalt};
+    border: 2px solid #ffffff;
+    box-shadow: 0 0 0 2px ${CANDIDATE.red};
+    object-fit: cover;
+    object-position: top center;
     flex-shrink: 0;
+    display: block;
   }
   .fp-header-text h1 {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 22px;
-    letter-spacing: 0.06em;
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    font-style: italic;
+    font-size: 20px;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
     color: #ffffff;
     margin: 0;
     line-height: 1;
@@ -372,26 +369,24 @@ const STYLES = `
     animation: fpFadeUp 0.5s ease forwards;
   }
   .fp-empty-avatar {
-    width: 80px;
-    height: 80px;
+    width: 88px;
+    height: 88px;
     border-radius: 50%;
-    background: ${CANDIDATE.cobalt};
-    border: 3px solid ${CANDIDATE.red};
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 28px;
-    letter-spacing: 0.04em;
-    color: #ffffff;
+    border: 3px solid ${CANDIDATE.cobalt};
+    box-shadow: 0 0 0 3px ${CANDIDATE.red}, 4px 4px 0 ${CANDIDATE.darkNavy};
+    object-fit: cover;
+    object-position: top center;
     margin-bottom: 6px;
     flex-shrink: 0;
-    box-shadow: 4px 4px 0 ${CANDIDATE.darkNavy};
+    display: block;
   }
   .fp-empty-heading {
-    font-family: 'Bebas Neue', sans-serif;
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    font-style: italic;
     font-size: 30px;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.01em;
+    text-transform: uppercase;
     color: ${CANDIDATE.cobalt};
     margin: 0;
   }
@@ -588,7 +583,7 @@ function PasswordGate({ onUnlock }) {
         <span className="fp-gate-corner bl"><Rosette size={26} /></span>
         <span className="fp-gate-corner br"><Rosette size={26} /></span>
 
-        <div className="fp-gate-avatar">{CANDIDATE.initials}</div>
+        <img className="fp-gate-avatar" src="/faizah-photo.jpg" alt={CANDIDATE.name} />
 
         <div className="fp-gate-name">{CANDIDATE.gateLabel}</div>
 
@@ -786,7 +781,7 @@ export default function FaizahPage() {
 
         {/* Fixed header — cobalt blue bar like campaign nav */}
         <div className="fp-header">
-          <div className="fp-header-avatar">{CANDIDATE.initials}</div>
+          <img className="fp-header-avatar" src="/faizah-photo.jpg" alt={CANDIDATE.name} />
           <div className="fp-header-text">
             <h1>FAIZAH MALIK</h1>
             <p>for LA City Council District 11</p>
@@ -801,7 +796,7 @@ export default function FaizahPage() {
         <div className="fp-chat">
           {messages.length === 0 ? (
             <div className="fp-empty">
-              <div className="fp-empty-avatar">{CANDIDATE.initials}</div>
+              <img className="fp-empty-avatar" src="/faizah-photo.jpg" alt={CANDIDATE.name} />
               <p className="fp-empty-heading">{CANDIDATE.emptyHeading}</p>
               <p className="fp-empty-sub">{CANDIDATE.emptySub}</p>
               <div className="fp-suggestions">
