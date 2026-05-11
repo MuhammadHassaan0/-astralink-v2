@@ -23,6 +23,7 @@ import PublicTwinPage from './pages/PublicTwinPage.jsx';
 import VintPage from './pages/VintPage.jsx';
 import WozPage from './pages/WozPage.jsx';
 import MamdaniPage from './pages/MamdaniPage.jsx';
+import FaizahPage from './pages/FaizahPage.jsx';
 
 export default function App() {
   return (
@@ -50,6 +51,7 @@ export default function App() {
       <Route path="/vint" element={<VintPage />} />
       <Route path="/woz" element={<WozPage />} />
       <Route path="/mamdani" element={<MamdaniPage />} />
+      <Route path="/faizah" element={<FaizahPage />} />
     </Routes>
   );
 }

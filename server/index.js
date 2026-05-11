@@ -926,6 +926,44 @@ app.post('/mamdani-chat', mamdaniRateLimit, async (req, res) => {
   }
 });
 
+// ── Faizah Malik proxy ────────────────────────────────────────────────────────
+// Text-only digital twin — no voice, no transcription.
+// FAIZAH_API_URL defaults to the same Python backend as Mamdani (same service).
+app.post('/faizah-chat', async (req, res) => {
+  const faizahUrl = (process.env.FAIZAH_API_URL || process.env.MAMDANI_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
+
+  try {
+    const upstream = await fetch(`${faizahUrl}/faizah/chat`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(req.body),
+    });
+
+    if (!upstream.ok) {
+      const err = await upstream.text();
+      return res.status(upstream.status).json({ error: err });
+    }
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders();
+
+    const reader = upstream.body.getReader();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) { res.end(); break; }
+      res.write(value);
+      if (typeof res.flush === 'function') res.flush();
+    }
+  } catch (e) {
+    console.error('[faizah-chat] proxy error:', e.message);
+    if (!res.headersSent) res.status(502).json({ error: `Faizah backend unreachable: ${e.message}` });
+    else res.end();
+  }
+});
+
 // ── TTS text cleaner ──────────────────────────────────────────────────────────
 // Strips/replaces characters that cause TTS to stumble: dollar signs, markdown
 // symbols, stray punctuation, etc.

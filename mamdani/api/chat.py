@@ -500,6 +500,172 @@ async def mamdani_chat(req: ChatRequest):
     )
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# FAIZAH MALIK — Digital Twin endpoint
+# Reuses the same FastAPI app, Groq client, and SSE pattern.
+# Only differences: Qdrant collection, retriever, persona prompt, response style.
+# ══════════════════════════════════════════════════════════════════════════════
+
+FAIZAH_COLLECTION  = "faizah"
+FAIZAH_PERSONA_FILE = ROOT / "prompts" / "faizah_persona.md"
+
+_faizah_persona_text: str | None = None
+_faizah_retrieve = None
+_faizah_classify  = None
+
+
+def get_faizah_persona() -> str:
+    global _faizah_persona_text
+    if _faizah_persona_text is None:
+        try:
+            _faizah_persona_text = FAIZAH_PERSONA_FILE.read_text()
+            log.info("Faizah persona loaded (%d chars)", len(_faizah_persona_text))
+        except Exception as e:
+            log.error("Faizah persona file read failed: %s", e)
+            _faizah_persona_text = "You are Faizah Malik, candidate for LA City Council District 11."
+    return _faizah_persona_text
+
+
+def get_faizah_retriever():
+    global _faizah_retrieve, _faizah_classify
+    if _faizah_retrieve is None or _faizah_classify is None:
+        try:
+            log.info("Importing retrieval.faizah_retriever …")
+            from retrieval.faizah_retriever import retrieve, classify_query
+            _faizah_retrieve = retrieve
+            _faizah_classify  = classify_query
+            log.info("retrieval.faizah_retriever imported ok")
+        except Exception as e:
+            log.error("retrieval.faizah_retriever import failed: %s", e)
+            raise
+    return _faizah_retrieve, _faizah_classify
+
+
+def build_faizah_system_prompt(context: str, intent: str = "complex") -> str:
+    today        = date.today().isoformat()
+    persona_text = get_faizah_persona()
+
+    if intent == "simple":
+        length_rule = "Respond in 1–2 sentences. Warm, direct, human."
+    else:
+        length_rule = "Respond in 2–4 sentences. Conversational but substantive. Lead with your record."
+
+    return f"""You are Faizah Malik, candidate for LA City Council District 11.
+
+RESPONSE RULES — FOLLOW EXACTLY:
+{length_rule}
+Speak from your documented record only. Never invent positions or speculate beyond what you have actually said publicly.
+If you don't know something, say so briefly — "I haven't spoken specifically to that" — then offer what you do know.
+No bullet points, numbered lists, or headers.
+Do not end responses with questions.
+Do not start every sentence with "I".
+Keep responses concise and complete — always finish your final sentence.
+
+---
+
+{persona_text}
+
+---
+
+Today's date: {today}
+
+---
+
+RETRIEVED CONTEXT — from Faizah's public record (campaign site, voter guides, news coverage).
+Use this material to ground your answers. If there is a direct quote, use it accurately.
+
+{context}"""
+
+
+@app.post("/faizah/chat")
+async def faizah_chat(req: ChatRequest):
+    if not req.messages:
+        raise HTTPException(status_code=400, detail="messages cannot be empty")
+
+    user_messages = [m for m in req.messages if m.role == "user"]
+    if not user_messages:
+        raise HTTPException(status_code=400, detail="no user message found")
+
+    query  = user_messages[-1].content.strip()
+    intent = intent_classify(query)
+    log.info("[faizah] intent=%s query=%r", intent, query[:80])
+
+    try:
+        retrieve_fn, classify_fn = get_faizah_retriever()
+    except Exception as e:
+        log.error("[faizah] get_faizah_retriever() failed: %s", e)
+        raise HTTPException(status_code=503, detail=f"Faizah retriever unavailable: {e}")
+
+    query_type = classify_fn(query)
+
+    try:
+        chunks = retrieve_fn(query, top_k=TOP_K)
+    except Exception as e:
+        log.error("[faizah] retrieve() failed: %s", e)
+        chunks = []
+
+    context       = build_context_block(chunks, max_tokens=MAX_CTX_TOKENS)
+    system_prompt = build_faizah_system_prompt(context, intent=intent)
+
+    history = [
+        {"role": m.role, "content": m.content}
+        for m in req.messages[:-1]
+        if m.role in ("user", "assistant")
+    ]
+
+    groq_messages = [
+        {"role": "system", "content": system_prompt},
+        *history,
+        {"role": "user",   "content": query},
+    ]
+
+    async def event_stream():
+        loop  = asyncio.get_event_loop()
+        queue: asyncio.Queue = asyncio.Queue()
+
+        def run_groq_sync():
+            try:
+                groq_client_inst = get_groq()
+                stream = groq_client_inst.chat.completions.create(
+                    model=LLM_MODEL,
+                    messages=groq_messages,
+                    stream=True,
+                    max_tokens=400,
+                    temperature=0.80,
+                )
+                for chunk in stream:
+                    token = chunk.choices[0].delta.content or ""
+                    if token:
+                        loop.call_soon_threadsafe(queue.put_nowait, ("token", token))
+            except Exception as exc:
+                loop.call_soon_threadsafe(queue.put_nowait, ("error", str(exc)))
+            finally:
+                loop.call_soon_threadsafe(queue.put_nowait, ("done", None))
+
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        loop.run_in_executor(executor, run_groq_sync)
+
+        while True:
+            kind, payload = await queue.get()
+            if kind == "token":
+                yield sse_event({"type": "token", "content": payload})
+                await asyncio.sleep(0)
+            elif kind == "error":
+                log.error("[faizah] Groq stream error: %s", payload)
+                yield sse_event({"type": "error", "message": payload})
+                break
+            elif kind == "done":
+                break
+
+        yield sse_event({"type": "done"})
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
 # ── Health check — always returns 200 ────────────────────────────────────────
 
 @app.get("/healthz")
