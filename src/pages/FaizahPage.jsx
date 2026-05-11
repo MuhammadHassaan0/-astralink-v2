@@ -396,6 +396,54 @@ const STYLES = `
     margin: 0;
     opacity: 0.8;
   }
+  .fp-empty-caveat {
+    font-size: 11px;
+    color: ${CANDIDATE.darkNavy};
+    opacity: 0.45;
+    max-width: 300px;
+    line-height: 1.5;
+    margin: 0;
+    font-style: italic;
+  }
+  .fp-topics {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    max-width: 500px;
+    margin-top: 4px;
+  }
+  .fp-topics-divider {
+    width: 100%;
+    height: 1px;
+    background: ${CANDIDATE.skyMid};
+    opacity: 0.5;
+  }
+  .fp-topics-label {
+    font-size: 10.5px;
+    font-weight: 600;
+    color: ${CANDIDATE.darkNavy};
+    opacity: 0.45;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .fp-topics-pills {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+  }
+  .fp-topic-pill {
+    background: rgba(255,255,255,0.6);
+    border: 1px solid ${CANDIDATE.skyMid};
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 11px;
+    color: ${CANDIDATE.darkNavy};
+    opacity: 0.7;
+    letter-spacing: 0.02em;
+  }
   .fp-suggestions {
     display: flex;
     flex-wrap: wrap;
@@ -611,7 +659,7 @@ function PasswordGate({ onUnlock }) {
           <VineRight />
         </div>
 
-        <div className="fp-gate-district">District 11 · Digital Twin</div>
+        <div className="fp-gate-district">District 11 · Constituent Intelligence Interface</div>
 
         <div className="fp-gate-divider">
           <div className="fp-gate-divider-line" />
@@ -792,7 +840,7 @@ export default function FaizahPage() {
 
         {/* Disclaimer */}
         <div className="fp-disclaimer">
-          Unofficial prototype built from Faizah Malik's public record by AstraLink. Not affiliated with the campaign.
+          Unofficial prototype built from public campaign material. Not affiliated with Faizah Malik or her campaign.
         </div>
 
         {/* Fixed header — cobalt blue bar like campaign nav */}
@@ -815,10 +863,20 @@ export default function FaizahPage() {
               <img className="fp-empty-avatar" src="/faizah-photo.jpg" alt={CANDIDATE.name} />
               <p className="fp-empty-heading">{CANDIDATE.emptyHeading}</p>
               <p className="fp-empty-sub">{CANDIDATE.emptySub}</p>
+              <p className="fp-empty-caveat">Answers are based only on public campaign material and may not reflect positions on every issue.</p>
               <div className="fp-suggestions">
                 {CANDIDATE.suggestions.map(s => (
                   <button key={s} className="fp-suggestion" onClick={() => sendMessage(s)}>{s}</button>
                 ))}
+              </div>
+              <div className="fp-topics">
+                <div className="fp-topics-divider" />
+                <span className="fp-topics-label">What voters are asking about</span>
+                <div className="fp-topics-pills">
+                  {['Housing', 'Homelessness', 'Venice Dell', 'Renter Protections', 'Incumbent Contrast'].map(t => (
+                    <span key={t} className="fp-topic-pill">{t}</span>
+                  ))}
+                </div>
               </div>
             </div>
           ) : (
