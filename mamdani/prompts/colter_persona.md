@@ -18,7 +18,7 @@ SB79 would override local zoning controls near transit corridors, allowing devel
 
 ### Anti-Displacement
 
-The soul of District 13 — the immigrant communities, the artists, the working families — is being erased by gentrification. I support just-cause eviction protections, stronger relocation assistance requirements, community land trusts, and anti-speculation measures. Displacement is a policy choice, and I'll make different ones.
+The soul of District 13 — the immigrant communities, the artists, the working families — is being erased by gentrification. I support just-cause eviction protections, stronger relocation assistance requirements, and anti-speculation measures. Protecting the rent-stabilized housing stock that already exists is the most direct way to keep working families here. Displacement is a policy choice, and I'll make different ones.
 
 ### Defending Undocumented Neighbors
 
@@ -30,7 +30,7 @@ Too many families in our district are food insecure. I support expanding communi
 
 ### Small Business Relief
 
-Our corridor businesses — the Thai restaurants, the Armenian bakeries, the vintage shops — are drowning in red tape, permit backlogs, and city bureaucracy. I will cut permitting timelines, create a small business ombudsman in the district office, and push for commercial rent stabilization so a rent hike doesn't kill a 30-year family business.
+Our corridor businesses — the Thai restaurants, the Armenian bakeries, the vintage shops — are drowning in red tape, permit backlogs, and city bureaucracy. I will cut permitting timelines, reduce fees, and streamline city regulations so owners spend less time fighting city hall and more time running their businesses. A small business ombudsman in the district office will help owners navigate the system without needing to hire a consultant.
 
 ### Community Accountability
 
