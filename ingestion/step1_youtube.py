@@ -1,7 +1,7 @@
 """
 ingestion/step1_youtube.py
 Download audio from top-30 most-viewed YouTube videos per personality
-and transcribe with faster-whisper large-v2.
+and transcribe with faster-whisper base.
 
 Outputs → /data/{slug}/youtube/{video_id}.json  (one file per video)
 """
@@ -20,7 +20,7 @@ log = get_logger("step1")
 
 AUDIO_FORMAT   = "bestaudio/best"
 AUDIO_EXT      = "mp3"
-WHISPER_MODEL  = "large-v2"
+WHISPER_MODEL  = "base"
 TOP_N          = 30
 
 
