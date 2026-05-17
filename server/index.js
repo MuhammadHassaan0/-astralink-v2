@@ -1744,6 +1744,27 @@ app.post('/mamdani/seed', async (req, res) => {
   }
 });
 
+// ── Arena proxy routes (forward to FastAPI mamdani service) ──────────────────
+async function arenaProxy(req, res, method, path, body) {
+  const mamdaniUrl = (process.env.MAMDANI_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
+  try {
+    const opts = { method, headers: { 'Content-Type': 'application/json' } };
+    if (body) opts.body = JSON.stringify(body);
+    const upstream = await fetch(`${mamdaniUrl}${path}`, opts);
+    const data = await upstream.json();
+    res.status(upstream.status).json(data);
+  } catch (e) {
+    console.error(`[arena proxy] ${path} error:`, e.message);
+    res.status(502).json({ error: e.message });
+  }
+}
+
+app.get('/arena/feed',    (req, res) => arenaProxy(req, res, 'GET', '/arena/feed'));
+app.get('/arena/twins',   (req, res) => arenaProxy(req, res, 'GET', '/arena/twins'));
+app.get('/arena/healthz', (req, res) => arenaProxy(req, res, 'GET', '/arena/healthz'));
+app.post('/arena/inject', (req, res) => arenaProxy(req, res, 'POST', '/arena/inject', req.body));
+app.post('/arena/react',  (req, res) => arenaProxy(req, res, 'POST', '/arena/react', req.body));
+
 const PORT = process.env.PORT || 3001;
 initDB().then(() => {
   app.listen(PORT, () => console.log(`AstraLink backend running on port ${PORT}`));
