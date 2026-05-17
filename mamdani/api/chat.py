@@ -161,6 +161,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ── Arena router ──────────────────────────────────────────────────────────────
+try:
+    from arena.api import router as arena_router
+    app.include_router(arena_router)
+    log.info("Arena router mounted at /arena/*")
+except Exception as _arena_err:
+    log.warning("Arena router not mounted: %s", _arena_err)
+
 # Static files — non-fatal if frontend dir missing
 try:
     app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
