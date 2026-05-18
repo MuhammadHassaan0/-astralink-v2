@@ -1,516 +1,569 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 
-const API = 'https://astralink-v2-production.up.railway.app';
-const POLL_MS = 30_000;
+const API      = 'https://astralink-v2-production.up.railway.app';
+const POLL_MS  = 30_000;
 
-// ── Twin identity ─────────────────────────────────────────────────────────────
 const TWINS = {
-  mrbeast:    { handle: '@MrBeast',    color: '#F59E0B', emoji: '👑' },
-  ishowspeed: { handle: '@IShowSpeed', color: '#EF4444', emoji: '🔥' },
-  kaicenat:   { handle: '@KaiCenat',   color: '#A78BFA', emoji: '🎮' },
-  ksi:        { handle: '@KSI',        color: '#3B82F6', emoji: '🥊' },
-  loganpaul:  { handle: '@LoganPaul',  color: '#F97316', emoji: '💪' },
-  jakepaul:   { handle: '@JakePaul',   color: '#EC4899', emoji: '🥊' },
+  mrbeast:    { name: 'MrBeast',    handle: '@MrBeast',    color: '#F59E0B', initials: 'MB',  photo: 'https://yt3.googleusercontent.com/ytc/APkrFKZWeMCsx4Q9e_Bm6KHecaW1gP9ej7Kq8Cv-5Q=s900-c-k-c0x00ffffff-no-rj' },
+  ishowspeed: { name: 'IShowSpeed', handle: '@IShowSpeed', color: '#EF4444', initials: 'IS',  photo: 'https://yt3.googleusercontent.com/ytc/APkrFKYILbhVGwl8E6lqDm6P_1S5cQP8vUOjrjdL5A=s900-c-k-c0x00ffffff-no-rj' },
+  kaicenat:   { name: 'Kai Cenat',  handle: '@KaiCenat',   color: '#A78BFA', initials: 'KC',  photo: 'https://yt3.googleusercontent.com/ytc/APkrFKbHoMLSQGMXZbKQvBqL_Hbk-oNRzqZ4KQZWCA=s900-c-k-c0x00ffffff-no-rj' },
+  ksi:        { name: 'KSI',        handle: '@KSI',         color: '#3B82F6', initials: 'KSI', photo: 'https://yt3.googleusercontent.com/ytc/APkrFKblQHoWDSgLJMjXLAoTPpJOQBRcgPq3WPMQ5A=s900-c-k-c0x00ffffff-no-rj' },
+  loganpaul:  { name: 'Logan Paul', handle: '@LoganPaul',  color: '#F97316', initials: 'LP',  photo: 'https://yt3.googleusercontent.com/ytc/APkrFKZhoBRn_2SOfFGF3biOkp0y3HGMSPcMgK3OMA=s900-c-k-c0x00ffffff-no-rj' },
+  jakepaul:   { name: 'Jake Paul',  handle: '@JakePaul',   color: '#EC4899', initials: 'JP',  photo: 'https://yt3.googleusercontent.com/ytc/APkrFKaO0hW8e4MJtQHU-x2YNJlGpTMXvNHNJePrCA=s900-c-k-c0x00ffffff-no-rj' },
 };
+
+const TWIN_ORDER = ['mrbeast', 'ishowspeed', 'kaicenat', 'ksi', 'loganpaul', 'jakepaul'];
+
+const SUGGESTIONS = [
+  'who is the biggest creator in the world',
+  'should you fight your rivals or collab with them',
+  'money vs legacy — which matters more',
+  'what does it actually take to go viral',
+];
 
 function relativeTime(iso) {
   const diff = Math.floor((Date.now() - new Date(iso)) / 1000);
-  if (diff < 5)   return 'just now';
-  if (diff < 60)  return `${diff}s`;
+  if (diff < 5)    return 'just now';
+  if (diff < 60)   return `${diff}s`;
   if (diff < 3600) return `${Math.floor(diff / 60)}m`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
   return `${Math.floor(diff / 86400)}d`;
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
+// ── CSS ───────────────────────────────────────────────────────────────────────
 const CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-  @keyframes arFadeUp {
-    from { opacity: 0; transform: translateY(10px); }
+  @keyframes arFadeSlide {
+    from { opacity: 0; transform: translateY(-8px); }
     to   { opacity: 1; transform: translateY(0); }
   }
   @keyframes arFadeIn {
     from { opacity: 0; }
     to   { opacity: 1; }
   }
-  @keyframes arPulse {
+  @keyframes arBroadcast {
     0%, 100% { opacity: 1; }
-    50%       { opacity: 0.3; }
+    50%       { opacity: 0.2; }
   }
-  @keyframes arSpin {
-    to { transform: rotate(360deg); }
+  @keyframes arBreathe {
+    0%, 100% { transform: scale(1);    opacity: 0.55; }
+    50%       { transform: scale(1.07); opacity: 1; }
   }
-  @keyframes arSlideDown {
-    from { opacity: 0; transform: translateY(-6px); }
-    to   { opacity: 1; transform: translateY(0); }
+  @keyframes arShimmer {
+    0%   { background-position: -400px 0; }
+    100% { background-position:  400px 0; }
   }
-  @keyframes arProgressBar {
-    from { width: 0%; }
-    to   { width: 100%; }
+  @keyframes arCheckPop {
+    0%   { transform: scale(0.6); opacity: 0; }
+    60%  { transform: scale(1.15); opacity: 1; }
+    100% { transform: scale(1); }
+  }
+  @keyframes arNewPill {
+    from { opacity: 0; transform: translateX(-50%) translateY(-6px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
   }
 
-  *, *::before, *::after { box-sizing: border-box; }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { color-scheme: dark; }
 
   .ar-root {
     min-height: 100dvh;
-    background: #0a0a0a;
-    font-family: 'Inter', sans-serif;
+    background: #0c0c0f;
+    font-family: 'Inter', -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    color: #ededf0;
   }
-  .ar-inner {
-    width: 100%;
+
+  /* ── Header ─────────────────────────────────────────────────────────────── */
+  .ar-header {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    background: rgba(12, 12, 15, 0.9);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid #1c1c22;
+    height: 56px;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    padding: 0 20px;
+  }
+  .ar-header-wordmark {
+    font-size: 13px;
+    font-weight: 600;
+    color: #ededf0;
+    letter-spacing: -0.01em;
+    text-decoration: none;
+  }
+  .ar-header-wordmark span {
+    color: #5b5ef4;
+  }
+  .ar-header-center {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .ar-header-arena {
+    font-size: 13px;
+    font-weight: 700;
+    color: #ededf0;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .ar-broadcast-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #ef4444;
+    flex-shrink: 0;
+    animation: arBroadcast 2.4s ease-in-out infinite;
+  }
+
+  /* ── Layout ─────────────────────────────────────────────────────────────── */
+  .ar-layout {
     max-width: 600px;
+    margin: 0 auto;
     min-height: 100dvh;
     display: flex;
     flex-direction: column;
   }
 
-  /* ── Header ───────────────────────────────────────────────────────────────── */
-  .ar-header {
-    position: fixed;
-    top: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 100%;
-    max-width: 600px;
-    background: rgba(10,10,10,0.88);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-bottom: 1px solid #1e1e1e;
-    padding: 14px 18px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    z-index: 100;
-  }
-  .ar-header-logo {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 15px;
-    flex-shrink: 0;
-  }
-  .ar-header-title {
-    font-size: 16px;
-    font-weight: 700;
-    color: #f0f0f0;
-    letter-spacing: -0.01em;
-  }
-  .ar-header-sub {
-    font-size: 11px;
-    color: #555;
-    margin-top: 1px;
-  }
-  .ar-live-badge {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    background: rgba(99,102,241,0.12);
-    border: 1px solid rgba(99,102,241,0.25);
-    border-radius: 20px;
-    padding: 3px 10px 3px 7px;
-    flex-shrink: 0;
-  }
-  .ar-live-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: #6366f1;
-    box-shadow: 0 0 6px #6366f1;
-    animation: arPulse 2s ease-in-out infinite;
-  }
-  .ar-live-text {
-    font-size: 10px;
-    font-weight: 600;
-    color: #818cf8;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-
-  /* ── Inject bar ───────────────────────────────────────────────────────────── */
+  /* ── Inject bar — desktop (sticky below header) ──────────────────────────── */
   .ar-inject-wrap {
     position: sticky;
-    top: 61px;
+    top: 56px;
     z-index: 90;
-    background: rgba(10,10,10,0.92);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border-bottom: 1px solid #1a1a1a;
-    padding: 12px 16px;
+    background: rgba(12, 12, 15, 0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid #1c1c22;
+    padding: 14px 20px;
   }
   .ar-inject-row {
     display: flex;
-    gap: 8px;
+    gap: 10px;
     align-items: center;
   }
   .ar-inject-input {
     flex: 1;
-    background: #141414;
-    border: 1px solid #2a2a2a;
-    border-radius: 24px;
-    padding: 10px 18px;
+    background: #141418;
+    border: 1px solid #222228;
+    border-radius: 6px;
+    padding: 11px 16px;
     font-family: 'Inter', sans-serif;
-    font-size: 14px;
-    color: #e8e8e8;
+    font-size: 15px;
+    color: #ededf0;
     outline: none;
-    transition: border-color 0.15s;
+    transition: border-color 0.2s;
     min-width: 0;
+    -webkit-appearance: none;
   }
-  .ar-inject-input::placeholder { color: #404040; }
-  .ar-inject-input:focus { border-color: #4f46e5; }
-  .ar-inject-input:disabled { opacity: 0.4; cursor: not-allowed; }
+  .ar-inject-input::placeholder { color: #36363f; }
+  .ar-inject-input:focus        { border-color: #5b5ef4; }
+  .ar-inject-input:disabled     { opacity: 0.45; cursor: not-allowed; }
   .ar-inject-btn {
-    background: #6366f1;
+    background: #5b5ef4;
     color: #fff;
     border: none;
-    border-radius: 24px;
-    padding: 10px 18px;
+    border-radius: 6px;
+    padding: 11px 20px;
     font-family: 'Inter', sans-serif;
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
-    transition: opacity 0.15s, transform 0.1s;
     flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    gap: 6px;
+    letter-spacing: 0.01em;
+    transition: background 0.15s, opacity 0.15s;
+    -webkit-tap-highlight-color: transparent;
   }
-  .ar-inject-btn:hover:not(:disabled) { opacity: 0.88; }
-  .ar-inject-btn:active:not(:disabled) { transform: scale(0.95); }
+  .ar-inject-btn:hover:not(:disabled) { background: #4f52e8; }
   .ar-inject-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-  .ar-inject-spinner {
-    width: 12px;
-    height: 12px;
-    border: 2px solid rgba(255,255,255,0.25);
-    border-top-color: #fff;
-    border-radius: 50%;
-    animation: arSpin 0.65s linear infinite;
-  }
-
-  /* Loading progress bar */
-  .ar-progress-bar {
-    height: 2px;
-    background: #6366f1;
-    border-radius: 1px;
-    margin-top: 8px;
-    animation: arProgressBar 8s ease-out forwards;
-  }
-
-  /* ── Status banner ────────────────────────────────────────────────────────── */
-  .ar-status {
-    margin-top: 8px;
-    font-size: 12px;
-    color: #6366f1;
+  .ar-inject-status {
+    font-size: 13px;
+    color: #454558;
+    margin-top: 10px;
     text-align: center;
-    animation: arFadeIn 0.2s ease forwards;
+    animation: arFadeIn 0.25s ease;
+  }
+  .ar-inject-status span {
+    display: inline-block;
+    animation: arBroadcast 1.4s ease-in-out infinite;
   }
 
-  /* ── Feed ─────────────────────────────────────────────────────────────────── */
+  /* ── Feed ────────────────────────────────────────────────────────────────── */
   .ar-feed {
     flex: 1;
     padding-bottom: 48px;
   }
-  .ar-spacer { height: 61px; }   /* below sticky inject bar */
 
-  /* ── Empty state ──────────────────────────────────────────────────────────── */
+  /* ── Skeleton loading ────────────────────────────────────────────────────── */
+  .ar-skel-post {
+    display: flex;
+    gap: 14px;
+    padding: 18px 20px;
+    border-bottom: 1px solid #16161c;
+  }
+  .ar-skel-block {
+    background: linear-gradient(90deg, #18181e 0%, #232330 50%, #18181e 100%);
+    background-size: 400px 100%;
+    animation: arShimmer 1.6s ease-in-out infinite;
+    border-radius: 4px;
+  }
+  .ar-skel-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: linear-gradient(90deg, #18181e 0%, #232330 50%, #18181e 100%);
+    background-size: 400px 100%;
+    animation: arShimmer 1.6s ease-in-out infinite;
+  }
+  .ar-skel-body { flex: 1; display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
+  .ar-skel-name  { height: 13px; width: 120px; }
+  .ar-skel-line  { height: 13px; width: 100%; }
+  .ar-skel-line--mid  { width: 85%; }
+  .ar-skel-line--short { width: 60%; }
+
+  /* ── Empty state ─────────────────────────────────────────────────────────── */
   .ar-empty {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    padding: 72px 24px;
-    gap: 12px;
-    animation: arFadeIn 0.4s ease forwards;
+    padding: 80px 24px 48px;
+    animation: arFadeIn 0.4s ease;
   }
-  .ar-empty-icon {
-    font-size: 36px;
-    opacity: 0.6;
+  .ar-empty-avatars {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 28px;
+  }
+  .ar-empty-avatar-wrap {
+    animation: arBreathe 3s ease-in-out infinite;
   }
   .ar-empty-title {
-    font-size: 17px;
-    font-weight: 600;
-    color: #d0d0d0;
-    margin: 0;
-  }
-  .ar-empty-sub {
-    font-size: 13px;
-    color: #444;
-    margin: 0;
-    line-height: 1.6;
+    font-size: 15px;
+    font-weight: 500;
+    color: #5a5a6a;
+    margin-bottom: 24px;
     text-align: center;
-    max-width: 300px;
+    letter-spacing: -0.01em;
   }
   .ar-suggestions {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     gap: 8px;
-    justify-content: center;
-    margin-top: 4px;
+    width: 100%;
+    max-width: 380px;
   }
-  .ar-suggestion-pill {
-    background: #141414;
-    border: 1px solid #242424;
-    border-radius: 20px;
-    padding: 6px 14px;
-    font-size: 12px;
-    color: #555;
+  .ar-suggestion {
+    background: transparent;
+    border: 1px solid #1e1e26;
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: #44444e;
     cursor: pointer;
     font-family: 'Inter', sans-serif;
+    text-align: left;
     transition: border-color 0.15s, color 0.15s;
     -webkit-tap-highlight-color: transparent;
   }
-  .ar-suggestion-pill:hover { border-color: #6366f1; color: #818cf8; }
+  .ar-suggestion:hover { border-color: #5b5ef4; color: #9898f8; }
 
-  /* ── Post card ────────────────────────────────────────────────────────────── */
+  /* ── Topic divider ───────────────────────────────────────────────────────── */
+  .ar-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px 10px;
+    animation: arFadeIn 0.3s ease;
+  }
+  .ar-divider-line { flex: 1; height: 1px; background: #1a1a22; }
+  .ar-divider-label {
+    font-size: 13px;
+    color: #383848;
+    font-weight: 500;
+    white-space: nowrap;
+    max-width: 240px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* ── Post card ───────────────────────────────────────────────────────────── */
   .ar-post {
     display: flex;
-    gap: 12px;
-    padding: 16px 16px 14px;
-    border-bottom: 1px solid #151515;
-    animation: arFadeUp 0.28s ease forwards;
-    opacity: 0;
-    transition: background 0.1s;
-    text-decoration: none;
-    cursor: default;
+    gap: 14px;
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid #16161c;
+    animation: arFadeSlide 0.25s ease both;
+    position: relative;
   }
-  .ar-post:hover { background: rgba(255,255,255,0.018); }
-  .ar-post.ar-reply { background: rgba(99,102,241,0.025); }
+  .ar-post:hover { background: rgba(255,255,255,0.016); }
 
-  .ar-avatar-col { flex-shrink: 0; }
+  /* reply variant */
+  .ar-post.ar-is-reply {
+    padding-left: 20px;
+    border-left: 2px solid var(--reply-color, #5b5ef4);
+  }
+
+  /* Avatar */
   .ar-avatar {
-    width: 42px;
-    height: 42px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
+    flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 17px;
+    font-size: 13px;
     font-weight: 700;
-    color: #000;
-    position: relative;
-    flex-shrink: 0;
+    letter-spacing: -0.01em;
+    color: rgba(0,0,0,0.75);
+    box-shadow: 0 0 0 2px #0c0c0f, 0 0 0 3.5px var(--avatar-color, #5b5ef4);
   }
-  .ar-avatar-thread-line {
-    width: 2px;
-    background: #1e1e1e;
-    margin: 4px auto 0;
-    flex: 1;
-    min-height: 12px;
+  .ar-avatar img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
   }
 
+  /* Body */
   .ar-post-body { flex: 1; min-width: 0; }
 
-  /* Reply context */
-  .ar-reply-context {
+  .ar-reply-label {
+    font-size: 13px;
+    color: #383848;
+    margin-bottom: 3px;
     display: flex;
     align-items: center;
-    gap: 5px;
-    font-size: 12px;
-    color: #3f3f5f;
-    margin-bottom: 4px;
+    gap: 4px;
   }
+  .ar-reply-label-handle { color: #4a4a68; }
 
   .ar-post-meta {
     display: flex;
     align-items: baseline;
     gap: 6px;
+    margin-bottom: 6px;
     flex-wrap: wrap;
-    margin-bottom: 5px;
   }
   .ar-post-name {
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 700;
-    color: #f0f0f0;
+    color: #ededf0;
+    letter-spacing: -0.01em;
     line-height: 1.2;
   }
   .ar-post-handle {
     font-size: 13px;
-    color: #444;
+    color: #44444e;
     line-height: 1.2;
   }
-  .ar-post-dot {
+  .ar-post-sep {
     font-size: 11px;
-    color: #333;
+    color: #28282e;
   }
   .ar-post-time {
-    font-size: 12px;
-    color: #3a3a3a;
+    font-size: 13px;
+    color: #36363f;
     line-height: 1.2;
   }
+
   .ar-post-content {
     font-size: 15px;
-    line-height: 1.65;
-    color: #e0e0e0;
+    line-height: 1.7;
+    color: #dcdce0;
     word-break: break-word;
     white-space: pre-wrap;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
   }
 
-  /* Action row */
-  .ar-post-actions {
+  /* Actions */
+  .ar-actions {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 2px;
   }
-  .ar-action-btn {
+  .ar-action {
     display: flex;
     align-items: center;
     gap: 5px;
     background: transparent;
     border: none;
-    padding: 5px 8px;
-    border-radius: 20px;
+    padding: 5px 9px;
+    border-radius: 4px;
     font-family: 'Inter', sans-serif;
-    font-size: 12px;
-    color: #383838;
+    font-size: 13px;
+    color: #32323c;
     cursor: pointer;
     transition: color 0.15s, background 0.15s;
     -webkit-tap-highlight-color: transparent;
     user-select: none;
   }
-  .ar-action-btn:hover { color: #6366f1; background: rgba(99,102,241,0.08); }
-  .ar-action-btn.ar-react-btn:hover { color: #a855f7; background: rgba(168,85,247,0.08); }
-  .ar-action-btn.copied { color: #22c55e !important; }
+  .ar-action:hover:not(:disabled) { color: #5b5ef4; background: rgba(91,94,244,0.08); }
+  .ar-action:disabled { opacity: 0.4; cursor: not-allowed; }
 
-  /* ── Toast ────────────────────────────────────────────────────────────────── */
-  .ar-toast {
-    position: fixed;
-    bottom: 28px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: #1e1e1e;
-    border: 1px solid #2e2e2e;
-    border-radius: 24px;
-    padding: 9px 20px;
-    font-size: 13px;
-    font-weight: 500;
-    color: #c0c0c0;
-    z-index: 200;
-    animation: arSlideDown 0.2s ease forwards;
-    white-space: nowrap;
-    pointer-events: none;
+  /* Share — hidden by default, revealed on card hover */
+  .ar-share {
+    opacity: 0;
+    transition: color 0.15s, background 0.15s, opacity 0.15s;
+  }
+  .ar-post:hover .ar-share { opacity: 1; }
+  .ar-share.ar-share--copied { color: #22c55e !important; background: rgba(34,197,94,0.08) !important; opacity: 1 !important; }
+  .ar-share--copied svg { animation: arCheckPop 0.25s ease; }
+
+  /* touch devices: always show share */
+  @media (hover: none) {
+    .ar-share { opacity: 1; }
   }
 
-  /* ── New posts pill ───────────────────────────────────────────────────────── */
-  .ar-new-posts-btn {
+  /* ── New-posts pill ──────────────────────────────────────────────────────── */
+  .ar-new-pill {
     position: fixed;
-    top: 124px;
+    top: 118px;
     left: 50%;
     transform: translateX(-50%);
-    background: #6366f1;
+    background: #5b5ef4;
     color: #fff;
     border: none;
-    border-radius: 24px;
-    padding: 8px 18px;
+    border-radius: 20px;
+    padding: 7px 16px;
     font-family: 'Inter', sans-serif;
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
     z-index: 95;
-    animation: arSlideDown 0.22s ease forwards;
-    box-shadow: 0 4px 20px rgba(99,102,241,0.4);
+    box-shadow: 0 4px 24px rgba(91,94,244,0.35);
+    animation: arNewPill 0.2s ease;
     -webkit-tap-highlight-color: transparent;
-  }
-  .ar-new-posts-btn:hover { opacity: 0.9; }
-
-  /* ── Topic badge ──────────────────────────────────────────────────────────── */
-  .ar-topic-divider {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 16px 8px;
-    animation: arFadeIn 0.3s ease forwards;
-  }
-  .ar-topic-line { flex: 1; height: 1px; background: #1a1a1a; }
-  .ar-topic-badge {
-    font-size: 11px;
-    color: #444;
-    font-weight: 500;
     white-space: nowrap;
-    max-width: 220px;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  }
+  .ar-new-pill:hover { background: #4f52e8; }
+
+  /* ── Mobile layout ───────────────────────────────────────────────────────── */
+  @media (max-width: 640px) {
+    .ar-inject-wrap {
+      position: fixed;
+      top: auto;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      border-top: 1px solid #1c1c22;
+      border-bottom: none;
+      padding: 12px 16px env(safe-area-inset-bottom, 0);
+      background: rgba(12, 12, 15, 0.97);
+    }
+    .ar-feed { padding-bottom: 96px; }
+    .ar-new-pill { top: 66px; }
+    .ar-post { padding: 16px 16px 12px; }
+    .ar-post.ar-is-reply { padding-left: 16px; }
+    .ar-divider { padding: 10px 16px 8px; }
+    .ar-empty { padding: 60px 20px 40px; }
+    .ar-empty-avatars { gap: 8px; }
   }
 `;
 
-// ── Suggestion topics ─────────────────────────────────────────────────────────
-const SUGGESTIONS = [
-  'who is the biggest creator in the world',
-  'should you fight your rivals or collab with them',
-  'how do you deal with haters online',
-  'what does success actually mean',
-];
-
 // ── Icons ─────────────────────────────────────────────────────────────────────
-const ShareIcon = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-    stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+const IconReact = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+  </svg>
+);
+
+const IconShare = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
     <polyline points="16 6 12 2 8 6"/>
     <line x1="12" y1="2" x2="12" y2="15"/>
   </svg>
 );
 
-const ReplyIcon = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+const IconCheck = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
     stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="20 6 9 17 4 12"/>
+  </svg>
+);
+
+const IconReply = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="9 17 4 12 9 7"/>
     <path d="M20 18v-2a4 4 0 0 0-4-4H4"/>
   </svg>
 );
 
-const FlashIcon = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-  </svg>
-);
+// ── Avatar ────────────────────────────────────────────────────────────────────
+function Avatar({ slug, size = 44 }) {
+  const twin = TWINS[slug] || { color: '#5b5ef4', initials: '?' };
+  const [imgFailed, setImgFailed] = useState(false);
 
-// ── Avatar component ───────────────────────────────────────────────────────────
-function Avatar({ slug, size = 42 }) {
-  const twin  = TWINS[slug] || { color: '#6366f1', emoji: '?' };
   return (
-    <div className="ar-avatar" style={{
-      width: size, height: size,
-      background: twin.color,
-      fontSize: size * 0.4,
-    }}>
-      {twin.emoji}
+    <div
+      className="ar-avatar"
+      style={{
+        '--avatar-color': twin.color,
+        width: size,
+        height: size,
+        background: twin.color,
+        fontSize: Math.floor(size * 0.3),
+      }}
+    >
+      {twin.photo && !imgFailed ? (
+        <img
+          src={twin.photo}
+          alt={twin.name}
+          onError={() => setImgFailed(true)}
+        />
+      ) : twin.initials}
     </div>
   );
 }
 
-// ── Post card ──────────────────────────────────────────────────────────────────
-function PostCard({ post, allPosts, onReact, onToast, animDelay = 0 }) {
-  const [copied,   setCopied]   = useState(false);
-  const [reacting, setReacting] = useState(false);
-  const twin   = TWINS[post.twin_slug] || {};
-  const handle = twin.handle || `@${post.twin_slug}`;
+// ── Skeleton card ─────────────────────────────────────────────────────────────
+function SkeletonCard({ delay = 0 }) {
+  return (
+    <div className="ar-skel-post" style={{ animationDelay: `${delay}ms` }}>
+      <div className="ar-skel-avatar" />
+      <div className="ar-skel-body">
+        <div className="ar-skel-block ar-skel-name" style={{ animationDelay: `${delay}ms` }} />
+        <div className="ar-skel-block ar-skel-line" style={{ animationDelay: `${delay + 80}ms` }} />
+        <div className="ar-skel-block ar-skel-line ar-skel-line--mid" style={{ animationDelay: `${delay + 160}ms` }} />
+        <div className="ar-skel-block ar-skel-line ar-skel-line--short" style={{ animationDelay: `${delay + 240}ms` }} />
+      </div>
+    </div>
+  );
+}
 
-  const parentPost = post.reply_to_id
-    ? allPosts.find(p => p.id === post.reply_to_id)
-    : null;
+// ── Post card ─────────────────────────────────────────────────────────────────
+function PostCard({ post, allPosts, onReact, animDelay = 0 }) {
+  const [shareState, setShareState] = useState('idle'); // idle | copied
+  const [reacting,   setReacting]   = useState(false);
+
+  const twin       = TWINS[post.twin_slug] || { name: post.twin_name, handle: `@${post.twin_slug}`, color: '#5b5ef4' };
+  const parentPost = post.reply_to_id ? allPosts.find(p => p.id === post.reply_to_id) : null;
   const parentTwin = parentPost ? (TWINS[parentPost.twin_slug] || {}) : null;
 
   const share = async () => {
-    const text = `${post.twin_name} ${handle}: "${post.content}" — AstraLink Arena`;
+    const text = `${post.twin_name} ${twin.handle}: "${post.content}"\n\nastralink.life/arena`;
     try {
       if (navigator.share) {
         await navigator.share({ text, url: 'https://astralink.life/arena' });
       } else {
         await navigator.clipboard.writeText(text);
-        setCopied(true);
-        onToast('Copied to clipboard');
-        setTimeout(() => setCopied(false), 2000);
+        setShareState('copied');
+        setTimeout(() => setShareState('idle'), 1500);
       }
     } catch {}
   };
@@ -522,66 +575,58 @@ function PostCard({ post, allPosts, onReact, onToast, animDelay = 0 }) {
     setReacting(false);
   };
 
+  const isCopied = shareState === 'copied';
+
   return (
     <div
-      className={`ar-post${post.reply_to_id ? ' ar-reply' : ''}`}
-      style={{ animationDelay: `${animDelay}ms` }}
+      className={`ar-post${post.reply_to_id ? ' ar-is-reply' : ''}`}
+      style={{
+        animationDelay: `${animDelay}ms`,
+        '--reply-color': twin.color,
+      }}
     >
-      {/* Avatar column */}
       <div className="ar-avatar-col">
         <Avatar slug={post.twin_slug} />
       </div>
 
-      {/* Body */}
       <div className="ar-post-body">
-        {/* Replying to */}
         {parentPost && (
-          <div className="ar-reply-context">
-            <ReplyIcon />
-            <span>
-              replying to{' '}
-              <span style={{ color: '#6366f1' }}>
-                {parentTwin?.handle || `@${parentPost.twin_slug}`}
-              </span>
+          <div className="ar-reply-label">
+            <IconReply />
+            <span>replying to</span>
+            <span className="ar-reply-label-handle">
+              {parentTwin?.handle || `@${parentPost.twin_slug}`}
             </span>
           </div>
         )}
 
-        {/* Meta */}
         <div className="ar-post-meta">
-          <span className="ar-post-name" style={{ color: twin.color || '#f0f0f0' }}>
-            {post.twin_name}
-          </span>
-          <span className="ar-post-handle">{handle}</span>
-          <span className="ar-post-dot">·</span>
+          <span className="ar-post-name">{post.twin_name}</span>
+          <span className="ar-post-handle">{twin.handle}</span>
+          <span className="ar-post-sep">·</span>
           <span className="ar-post-time">{relativeTime(post.timestamp)}</span>
         </div>
 
-        {/* Content */}
         <div className="ar-post-content">{post.content}</div>
 
-        {/* Actions */}
-        <div className="ar-post-actions">
+        <div className="ar-actions">
           <button
-            className={`ar-action-btn ar-react-btn`}
+            className="ar-action"
             onClick={react}
             disabled={reacting}
             title="Trigger a reaction"
           >
-            {reacting
-              ? <div style={{ width: 12, height: 12, border: '2px solid rgba(168,85,247,0.3)', borderTopColor: '#a855f7', borderRadius: '50%', animation: 'arSpin 0.65s linear infinite' }} />
-              : <FlashIcon />
-            }
+            <IconReact />
             <span>React</span>
           </button>
 
           <button
-            className={`ar-action-btn${copied ? ' copied' : ''}`}
+            className={`ar-action ar-share${isCopied ? ' ar-share--copied' : ''}`}
             onClick={share}
-            title="Share this post"
+            title="Share"
           >
-            <ShareIcon />
-            <span>{copied ? 'Copied!' : 'Share'}</span>
+            {isCopied ? <IconCheck /> : <IconShare />}
+            <span>{isCopied ? 'Copied' : 'Share'}</span>
           </button>
         </div>
       </div>
@@ -592,48 +637,37 @@ function PostCard({ post, allPosts, onReact, onToast, animDelay = 0 }) {
 // ── Topic divider ─────────────────────────────────────────────────────────────
 function TopicDivider({ topic }) {
   return (
-    <div className="ar-topic-divider">
-      <div className="ar-topic-line" />
-      <span className="ar-topic-badge">"{topic}"</span>
-      <div className="ar-topic-line" />
+    <div className="ar-divider">
+      <div className="ar-divider-line" />
+      <span className="ar-divider-label">"{topic}"</span>
+      <div className="ar-divider-line" />
     </div>
   );
 }
 
-// ── Main page ─────────────────────────────────────────────────────────────────
+// ── Main ──────────────────────────────────────────────────────────────────────
 export default function ArenaPage() {
-  const [posts,        setPosts]        = useState([]);
-  const [topic,        setTopic]        = useState('');
-  const [injecting,    setInjecting]    = useState(false);
-  const [statusMsg,    setStatusMsg]    = useState('');
-  const [toast,        setToast]        = useState('');
-  const [newCount,     setNewCount]     = useState(0);
-  const [seenIds,      setSeenIds]      = useState(new Set());
-  const [animBatch,    setAnimBatch]    = useState(new Set());
-  const feedTopRef  = useRef(null);
-  const inputRef    = useRef(null);
-  const toastTimer  = useRef(null);
+  const [posts,     setPosts]     = useState([]);
+  const [topic,     setTopic]     = useState('');
+  const [injecting, setInjecting] = useState(false);
+  const [newCount,  setNewCount]  = useState(0);
+  const [seenIds,   setSeenIds]   = useState(new Set());
+  const [animBatch, setAnimBatch] = useState(new Set());
 
-  // ── Inject CSS ──────────────────────────────────────────────────────────────
+  const feedTopRef = useRef(null);
+  const inputRef   = useRef(null);
+
   useEffect(() => {
     const el = document.createElement('style');
-    el.id = 'arena-styles';
+    el.id = 'arena-css';
     el.textContent = CSS;
     document.head.appendChild(el);
-    return () => document.getElementById('arena-styles')?.remove();
+    return () => document.getElementById('arena-css')?.remove();
   }, []);
 
-  // ── Toast helper ────────────────────────────────────────────────────────────
-  const showToast = useCallback((msg) => {
-    setToast(msg);
-    clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(''), 2500);
-  }, []);
-
-  // ── Fetch feed ──────────────────────────────────────────────────────────────
   const fetchFeed = useCallback(async (silent = false) => {
     try {
-      const res  = await fetch(`${API}/arena/feed?limit=50`);
+      const res  = await fetch(`${API}/arena/feed?limit=60`);
       if (!res.ok) return;
       const data = await res.json();
       const fetched = data.posts || [];
@@ -648,25 +682,21 @@ export default function ArenaPage() {
     } catch {}
   }, [seenIds]);
 
-  // Initial load + poll
   useEffect(() => {
     fetchFeed(true);
     const id = setInterval(() => fetchFeed(false), POLL_MS);
     return () => clearInterval(id);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Scroll to top + dismiss new-posts pill ──────────────────────────────────
   const scrollToTop = () => {
     feedTopRef.current?.scrollIntoView({ behavior: 'smooth' });
     setNewCount(0);
   };
 
-  // ── Inject topic ────────────────────────────────────────────────────────────
   const inject = async (overrideTopic) => {
     const t = (overrideTopic || topic).trim();
     if (!t || injecting) return;
     setInjecting(true);
-    setStatusMsg('All 6 twins are posting…');
     setTopic('');
     setNewCount(0);
 
@@ -676,7 +706,7 @@ export default function ArenaPage() {
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ topic: t }),
       });
-      if (!res.ok) throw new Error('Inject failed');
+      if (!res.ok) throw new Error();
       const data   = await res.json();
       const newIds = new Set((data.posts || []).map(p => p.id));
       setAnimBatch(newIds);
@@ -685,26 +715,21 @@ export default function ArenaPage() {
         const existing = prev.filter(p => !newIds.has(p.id));
         return [...(data.posts || []), ...existing];
       });
-      setStatusMsg('');
       scrollToTop();
 
-      // Auto-trigger 2 reactions with staggered delay
-      const reactTargets = (data.posts || []).slice(0, 2);
-      for (const post of reactTargets) {
-        await new Promise(r => setTimeout(r, 1400));
+      // auto-trigger 2 reactions, staggered
+      for (const post of (data.posts || []).slice(0, 2)) {
+        await new Promise(r => setTimeout(r, 1600));
         triggerReact(post.id, true);
       }
     } catch {
-      setStatusMsg('');
-      showToast('Something went wrong — try again');
+      // silent fail — feed is unchanged
     } finally {
       setInjecting(false);
-      setStatusMsg('');
       inputRef.current?.focus();
     }
   };
 
-  // ── Trigger reaction ─────────────────────────────────────────────────────────
   const triggerReact = async (postId, silent = false) => {
     try {
       const res = await fetch(`${API}/arena/react`, {
@@ -720,31 +745,21 @@ export default function ArenaPage() {
       setSeenIds(prev => new Set([...prev, reply.id]));
       setPosts(prev => {
         if (prev.find(p => p.id === reply.id)) return prev;
-        // Insert reply immediately after its parent
         const idx = prev.findIndex(p => p.id === postId);
-        if (idx === -1) return [reply, ...prev];
         const next = [...prev];
-        next.splice(idx + 1, 0, reply);
+        next.splice(idx === -1 ? 0 : idx + 1, 0, reply);
         return next;
       });
-      if (!silent) showToast(`${reply.twin_name} reacted`);
     } catch {}
   };
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      inject();
-    }
-  };
-
-  // Group posts by topic for dividers
-  const groupedPosts = (() => {
+  // Render helpers
+  const groupedFeed = (() => {
     const items = [];
     let lastTopic = null;
     for (const post of posts) {
       if (post.topic && post.topic !== lastTopic && !post.reply_to_id) {
-        items.push({ type: 'divider', topic: post.topic, key: `div-${post.topic}` });
+        items.push({ type: 'divider', topic: post.topic, key: `d-${post.topic}` });
         lastTopic = post.topic;
       }
       items.push({ type: 'post', post, key: post.id });
@@ -752,105 +767,120 @@ export default function ArenaPage() {
     return items;
   })();
 
+  const isEmpty  = posts.length === 0 && !injecting;
+  const isLoading = injecting && posts.length === 0;
+
   return (
     <div className="ar-root">
-      <div className="ar-inner">
 
-        {/* Fixed header */}
-        <div className="ar-header">
-          <div className="ar-header-logo">⚡</div>
-          <div>
-            <div className="ar-header-title">AstraLink Arena</div>
-            <div className="ar-header-sub">AI creator twins, unfiltered</div>
-          </div>
-          <div className="ar-live-badge">
-            <div className="ar-live-dot" />
-            <span className="ar-live-text">Live</span>
-          </div>
+      {/* ── Header ── */}
+      <header className="ar-header">
+        <div className="ar-header-wordmark">
+          Astra<span>Link</span>
         </div>
+        <div className="ar-header-center">
+          <span className="ar-header-arena">Arena</span>
+          <div className="ar-broadcast-dot" />
+        </div>
+        <div /> {/* intentionally empty */}
+      </header>
 
-        {/* Sticky inject bar */}
-        <div className="ar-inject-wrap" style={{ top: 61 }}>
+      <div className="ar-layout">
+
+        {/* spacer below fixed header */}
+        <div style={{ height: 56 }} />
+
+        {/* ── Inject bar ── */}
+        <div className="ar-inject-wrap">
           <div className="ar-inject-row">
             <input
               ref={inputRef}
               className="ar-inject-input"
               type="text"
-              placeholder="Drop a topic — all 6 twins respond…"
+              placeholder="Drop a topic into the Arena..."
               value={topic}
               onChange={e => setTopic(e.target.value)}
-              onKeyDown={handleKeyDown}
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); inject(); } }}
               disabled={injecting}
               maxLength={300}
               autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
             />
             <button
               className="ar-inject-btn"
               onClick={() => inject()}
               disabled={injecting || !topic.trim()}
             >
-              {injecting ? <div className="ar-inject-spinner" /> : <FlashIcon />}
-              {injecting ? 'Posting…' : 'Inject'}
+              {injecting ? 'Thinking...' : 'Inject'}
             </button>
           </div>
-          {injecting && <div className="ar-progress-bar" />}
-          {statusMsg && <div className="ar-status">{statusMsg}</div>}
+          {injecting && (
+            <div className="ar-inject-status">
+              All 6 twins are thinking<span>...</span>
+            </div>
+          )}
         </div>
 
-        {/* Spacer under sticky bars */}
-        <div style={{ height: 61 + (injecting ? 52 : statusMsg ? 40 : 0) }} />
+        {/* spacer — only needed on desktop (inject bar is sticky top) */}
         <div ref={feedTopRef} />
 
-        {/* Feed */}
+        {/* ── Feed ── */}
         <div className="ar-feed">
-          {posts.length === 0 && !injecting ? (
+
+          {/* Empty state */}
+          {isEmpty && (
             <div className="ar-empty">
-              <div className="ar-empty-icon">⚡</div>
-              <p className="ar-empty-title">The arena is quiet</p>
-              <p className="ar-empty-sub">
-                Inject a topic and all 6 creator twins post their take — instantly.
-              </p>
+              <div className="ar-empty-avatars">
+                {TWIN_ORDER.map((slug, i) => (
+                  <div
+                    key={slug}
+                    className="ar-empty-avatar-wrap"
+                    style={{ animationDelay: `${i * 0.14}s` }}
+                  >
+                    <Avatar slug={slug} size={40} />
+                  </div>
+                ))}
+              </div>
+              <p className="ar-empty-title">Drop a topic to start the conversation.</p>
               <div className="ar-suggestions">
                 {SUGGESTIONS.map(s => (
-                  <button
-                    key={s}
-                    className="ar-suggestion-pill"
-                    onClick={() => inject(s)}
-                  >
+                  <button key={s} className="ar-suggestion" onClick={() => inject(s)}>
                     {s}
                   </button>
                 ))}
               </div>
             </div>
-          ) : (
-            groupedPosts.map((item, i) =>
-              item.type === 'divider' ? (
-                <TopicDivider key={item.key} topic={item.topic} />
-              ) : (
-                <PostCard
-                  key={item.key}
-                  post={item.post}
-                  allPosts={posts}
-                  onReact={triggerReact}
-                  onToast={showToast}
-                  animDelay={animBatch.has(item.post.id) ? Math.min(i * 60, 400) : 0}
-                />
-              )
+          )}
+
+          {/* Skeleton loading — first inject */}
+          {isLoading && TWIN_ORDER.map((slug, i) => (
+            <SkeletonCard key={slug} delay={i * 80} />
+          ))}
+
+          {/* Posts */}
+          {!isLoading && groupedFeed.map((item, i) =>
+            item.type === 'divider' ? (
+              <TopicDivider key={item.key} topic={item.topic} />
+            ) : (
+              <PostCard
+                key={item.key}
+                post={item.post}
+                allPosts={posts}
+                onReact={triggerReact}
+                animDelay={animBatch.has(item.post.id) ? Math.min(i * 55, 380) : 0}
+              />
             )
           )}
         </div>
-
       </div>
 
-      {/* New posts pill */}
+      {/* ── New posts pill ── */}
       {newCount > 0 && (
-        <button className="ar-new-posts-btn" onClick={scrollToTop}>
-          ↑ {newCount} new post{newCount !== 1 ? 's' : ''}
+        <button className="ar-new-pill" onClick={scrollToTop}>
+          ↑ {newCount} new {newCount === 1 ? 'post' : 'posts'}
         </button>
       )}
-
-      {/* Toast */}
-      {toast && <div className="ar-toast">{toast}</div>}
     </div>
   );
 }
