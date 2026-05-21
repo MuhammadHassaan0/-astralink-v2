@@ -13,5 +13,12 @@
       "runtimeArgs": ["server/index.js"],
       "port": 3001
     }
+  ,
+    {
+      "name": "Chamber (Next.js)",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "chamber"],
+      "port": 3000
+    }
   ]
 }
