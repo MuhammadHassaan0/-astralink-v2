@@ -808,7 +808,7 @@ export default function MamdaniPage() {
           </button>
           <button
             className="mp-ci-btn"
-            onClick={() => window.open('https://astralink-v2.vercel.app/mamdani/dashboard', '_blank')}
+            onClick={() => window.open('https://astralink.life/mamdani/dashboard', '_blank')}
             title="Campaign Intelligence dashboard"
           >
             CI →

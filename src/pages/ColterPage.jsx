@@ -890,7 +890,7 @@ export default function ColterPage() {
             </button>
           </div>
           <div className="cp-footer">
-            <span>Powered by <a href="https://astralink-v2.vercel.app" target="_blank" rel="noreferrer">AstraLink</a> · astralink-v2.vercel.app</span>
+            <span>Powered by <a href="https://astralink.life" target="_blank" rel="noreferrer">AstraLink</a> · astralink.life</span>
             <span className="cp-voice-badge">🎙 Voice coming soon</span>
           </div>
         </div>

@@ -624,7 +624,7 @@ export default function VintPage() {
               </svg>
             </button>
           </div>
-          <div className="vp-footer">AstraLink — astralink-v2.vercel.app</div>
+          <div className="vp-footer">AstraLink — astralink.life</div>
         </div>
 
       </div>

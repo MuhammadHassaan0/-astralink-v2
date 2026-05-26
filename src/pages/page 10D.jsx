@@ -249,7 +249,7 @@ const EmailInvite = () => {
   const handleSend = () => {
     if (email) {
       const subject = encodeURIComponent("You've been invited to hear my voice on AstraLink");
-      const body = encodeURIComponent(`Hi,\n\nI've preserved my voice, stories and thinking on AstraLink — a digital twin that lets you talk to me, ask me anything, even long after I'm gone.\n\nJoin here: https://astralink-v2.vercel.app/join\n\nThis means a lot to me.`);
+      const body = encodeURIComponent(`Hi,\n\nI've preserved my voice, stories and thinking on AstraLink — a digital twin that lets you talk to me, ask me anything, even long after I'm gone.\n\nJoin here: https://astralink.life/join\n\nThis means a lot to me.`);
       window.open(`mailto:${email}?subject=${subject}&body=${body}`);
       setEmail('');
       setEmail('');
