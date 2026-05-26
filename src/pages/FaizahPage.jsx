@@ -912,7 +912,7 @@ export default function FaizahPage() {
             </button>
           </div>
           <div className="fp-footer">
-            <span>Powered by <a href="https://astralink.life" target="_blank" rel="noreferrer">AstraLink</a> · astralink.life</span>
+            <span>Powered by <a href="https://astralink-v2.vercel.app" target="_blank" rel="noreferrer">AstraLink</a> · astralink-v2.vercel.app</span>
             <span className="fp-voice-badge">🎙 Voice coming soon</span>
           </div>
         </div>

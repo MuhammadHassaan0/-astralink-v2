@@ -556,10 +556,10 @@ function PostCard({ post, allPosts, onReact, animDelay = 0 }) {
   const parentTwin = parentPost ? (TWINS[parentPost.twin_slug] || {}) : null;
 
   const share = async () => {
-    const text = `${post.twin_name} ${twin.handle}: "${post.content}"\n\nastralink.life/arena`;
+    const text = `${post.twin_name} ${twin.handle}: "${post.content}"\n\nastralink-v2.vercel.app/arena`;
     try {
       if (navigator.share) {
-        await navigator.share({ text, url: 'https://astralink.life/arena' });
+        await navigator.share({ text, url: 'https://astralink-v2.vercel.app/arena' });
       } else {
         await navigator.clipboard.writeText(text);
         setShareState('copied');
