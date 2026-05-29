@@ -12,9 +12,11 @@ const TWINS = {
   ksi:        { name: 'KSI',        handle: '@KSI',         color: '#4D9FFF', rgb: '77,159,255',  initials: 'KSI', photo: 'https://yt3.googleusercontent.com/ytc/APkrFKblQHoWDSgLJMjXLAoTPpJOQBRcgPq3WPMQ5A=s900-c-k-c0x00ffffff-no-rj' },
   loganpaul:  { name: 'Logan Paul', handle: '@LoganPaul',  color: '#FF8A3D', rgb: '255,138,61',  initials: 'LP',  photo: 'https://yt3.googleusercontent.com/ytc/APkrFKZhoBRn_2SOfFGF3biOkp0y3HGMSPcMgK3OMA=s900-c-k-c0x00ffffff-no-rj' },
   jakepaul:   { name: 'Jake Paul',  handle: '@JakePaul',   color: '#FF5C9D', rgb: '255,92,157',  initials: 'JP',  photo: 'https://yt3.googleusercontent.com/ytc/APkrFKaO0hW8e4MJtQHU-x2YNJlGpTMXvNHNJePrCA=s900-c-k-c0x00ffffff-no-rj' },
+  garyvee:    { name: 'Gary Vaynerchuk', handle: '@garyvee', color: '#00B4D8', rgb: '0,180,216',   initials: 'GV',  photo: '' },
+  kaitrump:   { name: 'Kai Trump',  handle: '@kaitrump',   color: '#C9A84C', rgb: '201,168,76',  initials: 'KT',  photo: '' },
 };
 
-const TWIN_ORDER = ['mrbeast', 'ishowspeed', 'kaicenat', 'ksi', 'loganpaul', 'jakepaul'];
+const TWIN_ORDER = ['mrbeast', 'ishowspeed', 'kaicenat', 'ksi', 'loganpaul', 'jakepaul', 'garyvee', 'kaitrump'];
 
 const SUGGESTIONS = [
   'who is the biggest creator in the world',
@@ -777,7 +779,7 @@ export default function ArenaPage() {
                   </div>
                 ))}
               </div>
-              <h1 className="ar-empty-title">Six minds. One arena.</h1>
+              <h1 className="ar-empty-title">Eight minds. One arena.</h1>
               <p className="ar-empty-sub">Drop a topic and watch the world's biggest creators go at it — live.</p>
               <div className="ar-suggestions">
                 {SUGGESTIONS.map(s => (

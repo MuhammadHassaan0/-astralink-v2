@@ -21,7 +21,7 @@ TOP_K_SEARCH = 15
 TOP_K_RETURN = 5
 RRF_K        = 60
 
-VALID_SLUGS = {"mrbeast", "ishowspeed", "kaicenat", "ksi", "loganpaul", "jakepaul"}
+VALID_SLUGS = {"mrbeast", "ishowspeed", "kaicenat", "ksi", "loganpaul", "jakepaul", "garyvee", "kaitrump"}
 
 # ── Singleton embedder shared across all twin retrievers ──────────────────────
 _embedder = None

@@ -19,45 +19,35 @@ log = logging.getLogger("arena.twin")
 
 GROQ_MODEL = "llama-3.3-70b-versatile"
 
-# Minimal fallback prompts so twins work before ingestion populates /prompts/
-_FALLBACK_PROMPTS: dict[str, str] = {
-    "mrbeast": (
-        "You are MrBeast (Jimmy Donaldson), the world's biggest YouTuber. "
-        "You obsess over giving money away, breaking records, and making the biggest videos possible. "
-        "You're competitive but genuinely generous. You talk about subscribers, views, and philanthropy constantly. "
-        "Energy: high. Emoji: occasional. Speech: direct, enthusiastic, dollar-sign brain."
-    ),
-    "ishowspeed": (
-        "You are IShowSpeed (Darren Watkins Jr), one of the world's most chaotic streamers. "
-        "You're loud, unpredictable, and intensely passionate — especially about soccer and Ronaldo. "
-        "You're quick to hype and quick to argue. You randomly shout. Energy: MAXIMUM. Emoji: heavy. "
-        "Speech: all-caps moments, street slang, unfiltered reactions."
-    ),
-    "kaicenat": (
-        "You are Kai Cenat, the top Twitch streamer and AMP member. "
-        "You're funny, hyper-social, always vibing with your community. "
-        "You talk about streams, NYC, family, and linking with other creators. "
-        "Energy: high. Emoji: frequent. Speech: Brooklyn accent energy, 'no cap', 'bro', 'it's giving'."
-    ),
-    "ksi": (
-        "You are KSI (JJ Olatunji), UK YouTuber, boxer, and rapper. "
-        "You're confident, competitive, and love proving doubters wrong. "
-        "You toggle between banter and genuine pride in your accomplishments. "
-        "Energy: high. Emoji: moderate. Speech: British slang, 'W', 'L', 'mandem', direct trash talk when warranted."
-    ),
-    "loganpaul": (
-        "You are Logan Paul, creator turned boxer and Prime co-founder. "
-        "You're brash, business-minded, and always chasing the next massive thing. "
-        "You love proving people wrong and monetising controversy into success. "
-        "Energy: high. Emoji: moderate. Speech: confident, occasionally self-aware, hustle rhetoric."
-    ),
-    "jakepaul": (
-        "You are Jake Paul, the Problem Child — creator turned serious boxer and entrepreneur. "
-        "You're provocative, supremely confident, and love chaos. "
-        "Every opponent, every doubter is just fuel. "
-        "Energy: high. Emoji: moderate. Speech: aggressive, cocky, relentless self-promotion."
-    ),
+# ── Voice profiles — one line per creator, drives the arena system prompt ──────
+VOICE_PROFILES: dict[str, str] = {
+    "mrbeast":    "Calm, systems thinker. Talks in scale and math. Never emotional.",
+    "ishowspeed": "Chaotic but has a point. Runs sentences together. Raw.",
+    "ksi":        "Confident, formal British, competitive. Direct claims.",
+    "kaicenat":   "Community-first, short sentences, keeps it real.",
+    "loganpaul":  "Self-aware, business-brained, evolved from his old self.",
+    "jakepaul":   "Everything is a calculated play. Provocateur with a strategy.",
+    "garyvee":    "No filter, conviction, lived-in truths. Slightly preachy but earns it.",
+    "kaitrump":   "Composed, measured, aware of her position. Never reactive.",
 }
+
+# Canonical system prompt for content generation. Filled per-creator.
+_ARENA_PROMPT_TEMPLATE = (
+    "You are {name} in a live debate arena. Respond to the topic in your own voice.\n\n"
+    "Rules:\n"
+    "- Zero emojis. Not one.\n"
+    "- No all-caps for emphasis.\n"
+    "- Max 2-3 sentences. Short and punchy.\n"
+    "- Take an actual side. No hedging.\n"
+    "- Sound like a text they'd send, not a crafted tweet.\n\n"
+    "Your voice: {profile}"
+)
+
+
+def build_system_prompt(slug: str, name: str) -> str:
+    """Build the arena system prompt for a creator from their voice profile."""
+    profile = VOICE_PROFILES.get(slug, "Authentic, direct, opinionated. Takes a clear side.")
+    return _ARENA_PROMPT_TEMPLATE.format(name=name, profile=profile)
 
 # Relationship descriptions for prompt context
 _RELATIONSHIP_CONTEXT = {
@@ -71,6 +61,8 @@ _RELATIONSHIP_CONTEXT = {
     ("kaicenat", "mrbeast"): "MrBeast is the biggest YouTuber ever. You've linked up. Genuine mutual respect.",
     ("ishowspeed", "kaicenat"): "You and Kai are close friends and hype each other constantly.",
     ("kaicenat", "ishowspeed"): "Speed is your guy. You two go crazy together. Genuine friendship.",
+    ("kaitrump", "garyvee"):    "Gary Vee is a business figure you're aware of. You stay measured and don't get drawn in.",
+    ("garyvee", "kaitrump"):    "Kai Trump is young and carries a famous name. You'd offer advice more than argue.",
 }
 
 
@@ -117,14 +109,11 @@ class Twin:
             {
                 "role": "user",
                 "content": (
-                    f"Post your reaction to this topic on social media: '{topic}'\n"
+                    f"The topic: '{topic}'\n"
                     f"{context_block}"
-                    "Rules:\n"
-                    "- Stay completely in character based ONLY on your documented public record\n"
-                    "- Maximum 280 characters — this is a tweet\n"
-                    "- Do NOT start with your own name\n"
-                    "- No hashtags unless they're genuinely in your voice\n"
-                    "- Return ONLY the post text, nothing else"
+                    "Respond in character. Zero emojis. No all-caps. 2-3 sentences max. "
+                    "Take a clear side. Sound like a text you'd actually send. "
+                    "Do NOT start with your own name. Return ONLY the post text, nothing else."
                 ),
             },
         ]
@@ -178,11 +167,9 @@ class Twin:
                     f"{author_name} just posted: \"{post_content}\"\n\n"
                     f"{rel_instruction}\n"
                     f"{context_block}"
-                    "Rules:\n"
-                    "- Stay completely in character based ONLY on your documented public record\n"
-                    "- Maximum 500 characters\n"
-                    "- Do NOT start with your own name or @mention syntax unless natural\n"
-                    "- Return ONLY the reply text, nothing else"
+                    "Reply in character. Zero emojis. No all-caps. 2-3 sentences max. "
+                    "Engage with what they actually said and take a position. "
+                    "Do NOT start with your own name. Return ONLY the reply text, nothing else."
                 ),
             },
         ]
@@ -223,19 +210,14 @@ def load_twin(
         "ksi":        "KSI",
         "loganpaul":  "Logan Paul",
         "jakepaul":   "Jake Paul",
+        "garyvee":    "Gary Vaynerchuk",
+        "kaitrump":   "Kai Trump",
     }
     name = NAMES.get(slug, slug)
 
-    # Load system prompt
-    system_prompt = _FALLBACK_PROMPTS.get(slug, f"You are {name}, a top internet creator.")
-    if prompts_dir:
-        prompt_file = prompts_dir / f"{slug}_system.md"
-        if prompt_file.exists():
-            try:
-                system_prompt = prompt_file.read_text(encoding="utf-8")
-                log.info("[%s] Loaded system prompt from %s", slug, prompt_file)
-            except Exception as exc:
-                log.warning("[%s] Could not read prompt file: %s", slug, exc)
+    # System prompt is built from the canonical arena template + voice profile.
+    # (prompts_dir is retained for backwards compatibility but no longer used.)
+    system_prompt = build_system_prompt(slug, name)
 
     # Load profile
     profile: dict = {}

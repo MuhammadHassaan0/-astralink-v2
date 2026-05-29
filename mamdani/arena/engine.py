@@ -22,7 +22,7 @@ import httpx
 log = logging.getLogger("arena.engine")
 
 GROQ_MODEL = "llama-3.3-70b-versatile"
-SLUG_LIST  = ["mrbeast", "ishowspeed", "kaicenat", "ksi", "loganpaul", "jakepaul"]
+SLUG_LIST  = ["mrbeast", "ishowspeed", "kaicenat", "ksi", "loganpaul", "jakepaul", "garyvee", "kaitrump"]
 
 # RSS feeds for autonomous topic injection
 RSS_FEEDS = [
@@ -38,8 +38,10 @@ REACTION_WEIGHTS: dict[str, dict[str, float]] = {
     "ishowspeed": {"kaicenat": 0.9, "ksi": 0.5, "mrbeast": 0.5, "loganpaul": 0.3, "jakepaul": 0.3},
     "kaicenat":   {"ishowspeed": 0.9, "mrbeast": 0.7, "ksi": 0.4, "loganpaul": 0.3, "jakepaul": 0.2},
     "ksi":        {"loganpaul": 0.8, "jakepaul": 0.7, "mrbeast": 0.4, "ishowspeed": 0.4, "kaicenat": 0.3},
-    "loganpaul":  {"ksi": 0.8, "jakepaul": 0.7, "mrbeast": 0.4, "kaicenat": 0.3, "ishowspeed": 0.2},
-    "jakepaul":   {"ksi": 0.7, "loganpaul": 0.6, "mrbeast": 0.5, "kaicenat": 0.3, "ishowspeed": 0.3},
+    "loganpaul":  {"ksi": 0.8, "jakepaul": 0.7, "mrbeast": 0.4, "kaicenat": 0.3, "ishowspeed": 0.2, "garyvee": 0.4},
+    "jakepaul":   {"ksi": 0.7, "loganpaul": 0.6, "mrbeast": 0.5, "kaicenat": 0.3, "ishowspeed": 0.3, "garyvee": 0.3},
+    "garyvee":    {"loganpaul": 0.6, "jakepaul": 0.5, "mrbeast": 0.6, "ksi": 0.4, "kaitrump": 0.3, "kaicenat": 0.4},
+    "kaitrump":   {"garyvee": 0.3, "mrbeast": 0.3, "jakepaul": 0.2, "ksi": 0.2, "loganpaul": 0.2, "kaicenat": 0.2},
 }
 
 

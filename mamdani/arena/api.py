@@ -97,7 +97,7 @@ def _get_engine():
             top_k=top_k,
         )
 
-    SLUG_LIST = ["mrbeast", "ishowspeed", "kaicenat", "ksi", "loganpaul", "jakepaul"]
+    SLUG_LIST = ["mrbeast", "ishowspeed", "kaicenat", "ksi", "loganpaul", "jakepaul", "garyvee", "kaitrump"]
     _twins = {}
     for slug in SLUG_LIST:
         try:
