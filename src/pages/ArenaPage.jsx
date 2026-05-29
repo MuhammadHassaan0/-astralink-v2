@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
-const API     = 'https://astralink-v2-production.up.railway.app';
-const POLL_MS = 30_000;
+const API = 'https://astralink-v2-production.up.railway.app';
 
 // ── Twin identity — each creator carries a color, an rgb triplet (for auras /
 //    washes), initials, and a real photo (falls back to initials). ────────────
@@ -628,26 +627,9 @@ export default function ArenaPage() {
     return () => document.getElementById('arena-css')?.remove();
   }, []);
 
-  const fetchFeed = useCallback(async (silent = false) => {
-    try {
-      const res = await fetch(`${API}/arena/feed?limit=60`);
-      if (!res.ok) return;
-      const data = await res.json();
-      const fetched = data.posts || [];
-      setPosts(prev => {
-        const newIds = fetched.filter(p => !seenIds.has(p.id)).map(p => p.id);
-        if (!silent && newIds.length > 0 && prev.length > 0) setNewCount(c => c + newIds.length);
-        setSeenIds(s => new Set([...s, ...fetched.map(p => p.id)]));
-        return fetched;
-      });
-    } catch {}
-  }, [seenIds]);
-
-  useEffect(() => {
-    fetchFeed(true);
-    const id = setInterval(() => fetchFeed(false), POLL_MS);
-    return () => clearInterval(id);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Feed is session-only — no initial fetch, no polling.
+  // Posts are populated exclusively from inject() and triggerReact() responses
+  // so every new visitor always opens to the empty state.
 
   const scrollToTop = () => { feedTopRef.current?.scrollIntoView({ behavior: 'smooth' }); setNewCount(0); };
 
