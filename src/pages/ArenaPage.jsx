@@ -385,16 +385,62 @@ const CSS = `
   .ar-share.copied svg { animation: arCheckPop 0.25s ease; }
   @media (hover: none) { .ar-share { opacity: 1; } }
 
-  /* ── Voice / TTS button ──────────────────────────────────────────────────── */
-  @keyframes arVoicePulse {
-    0%,100% { opacity: 1; }
-    50%      { opacity: 0.35; }
+  /* ── Voice note player (garyvee + kaicenat posts) ───────────────────────── */
+  @keyframes arVnBar {
+    0%,100% { transform: scaleY(1); }
+    50%      { transform: scaleY(0.22); }
   }
-  .ar-voice { opacity: 0; }
-  .ar-post:hover .ar-voice { opacity: 1; }
-  @media (hover: none) { .ar-voice { opacity: 1; } }
-  .ar-voice.loading svg { animation: arVoicePulse 0.8s ease-in-out infinite; }
-  .ar-voice.playing   { color: var(--twin-color) !important; opacity: 1 !important; background: rgba(var(--rgb), 0.12) !important; }
+  @keyframes arVnPulse {
+    0%,100% { opacity: 0.22; }
+    50%      { opacity: 0.08; }
+  }
+
+  .ar-vn {
+    display: flex; align-items: center; gap: 11px;
+    background: rgba(var(--vn-rgb), 0.07);
+    border: 1px solid rgba(var(--vn-rgb), 0.18);
+    border-radius: 18px;
+    padding: 10px 14px 10px 10px;
+    margin-bottom: 10px;
+    max-width: 340px;
+  }
+  .ar-vn-btn {
+    width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+    background: var(--vn-color); border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; transition: opacity 0.15s, transform 0.12s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .ar-vn-btn:hover { opacity: 0.85; }
+  .ar-vn-btn:active { transform: scale(0.93); }
+  .ar-vn-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .ar-vn-wave {
+    flex: 1; display: flex; align-items: center; justify-content: space-between;
+    gap: 2.5px; height: 32px; overflow: hidden;
+  }
+  .ar-vn-bar {
+    width: 3px; border-radius: 2px;
+    background: var(--vn-color);
+    opacity: 0.45;
+    transform-origin: center;
+    flex-shrink: 0;
+  }
+  .ar-vn-wave.loading .ar-vn-bar {
+    animation: arVnPulse 1.1s ease-in-out infinite;
+    animation-delay: calc(var(--bi) * 50ms);
+  }
+  .ar-vn-wave.playing .ar-vn-bar {
+    opacity: 0.9;
+    animation: arVnBar 0.65s ease-in-out infinite;
+    animation-delay: calc(var(--bi) * 38ms);
+  }
+
+  .ar-vn-time {
+    font-family: 'Inter', sans-serif; font-size: 11.5px; font-weight: 500;
+    color: rgba(255,255,255,0.38); min-width: 30px; text-align: right;
+    flex-shrink: 0; letter-spacing: 0.02em;
+  }
 
   /* ── Skeleton (first inject) ────────────────────────────────────────────── */
   .ar-skel { display: flex; gap: 15px; padding: 20px 22px 16px; position: relative; }
@@ -498,19 +544,29 @@ const CSS = `
 `;
 
 // ── Icons ───────────────────────────────────────────────────────────────────
-// Slugs that have a provisioned Voxtral voice — speaker icon only shown for these
-const VOICED_SLUGS = new Set(['garyvee', 'kaicenat']);
+// Slugs whose posts render as voice notes (inline waveform player, no text)
+const VOICE_NOTE_SLUGS = new Set(['garyvee', 'kaicenat']);
 
-const IconSpeaker = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
-    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-    <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
-    <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+// Waveform bar heights (0–32) — fixed per creator for visual consistency
+const WAVEFORMS = {
+  garyvee:  [5, 14, 22, 30, 20, 9,  26, 32, 18, 12, 28, 22, 16, 30, 24, 13, 20, 9,  25, 7],
+  kaicenat: [7, 20, 32, 15, 28, 9,  24, 30, 19, 13, 26, 17, 22, 11, 28, 32, 16, 9,  21, 5],
+};
+
+// Rough word-count estimate → seconds (avg ~2.2 words/sec for TTS)
+const estimateDuration = text => Math.max(3, Math.round(text.trim().split(/\s+/).length / 2.2));
+
+const fmt = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+
+const IconPlay = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+    <polygon points="5,3 19,12 5,21"/>
   </svg>
 );
-const IconStop = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-    <rect x="6" y="6" width="12" height="12" rx="2"/>
+const IconPause = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+    <rect x="5" y="3" width="4" height="18" rx="1.5"/>
+    <rect x="15" y="3" width="4" height="18" rx="1.5"/>
   </svg>
 );
 
@@ -535,6 +591,38 @@ const IconReplyArrow = () => (
   </svg>
 );
 
+// ── Voice Note player ───────────────────────────────────────────────────────
+function VoiceNote({ post, twin, isPlaying, isLoading, elapsed, duration, onPlay }) {
+  const bars     = WAVEFORMS[post.twin_slug] || WAVEFORMS.garyvee;
+  const estSecs  = estimateDuration(post.content);
+  const dispTime = isPlaying ? fmt(elapsed) : fmt(duration || estSecs);
+  const waveCls  = `ar-vn-wave${isPlaying ? ' playing' : ''}${isLoading ? ' loading' : ''}`;
+
+  return (
+    <div className="ar-vn" style={{ '--vn-color': twin.color, '--vn-rgb': twin.rgb }}>
+      <button
+        className="ar-vn-btn"
+        onClick={() => onPlay(post.id, post.twin_slug, post.content)}
+        disabled={isLoading}
+        title={isPlaying ? 'Stop' : 'Play voice note'}
+        aria-label={isPlaying ? 'Stop' : 'Play'}
+      >
+        {isPlaying ? <IconPause /> : <IconPlay />}
+      </button>
+      <div className={waveCls}>
+        {bars.map((h, i) => (
+          <div
+            key={i}
+            className="ar-vn-bar"
+            style={{ height: `${h}px`, '--bi': i }}
+          />
+        ))}
+      </div>
+      <span className="ar-vn-time">{dispTime}</span>
+    </div>
+  );
+}
+
 // ── Avatar ──────────────────────────────────────────────────────────────────
 function Avatar({ slug, size = 48 }) {
   const twin = TWINS[slug] || { color: '#6d5efc', rgb: '109,94,252', initials: '?' };
@@ -552,7 +640,7 @@ function Avatar({ slug, size = 48 }) {
 }
 
 // ── Post ────────────────────────────────────────────────────────────────────
-function PostCard({ post, allPosts, onReact, onPlay, playingId, loadingId, animDelay = 0 }) {
+function PostCard({ post, allPosts, onReact, onPlay, playingId, loadingId, elapsed, duration, animDelay = 0 }) {
   const [shareState, setShareState] = useState('idle');
   const [reacting, setReacting]     = useState(false);
 
@@ -571,13 +659,12 @@ function PostCard({ post, allPosts, onReact, onPlay, playingId, loadingId, animD
       }
     } catch {}
   };
-  const react = async () => { if (reacting) return; setReacting(true); await onReact(post.id); setReacting(false); };
+  const react  = async () => { if (reacting) return; setReacting(true); await onReact(post.id); setReacting(false); };
   const copied = shareState === 'copied';
 
-  const hasVoice    = VOICED_SLUGS.has(post.twin_slug);
+  const isVoiceNote = VOICE_NOTE_SLUGS.has(post.twin_slug);
   const isPlaying   = playingId === post.id;
   const isLoading   = loadingId === post.id;
-  const voiceCls    = `ar-action ar-voice${isLoading ? ' loading' : ''}${isPlaying ? ' playing' : ''}`;
 
   return (
     <div
@@ -599,21 +686,24 @@ function PostCard({ post, allPosts, onReact, onPlay, playingId, loadingId, animD
           <span className="ar-sep">·</span>
           <span className="ar-time">{relativeTime(post.timestamp)}</span>
         </div>
-        <div className="ar-content">{post.content}</div>
+
+        {isVoiceNote
+          ? <VoiceNote
+              post={post}
+              twin={twin}
+              isPlaying={isPlaying}
+              isLoading={isLoading}
+              elapsed={isPlaying ? elapsed : 0}
+              duration={isPlaying ? duration : 0}
+              onPlay={onPlay}
+            />
+          : <div className="ar-content">{post.content}</div>
+        }
+
         <div className="ar-actions">
           <button className="ar-action" onClick={react} disabled={reacting} title="Trigger a reaction">
             <IconReact /><span>React</span>
           </button>
-          {hasVoice && (
-            <button
-              className={voiceCls}
-              onClick={() => onPlay(post.id, post.twin_slug, post.content)}
-              disabled={isLoading}
-              title={isPlaying ? 'Stop' : 'Play voice'}
-            >
-              {isPlaying ? <IconStop /> : <IconSpeaker />}
-            </button>
-          )}
           <button className={`ar-action ar-share${copied ? ' copied' : ''}`} onClick={share} title="Share">
             {copied ? <IconCheck /> : <IconShare />}<span>{copied ? 'Copied' : 'Share'}</span>
           </button>
@@ -659,10 +749,13 @@ export default function ArenaPage() {
   const [animBatch, setAnimBatch] = useState(new Set());
   const [playingId, setPlayingId] = useState(null);   // post ID currently playing audio
   const [loadingId, setLoadingId] = useState(null);   // post ID whose TTS is loading
+  const [elapsed, setElapsed]     = useState(0);       // seconds elapsed in active playback
+  const [duration, setDuration]   = useState(0);       // total duration of active audio
 
-  const feedTopRef = useRef(null);
-  const inputRef   = useRef(null);
-  const audioRef   = useRef(null);   // current Audio object (for stop/cleanup)
+  const feedTopRef  = useRef(null);
+  const inputRef    = useRef(null);
+  const audioRef    = useRef(null);     // current Audio object (for stop/cleanup)
+  const intervalRef = useRef(null);    // setInterval handle for elapsed updates
 
   useEffect(() => {
     const el = document.createElement('style');
@@ -678,20 +771,20 @@ export default function ArenaPage() {
 
   const scrollToTop = () => { feedTopRef.current?.scrollIntoView({ behavior: 'smooth' }); setNewCount(0); };
 
+  const _stopAudio = () => {
+    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+    setPlayingId(null);
+    setElapsed(0);
+    setDuration(0);
+  };
+
   const playVoice = async (postId, slug, text) => {
     // Toggle off if already playing this post
-    if (playingId === postId) {
-      audioRef.current?.pause();
-      audioRef.current = null;
-      setPlayingId(null);
-      return;
-    }
+    if (playingId === postId) { _stopAudio(); return; }
     // Stop any currently playing audio
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
-      setPlayingId(null);
-    }
+    _stopAudio();
+
     setLoadingId(postId);
     try {
       const res = await fetch(`${API}/arena/tts`, {
@@ -700,16 +793,31 @@ export default function ArenaPage() {
         body: JSON.stringify({ slug, text }),
       });
       if (!res.ok) { setLoadingId(null); return; }
-      const blob = await res.blob();
-      const url  = URL.createObjectURL(blob);
+      const blob  = await res.blob();
+      const url   = URL.createObjectURL(blob);
       const audio = new Audio(url);
       audioRef.current = audio;
-      audio.onended = () => { setPlayingId(null); audioRef.current = null; URL.revokeObjectURL(url); };
-      audio.onerror = () => { setPlayingId(null); audioRef.current = null; URL.revokeObjectURL(url); };
+
+      // Update elapsed every 200ms while playing
+      audio.onloadedmetadata = () => setDuration(Math.floor(audio.duration) || 0);
+      intervalRef.current = setInterval(() => {
+        if (audioRef.current) setElapsed(Math.floor(audioRef.current.currentTime));
+      }, 200);
+
+      const cleanup = () => {
+        if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+        setPlayingId(null);
+        setElapsed(0);
+        audioRef.current = null;
+        URL.revokeObjectURL(url);
+      };
+      audio.onended = cleanup;
+      audio.onerror = cleanup;
+
       await audio.play();
       setPlayingId(postId);
     } catch {
-      setPlayingId(null);
+      _stopAudio();
     } finally {
       setLoadingId(null);
     }
@@ -858,7 +966,7 @@ export default function ArenaPage() {
           {!isLoading && grouped.map(item =>
             item.type === 'divider'
               ? <TopicDivider key={item.key} topic={item.topic} />
-              : <PostCard key={item.key} post={item.post} allPosts={posts} onReact={triggerReact} onPlay={playVoice} playingId={playingId} loadingId={loadingId} animDelay={item.delay} />
+              : <PostCard key={item.key} post={item.post} allPosts={posts} onReact={triggerReact} onPlay={playVoice} playingId={playingId} loadingId={loadingId} elapsed={elapsed} duration={duration} animDelay={item.delay} />
           )}
         </div>
       </div>
