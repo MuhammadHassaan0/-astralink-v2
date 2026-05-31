@@ -10,4 +10,5 @@ sse-starlette
 llama-index-core
 unstructured
 httpx
+requests
 groq

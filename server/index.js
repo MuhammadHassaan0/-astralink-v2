@@ -1765,6 +1765,30 @@ app.get('/arena/healthz', (req, res) => arenaProxy(req, res, 'GET', '/arena/heal
 app.post('/arena/inject', (req, res) => arenaProxy(req, res, 'POST', '/arena/inject', req.body));
 app.post('/arena/react',  (req, res) => arenaProxy(req, res, 'POST', '/arena/react', req.body));
 
+// TTS returns audio/wav binary — needs its own proxy (not JSON)
+app.post('/arena/tts', async (req, res) => {
+  const mamdaniUrl = (process.env.MAMDANI_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
+  try {
+    const upstream = await fetch(`${mamdaniUrl}/arena/tts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body),
+    });
+    if (!upstream.ok) {
+      let err = {};
+      try { err = await upstream.json(); } catch {}
+      return res.status(upstream.status).json(err);
+    }
+    const buf = Buffer.from(await upstream.arrayBuffer());
+    res.set('Content-Type', 'audio/wav');
+    res.set('Content-Length', buf.length);
+    res.send(buf);
+  } catch (e) {
+    console.error('[arena/tts proxy] error:', e.message);
+    res.status(502).json({ error: e.message });
+  }
+});
+
 const PORT = process.env.PORT || 3001;
 initDB().then(() => {
   app.listen(PORT, () => console.log(`AstraLink backend running on port ${PORT}`));

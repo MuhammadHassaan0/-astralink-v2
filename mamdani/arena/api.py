@@ -7,16 +7,20 @@ Endpoints:
   POST /arena/inject      — inject a topic, returns all generated posts
   GET  /arena/twins       — all twin profiles + relationship graph
   POST /arena/react       — trigger a reaction to a specific post
+  POST /arena/tts         — text-to-speech for a creator's cloned voice
   GET  /arena/healthz     — arena-specific liveness check
 """
 
+import base64
 import json
 import logging
 import os
 from pathlib import Path
 from typing import Optional
 
+import requests as http_requests
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 log = logging.getLogger("arena.api")
@@ -123,6 +127,14 @@ def _get_engine():
     return _engine
 
 
+# ── Voice IDs for Mistral Voxtral TTS ────────────────────────────────────────
+# Add a slug here once its voice is provisioned; absent slugs return 404.
+VOICE_IDS: dict[str, str] = {
+    "garyvee":  "3db14ade-2a4b-4891-8ab9-0cc160754817",
+    "kaicenat": "c2ec493d-d04c-4070-aabb-ead66f9129b7",
+}
+
+
 # ── Request / response schemas ────────────────────────────────────────────────
 
 class InjectRequest(BaseModel):
@@ -130,6 +142,10 @@ class InjectRequest(BaseModel):
 
 class ReactRequest(BaseModel):
     post_id: str
+
+class TTSRequest(BaseModel):
+    slug: str
+    text: str
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -208,6 +224,54 @@ def arena_react(req: ReactRequest):
     except Exception as exc:
         log.error("/arena/react error: %s", exc)
         raise HTTPException(status_code=503, detail=str(exc))
+
+
+@router.post("/tts")
+def arena_tts(req: TTSRequest):
+    """
+    Convert a creator's post text to speech using their Mistral Voxtral voice clone.
+    Returns audio/wav bytes.  Returns 404 if no voice is registered for the slug.
+    """
+    voice_id = VOICE_IDS.get(req.slug)
+    if not voice_id:
+        raise HTTPException(status_code=404, detail=f"No voice registered for '{req.slug}'")
+
+    mistral_key = os.getenv("MISTRAL_API_KEY", "")
+    if not mistral_key:
+        raise HTTPException(status_code=503, detail="TTS not configured — MISTRAL_API_KEY missing")
+
+    text = req.text.strip()[:500]   # guard against very long posts
+    if not text:
+        raise HTTPException(status_code=400, detail="text cannot be empty")
+
+    try:
+        resp = http_requests.post(
+            "https://api.mistral.ai/v1/audio/speech",
+            headers={"Authorization": f"Bearer {mistral_key}"},
+            json={
+                "model": "voxtral-mini-tts-2603",
+                "voice": voice_id,
+                "input": text,
+            },
+            timeout=30,
+        )
+    except Exception as exc:
+        log.error("/arena/tts upstream request failed: %s", exc)
+        raise HTTPException(status_code=502, detail="TTS upstream request failed")
+
+    if not resp.ok:
+        log.error("/arena/tts upstream error %d: %s", resp.status_code, resp.text[:200])
+        raise HTTPException(status_code=502, detail=f"TTS upstream error {resp.status_code}")
+
+    try:
+        data        = resp.json()
+        audio_bytes = base64.b64decode(data["audio_data"])
+    except Exception as exc:
+        log.error("/arena/tts response parse failed: %s", exc)
+        raise HTTPException(status_code=502, detail="TTS response parse failed")
+
+    log.info("[%s] TTS generated %d bytes", req.slug, len(audio_bytes))
+    return Response(content=audio_bytes, media_type="audio/wav")
 
 
 @router.get("/healthz")

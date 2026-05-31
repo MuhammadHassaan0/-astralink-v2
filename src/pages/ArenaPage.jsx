@@ -385,6 +385,17 @@ const CSS = `
   .ar-share.copied svg { animation: arCheckPop 0.25s ease; }
   @media (hover: none) { .ar-share { opacity: 1; } }
 
+  /* ── Voice / TTS button ──────────────────────────────────────────────────── */
+  @keyframes arVoicePulse {
+    0%,100% { opacity: 1; }
+    50%      { opacity: 0.35; }
+  }
+  .ar-voice { opacity: 0; }
+  .ar-post:hover .ar-voice { opacity: 1; }
+  @media (hover: none) { .ar-voice { opacity: 1; } }
+  .ar-voice.loading svg { animation: arVoicePulse 0.8s ease-in-out infinite; }
+  .ar-voice.playing   { color: var(--twin-color) !important; opacity: 1 !important; background: rgba(var(--rgb), 0.12) !important; }
+
   /* ── Skeleton (first inject) ────────────────────────────────────────────── */
   .ar-skel { display: flex; gap: 15px; padding: 20px 22px 16px; position: relative; }
   .ar-skel::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: rgba(255,255,255,0.04); }
@@ -487,6 +498,22 @@ const CSS = `
 `;
 
 // ── Icons ───────────────────────────────────────────────────────────────────
+// Slugs that have a provisioned Voxtral voice — speaker icon only shown for these
+const VOICED_SLUGS = new Set(['garyvee', 'kaicenat']);
+
+const IconSpeaker = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+    <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+    <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+  </svg>
+);
+const IconStop = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+    <rect x="6" y="6" width="12" height="12" rx="2"/>
+  </svg>
+);
+
 const IconReact = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
@@ -525,7 +552,7 @@ function Avatar({ slug, size = 48 }) {
 }
 
 // ── Post ────────────────────────────────────────────────────────────────────
-function PostCard({ post, allPosts, onReact, animDelay = 0 }) {
+function PostCard({ post, allPosts, onReact, onPlay, playingId, loadingId, animDelay = 0 }) {
   const [shareState, setShareState] = useState('idle');
   const [reacting, setReacting]     = useState(false);
 
@@ -547,10 +574,15 @@ function PostCard({ post, allPosts, onReact, animDelay = 0 }) {
   const react = async () => { if (reacting) return; setReacting(true); await onReact(post.id); setReacting(false); };
   const copied = shareState === 'copied';
 
+  const hasVoice    = VOICED_SLUGS.has(post.twin_slug);
+  const isPlaying   = playingId === post.id;
+  const isLoading   = loadingId === post.id;
+  const voiceCls    = `ar-action ar-voice${isLoading ? ' loading' : ''}${isPlaying ? ' playing' : ''}`;
+
   return (
     <div
       className={`ar-post${post.reply_to_id ? ' is-reply' : ''}`}
-      style={{ '--rgb': twin.rgb, '--parent-rgb': parentTwin?.rgb || '255,255,255', animationDelay: `${animDelay}ms` }}
+      style={{ '--rgb': twin.rgb, '--twin-color': twin.color, '--parent-rgb': parentTwin?.rgb || '255,255,255', animationDelay: `${animDelay}ms` }}
     >
       <span className="ar-monogram">{twin.initials}</span>
       <Avatar slug={post.twin_slug} />
@@ -572,6 +604,16 @@ function PostCard({ post, allPosts, onReact, animDelay = 0 }) {
           <button className="ar-action" onClick={react} disabled={reacting} title="Trigger a reaction">
             <IconReact /><span>React</span>
           </button>
+          {hasVoice && (
+            <button
+              className={voiceCls}
+              onClick={() => onPlay(post.id, post.twin_slug, post.content)}
+              disabled={isLoading}
+              title={isPlaying ? 'Stop' : 'Play voice'}
+            >
+              {isPlaying ? <IconStop /> : <IconSpeaker />}
+            </button>
+          )}
           <button className={`ar-action ar-share${copied ? ' copied' : ''}`} onClick={share} title="Share">
             {copied ? <IconCheck /> : <IconShare />}<span>{copied ? 'Copied' : 'Share'}</span>
           </button>
@@ -615,9 +657,12 @@ export default function ArenaPage() {
   const [newCount, setNewCount]   = useState(0);
   const [seenIds, setSeenIds]     = useState(new Set());
   const [animBatch, setAnimBatch] = useState(new Set());
+  const [playingId, setPlayingId] = useState(null);   // post ID currently playing audio
+  const [loadingId, setLoadingId] = useState(null);   // post ID whose TTS is loading
 
   const feedTopRef = useRef(null);
   const inputRef   = useRef(null);
+  const audioRef   = useRef(null);   // current Audio object (for stop/cleanup)
 
   useEffect(() => {
     const el = document.createElement('style');
@@ -632,6 +677,43 @@ export default function ArenaPage() {
   // so every new visitor always opens to the empty state.
 
   const scrollToTop = () => { feedTopRef.current?.scrollIntoView({ behavior: 'smooth' }); setNewCount(0); };
+
+  const playVoice = async (postId, slug, text) => {
+    // Toggle off if already playing this post
+    if (playingId === postId) {
+      audioRef.current?.pause();
+      audioRef.current = null;
+      setPlayingId(null);
+      return;
+    }
+    // Stop any currently playing audio
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+      setPlayingId(null);
+    }
+    setLoadingId(postId);
+    try {
+      const res = await fetch(`${API}/arena/tts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug, text }),
+      });
+      if (!res.ok) { setLoadingId(null); return; }
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.onended = () => { setPlayingId(null); audioRef.current = null; URL.revokeObjectURL(url); };
+      audio.onerror = () => { setPlayingId(null); audioRef.current = null; URL.revokeObjectURL(url); };
+      await audio.play();
+      setPlayingId(postId);
+    } catch {
+      setPlayingId(null);
+    } finally {
+      setLoadingId(null);
+    }
+  };
 
   const inject = async (overrideTopic) => {
     const t = (overrideTopic || topic).trim();
@@ -776,7 +858,7 @@ export default function ArenaPage() {
           {!isLoading && grouped.map(item =>
             item.type === 'divider'
               ? <TopicDivider key={item.key} topic={item.topic} />
-              : <PostCard key={item.key} post={item.post} allPosts={posts} onReact={triggerReact} animDelay={item.delay} />
+              : <PostCard key={item.key} post={item.post} allPosts={posts} onReact={triggerReact} onPlay={playVoice} playingId={playingId} loadingId={loadingId} animDelay={item.delay} />
           )}
         </div>
       </div>
