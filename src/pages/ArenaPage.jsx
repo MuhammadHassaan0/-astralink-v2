@@ -385,6 +385,48 @@ const CSS = `
   .ar-share.copied svg { animation: arCheckPop 0.25s ease; }
   @media (hover: none) { .ar-share { opacity: 1; } }
 
+  /* ── Crowd reaction buttons ─────────────────────────────────────────────── */
+  @keyframes arRxnPop {
+    0%   { transform: scale(1); }
+    40%  { transform: scale(1.28); }
+    100% { transform: scale(1); }
+  }
+  .ar-rxn {
+    display: flex; align-items: center; gap: 5px;
+    background: transparent; border: none;
+    padding: 5px 9px; border-radius: 8px;
+    font-size: 14px; cursor: pointer;
+    color: rgba(255,255,255,0.22);
+    transition: color 0.15s, background 0.15s;
+    -webkit-tap-highlight-color: transparent; user-select: none;
+    line-height: 1;
+  }
+  .ar-rxn:hover:not(:disabled) { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.5); }
+  .ar-rxn-count { font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600; }
+  .ar-rxn.fire.voted { color: #ff6b35 !important; background: rgba(255,107,53,0.12) !important; }
+  .ar-rxn.nah.voted  { color: var(--accent) !important; background: rgba(109,94,252,0.12) !important; }
+  .ar-rxn.voted svg, .ar-rxn.voted { animation: arRxnPop 0.25s ease; }
+
+  /* ── Activity ticker ─────────────────────────────────────────────────────── */
+  @keyframes arTickerSlide {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .ar-ticker {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 16px;
+    font-family: 'Inter', sans-serif; font-size: 12px;
+    color: rgba(255,255,255,0.32);
+    border-top: 1px solid rgba(255,255,255,0.05);
+    animation: arTickerSlide 0.3s ease;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .ar-ticker-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: #ff4444; flex-shrink: 0;
+    animation: arDot 2s ease-in-out infinite;
+  }
+
   /* ── Voice note player (garyvee + kaicenat posts) ───────────────────────── */
   @keyframes arVnBar {
     0%,100% { transform: scaleY(1); }
@@ -640,7 +682,7 @@ function Avatar({ slug, size = 48 }) {
 }
 
 // ── Post ────────────────────────────────────────────────────────────────────
-function PostCard({ post, allPosts, onReact, onPlay, playingId, loadingId, elapsed, duration, animDelay = 0 }) {
+function PostCard({ post, allPosts, onReact, onPlay, onCrowdReact, postReaction, playingId, loadingId, elapsed, duration, animDelay = 0 }) {
   const [shareState, setShareState] = useState('idle');
   const [reacting, setReacting]     = useState(false);
 
@@ -701,8 +743,24 @@ function PostCard({ post, allPosts, onReact, onPlay, playingId, loadingId, elaps
         }
 
         <div className="ar-actions">
-          <button className="ar-action" onClick={react} disabled={reacting} title="Trigger a reaction">
+          <button className="ar-action" onClick={react} disabled={reacting} title="Trigger a twin reply">
             <IconReact /><span>React</span>
+          </button>
+          <button
+            className={`ar-rxn fire${postReaction?.vote === 'fire' ? ' voted' : ''}`}
+            onClick={() => onCrowdReact(post.id, post.twin_slug, 'fire', post.topic, post.content)}
+            title="Fire"
+          >
+            <span>🔥</span>
+            {postReaction?.fire > 0 && <span className="ar-rxn-count">{postReaction.fire}</span>}
+          </button>
+          <button
+            className={`ar-rxn nah${postReaction?.vote === 'nah' ? ' voted' : ''}`}
+            onClick={() => onCrowdReact(post.id, post.twin_slug, 'nah', post.topic, post.content)}
+            title="Nah"
+          >
+            <span>💀</span>
+            {postReaction?.nah > 0 && <span className="ar-rxn-count">{postReaction.nah}</span>}
           </button>
           <button className={`ar-action ar-share${copied ? ' copied' : ''}`} onClick={share} title="Share">
             {copied ? <IconCheck /> : <IconShare />}<span>{copied ? 'Copied' : 'Share'}</span>
@@ -751,11 +809,15 @@ export default function ArenaPage() {
   const [loadingId, setLoadingId] = useState(null);   // post ID whose TTS is loading
   const [elapsed, setElapsed]     = useState(0);       // seconds elapsed in active playback
   const [duration, setDuration]   = useState(0);       // total duration of active audio
+  const [reactions, setReactions] = useState({});   // postId → {fire, nah, vote}
+  const [activity, setActivity]   = useState([]);    // recent activity messages
 
   const feedTopRef  = useRef(null);
   const inputRef    = useRef(null);
-  const audioRef    = useRef(null);     // current Audio object (for stop/cleanup)
-  const intervalRef = useRef(null);    // setInterval handle for elapsed updates
+  const audioRef      = useRef(null);    // current Audio object
+  const intervalRef   = useRef(null);    // elapsed ticker interval
+  const hasStartedRef = useRef(false);   // true after first inject (enables polling)
+  const seenIdsRef    = useRef(new Set()); // mirror of seenIds for interval closures
 
   useEffect(() => {
     const el = document.createElement('style');
@@ -765,9 +827,46 @@ export default function ArenaPage() {
     return () => document.getElementById('arena-css')?.remove();
   }, []);
 
-  // Feed is session-only — no initial fetch, no polling.
-  // Posts are populated exclusively from inject() and triggerReact() responses
-  // so every new visitor always opens to the empty state.
+  // ── Keep seenIdsRef in sync with seenIds state ──────────────────────────
+  useEffect(() => { seenIdsRef.current = seenIds; }, [seenIds]);
+
+  // ── Feed polling — starts after first inject, picks up crowd-generated posts
+  useEffect(() => {
+    const id = setInterval(async () => {
+      if (!hasStartedRef.current) return;
+      try {
+        const res = await fetch(`${API}/arena/feed?limit=100`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const newPosts = (data.posts || []).filter(p => !seenIdsRef.current.has(p.id));
+        if (newPosts.length > 0) {
+          newPosts.forEach(p => seenIdsRef.current.add(p.id));
+          setSeenIds(prev => new Set([...prev, ...newPosts.map(p => p.id)]));
+          setNewCount(c => c + newPosts.length);
+          setAnimBatch(prev => new Set([...prev, ...newPosts.map(p => p.id)]));
+          setPosts(prev => {
+            const newSet = new Set(newPosts.map(p => p.id));
+            return [...newPosts, ...prev.filter(p => !newSet.has(p.id))];
+          });
+        }
+      } catch {}
+    }, 10_000);
+    return () => clearInterval(id);
+  }, []); // eslint-disable-line
+
+  // ── Activity ticker polling — 5s, only after first inject ────────────────
+  useEffect(() => {
+    const id = setInterval(async () => {
+      if (!hasStartedRef.current) return;
+      try {
+        const res = await fetch(`${API}/arena/activity`);
+        if (!res.ok) return;
+        const data = await res.json();
+        setActivity(data.activity || []);
+      } catch {}
+    }, 5_000);
+    return () => clearInterval(id);
+  }, []); // eslint-disable-line
 
   const scrollToTop = () => { feedTopRef.current?.scrollIntoView({ behavior: 'smooth' }); setNewCount(0); };
 
@@ -823,6 +922,53 @@ export default function ArenaPage() {
     }
   };
 
+  const crowdReact = async (postId, slug, reaction, topic, text) => {
+    const existing = reactions[postId] || { fire: 0, nah: 0, vote: null };
+
+    // Optimistic update
+    let nextFire = existing.fire;
+    let nextNah  = existing.nah;
+    let nextVote = reaction;
+
+    if (existing.vote === reaction) {
+      // Toggle off
+      if (reaction === 'fire') nextFire = Math.max(0, nextFire - 1);
+      else                     nextNah  = Math.max(0, nextNah - 1);
+      nextVote = null;
+      setReactions(prev => ({ ...prev, [postId]: { fire: nextFire, nah: nextNah, vote: null } }));
+      return; // Don't call backend for un-votes (counts stay accumulated server-side)
+    }
+
+    if (existing.vote && existing.vote !== reaction) {
+      // Switch vote: undo old, apply new
+      if (existing.vote === 'fire') nextFire = Math.max(0, nextFire - 1);
+      else                          nextNah  = Math.max(0, nextNah - 1);
+      if (reaction === 'fire') nextFire += 1;
+      else                     nextNah  += 1;
+    } else {
+      // Fresh vote
+      if (reaction === 'fire') nextFire += 1;
+      else                     nextNah  += 1;
+    }
+
+    setReactions(prev => ({ ...prev, [postId]: { fire: nextFire, nah: nextNah, vote: nextVote } }));
+
+    try {
+      const res = await fetch(`${API}/arena/crowd-react`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post_id: postId, slug, reaction, topic: topic || '', post_text: text }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setReactions(prev => ({
+          ...prev,
+          [postId]: { ...prev[postId], fire: data.fire, nah: data.nah },
+        }));
+      }
+    } catch {}
+  };
+
   const inject = async (overrideTopic) => {
     const t = (overrideTopic || topic).trim();
     if (!t || injecting) return;
@@ -831,6 +977,7 @@ export default function ArenaPage() {
     setTimeout(() => setWaking(false), 900);
     setTopic('');
     setNewCount(0);
+    hasStartedRef.current = true;
     try {
       const res = await fetch(`${API}/arena/inject`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ topic: t }),
@@ -929,10 +1076,17 @@ export default function ArenaPage() {
           </div>
           {injecting && (
             <div className="ar-inject-status">
-              <b>Six twins</b> stepping into the arena<span className="ar-status-dots">…</span>
+              <b>Eight twins</b> stepping into the arena<span className="ar-status-dots">…</span>
             </div>
           )}
         </div>
+
+        {activity.length > 0 && (
+          <div className="ar-ticker">
+            <div className="ar-ticker-dot" />
+            <span>{activity[0]?.message}</span>
+          </div>
+        )}
 
         <div ref={feedTopRef} />
 
@@ -966,7 +1120,7 @@ export default function ArenaPage() {
           {!isLoading && grouped.map(item =>
             item.type === 'divider'
               ? <TopicDivider key={item.key} topic={item.topic} />
-              : <PostCard key={item.key} post={item.post} allPosts={posts} onReact={triggerReact} onPlay={playVoice} playingId={playingId} loadingId={loadingId} elapsed={elapsed} duration={duration} animDelay={item.delay} />
+              : <PostCard key={item.key} post={item.post} allPosts={posts} onReact={triggerReact} onPlay={playVoice} onCrowdReact={crowdReact} postReaction={reactions[item.post.id]} playingId={playingId} loadingId={loadingId} elapsed={elapsed} duration={duration} animDelay={item.delay} />
           )}
         </div>
       </div>

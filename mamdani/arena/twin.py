@@ -100,7 +100,7 @@ class Twin:
 
     # ── Post generation ───────────────────────────────────────────────────────
 
-    def generate_post(self, topic: str, context: str = "") -> str:
+    def generate_post(self, topic: str, context: str = "", sentiment_context: str = "") -> str:
         """Generate a tweet-length post (≤280 chars) about a topic."""
         context_block = f"\nRelevant context from your documented record:\n{context}\n" if context else ""
 
@@ -111,7 +111,8 @@ class Twin:
                 "content": (
                     f"The topic: '{topic}'\n"
                     f"{context_block}"
-                    "Respond in character. Zero emojis. No all-caps. 2-3 sentences max. "
+                    + (f"Crowd context: {sentiment_context}\n" if sentiment_context else "")
+                    + "Respond in character. Zero emojis. No all-caps. 2-3 sentences max. "
                     "Take a clear side. Sound like a text you'd actually send. "
                     "Do NOT start with your own name. Return ONLY the post text, nothing else."
                 ),

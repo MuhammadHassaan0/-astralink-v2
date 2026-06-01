@@ -24,6 +24,17 @@ log = logging.getLogger("arena.engine")
 GROQ_MODEL = "llama-3.3-70b-versatile"
 SLUG_LIST  = ["mrbeast", "ishowspeed", "kaicenat", "ksi", "loganpaul", "jakepaul", "garyvee", "kaitrump"]
 
+TWIN_NAMES = {
+    "mrbeast":    "MrBeast",
+    "ishowspeed": "IShowSpeed",
+    "kaicenat":   "Kai Cenat",
+    "ksi":        "KSI",
+    "loganpaul":  "Logan Paul",
+    "jakepaul":   "Jake Paul",
+    "garyvee":    "Gary Vaynerchuk",
+    "kaitrump":   "Kai Trump",
+}
+
 # RSS feeds for autonomous topic injection
 RSS_FEEDS = [
     "https://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml",
@@ -97,7 +108,7 @@ class ArenaEngine:
 
     # ── Topic injection ───────────────────────────────────────────────────────
 
-    def inject_topic(self, topic: str) -> list[dict]:
+    def inject_topic(self, topic: str, sentiment_context: str = "") -> list[dict]:
         """
         All 6 twins generate a post about the topic.
         Posts are added to the feed in a shuffled order with small delays.
@@ -115,7 +126,7 @@ class ArenaEngine:
             # RAG context for this twin + topic
             context_str, chunks = twin._get_context(topic, top_k=5)
             try:
-                content = twin.generate_post(topic, context=context_str)
+                content = twin.generate_post(topic, context=context_str, sentiment_context=sentiment_context)
             except Exception as exc:
                 log.error("[%s] generate_post failed: %s", slug, exc)
                 continue
@@ -188,6 +199,120 @@ class ArenaEngine:
 
     def get_feed(self, limit: int = 20) -> list[dict]:
         return self.store.get_feed(limit=limit)
+
+    # ── Crowd-reaction generated posts ────────────────────────────────────────
+
+    def generate_crowd_response(
+        self, slug: str, post_text: str, fire_count: int, topic: str
+    ) -> Optional[dict]:
+        """Twin acknowledges 3+ fires on their own post."""
+        twin = self.twins.get(slug)
+        if not twin:
+            return None
+        name   = TWIN_NAMES.get(slug, slug)
+        prompt = (
+            f"{name} just got {fire_count} people agreeing with their take: "
+            f"\"{post_text[:200]}\"\n"
+            f"Respond in 1-2 sentences acknowledging the crowd energy. Stay in character.\n"
+            f"No emojis. No all-caps. Sound like a text they'd actually send."
+        )
+        try:
+            resp = self.groq.chat.completions.create(
+                model=GROQ_MODEL,
+                messages=[
+                    {"role": "system",  "content": twin.system_prompt},
+                    {"role": "user",    "content": prompt},
+                ],
+                temperature=0.88, max_tokens=100,
+            )
+            content = resp.choices[0].message.content.strip()
+            if len(content) > 280:
+                content = content[:277] + "..."
+            return self.store.add_post(
+                twin_slug=slug, twin_name=name,
+                content=content, topic=topic,
+            )
+        except Exception as exc:
+            log.error("[%s] generate_crowd_response failed: %s", slug, exc)
+            return None
+
+    def generate_clap_back(
+        self,
+        loser_slug: str,
+        winner_slug: str,
+        topic: str,
+        winner_post_text: str,
+    ) -> Optional[dict]:
+        """Losing twin fires back at the twin winning the crowd."""
+        twin = self.twins.get(loser_slug)
+        if not twin:
+            return None
+        loser_name  = TWIN_NAMES.get(loser_slug,  loser_slug)
+        winner_name = TWIN_NAMES.get(winner_slug, winner_slug)
+        prompt = (
+            f"{loser_name} is losing the crowd to {winner_name} on \"{topic[:100]}\".\n"
+            f"{winner_name}'s winning take: \"{winner_post_text[:200]}\"\n"
+            f"Fire back in 1-2 sentences. Competitive but not petty.\n"
+            f"No emojis. No all-caps."
+        )
+        try:
+            resp = self.groq.chat.completions.create(
+                model=GROQ_MODEL,
+                messages=[
+                    {"role": "system", "content": twin.system_prompt},
+                    {"role": "user",   "content": prompt},
+                ],
+                temperature=0.90, max_tokens=100,
+            )
+            content = resp.choices[0].message.content.strip()
+            if len(content) > 280:
+                content = content[:277] + "..."
+            return self.store.add_post(
+                twin_slug=loser_slug, twin_name=loser_name,
+                content=content, topic=topic,
+            )
+        except Exception as exc:
+            log.error("[%s] generate_clap_back failed: %s", loser_slug, exc)
+            return None
+
+    def generate_auto_continue(
+        self, slug: str, topic: str, sentiment: dict
+    ) -> Optional[dict]:
+        """Most-controversial twin pushes the debate forward."""
+        twin = self.twins.get(slug)
+        if not twin:
+            return None
+        name = TWIN_NAMES.get(slug, slug)
+        sentiment_lines = ", ".join(
+            f"{TWIN_NAMES.get(s, s)} ({d['fire']} fire / {d['nah']} nah)"
+            for s, d in sentiment.items()
+            if d.get("fire", 0) + d.get("nah", 0) > 0
+        )
+        prompt = (
+            f"The debate on \"{topic[:100]}\" is still going.\n"
+            + (f"Crowd sentiment: {sentiment_lines}.\n" if sentiment_lines else "")
+            + "Add a new take — push the conversation forward. "
+            "No emojis. No all-caps. 2-3 sentences max. Take a clear side."
+        )
+        try:
+            resp = self.groq.chat.completions.create(
+                model=GROQ_MODEL,
+                messages=[
+                    {"role": "system", "content": twin.system_prompt},
+                    {"role": "user",   "content": prompt},
+                ],
+                temperature=0.85, max_tokens=100,
+            )
+            content = resp.choices[0].message.content.strip()
+            if len(content) > 280:
+                content = content[:277] + "..."
+            return self.store.add_post(
+                twin_slug=slug, twin_name=name,
+                content=content, topic=topic,
+            )
+        except Exception as exc:
+            log.error("[%s] generate_auto_continue failed: %s", slug, exc)
+            return None
 
     # ── Autonomous loop ───────────────────────────────────────────────────────
 

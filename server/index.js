@@ -1764,6 +1764,9 @@ app.get('/arena/twins',   (req, res) => arenaProxy(req, res, 'GET', '/arena/twin
 app.get('/arena/healthz', (req, res) => arenaProxy(req, res, 'GET', '/arena/healthz'));
 app.post('/arena/inject', (req, res) => arenaProxy(req, res, 'POST', '/arena/inject', req.body));
 app.post('/arena/react',  (req, res) => arenaProxy(req, res, 'POST', '/arena/react', req.body));
+app.post('/arena/crowd-react', (req, res) => arenaProxy(req, res, 'POST', '/arena/crowd-react', req.body));
+app.get('/arena/activity',     (req, res) => arenaProxy(req, res, 'GET',  '/arena/activity'));
+app.get('/arena/sentiment/:t', (req, res) => arenaProxy(req, res, 'GET',  `/arena/sentiment/${req.params.t}`));
 
 // TTS returns audio/wav binary — needs its own proxy (not JSON)
 app.post('/arena/tts', async (req, res) => {
